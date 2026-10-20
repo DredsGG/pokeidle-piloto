@@ -1,0 +1,95 @@
+{
+  "manifest_version": 3,
+  "name": "PokeIdle Piloto",
+  "version": "1.12.5",
+  "author": "Dreds",
+  "description": "Radar do Mercado + /hunt numa extensão só: onde caçar, troca de hunt, reposição, rotina diária, XP Share, revenda e compra no Mercado em ouro, tudo com um cofre de orçamento. Nunca gasta Gema nem diamante.",
+  "minimum_chrome_version": "111",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "storage",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://pokeidle.io/*"
+  ],
+  "background": {
+    "service_worker": "src/sw.js"
+  },
+  "action": {
+    "default_title": "PokeIdle Piloto: abrir o jogo",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://pokeidle.io/*"
+      ],
+      "js": [
+        "src/hook.js",
+        "src/piloto/kit.js",
+        "src/piloto/idioma-dic.js",
+        "src/piloto/idioma.js",
+        "src/piloto/cofre.js",
+        "src/hunt/game.js",
+        "src/hunt/engine.js",
+        "src/hunt/geo.js",
+        "src/hunt/nivel.js",
+        "src/hunt/auto.js",
+        "src/piloto/rotina.js",
+        "src/hunt/ui.js",
+        "src/piloto/mini.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://pokeidle.io/*"
+      ],
+      "css": [
+        "src/hunt/ui.css"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://pokeidle.io/*"
+      ],
+      "js": [
+        "src/lib/gravador.js",
+        "src/lib/barramento.js",
+        "src/lib/estatistica.js",
+        "src/lib/config.js",
+        "src/lib/agenda.js",
+        "src/lib/relogio.js",
+        "src/lib/precos.js",
+        "src/lib/historico.js",
+        "src/lib/compra.js",
+        "src/lib/vitrine.js",
+        "src/lib/pessoal.js",
+        "src/lib/automatica.js",
+        "src/lib/revenda.js",
+        "src/lib/especies.js",
+        "src/lib/pokemon.js",
+        "src/lib/revendapk.js",
+        "src/lib/lucro.js",
+        "src/ponte.js",
+        "src/painel.js",
+        "src/revenda.js",
+        "src/revendapk.js",
+        "src/tela.js",
+        "src/radar.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}

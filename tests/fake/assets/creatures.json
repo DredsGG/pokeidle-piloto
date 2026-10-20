@@ -1,0 +1,6 @@
+{"creatures":[
+ {"pokeId":4,"name":"Charmander","type1":"FIRE","baseHp":39,"baseAtk":52,"baseDef":43,"baseSpAtk":60,"baseSpDef":50,"baseSpeed":65,"evolvesToId":5,"evolveLevel":16,"attacks":[{"name":"Ember","type":"FIRE","power":40,"category":"SPECIAL","cooldownMs":15900,"learnLevel":1}],"loot":[{"name":"Essence of Fire","chance":69731.6,"minCount":1,"maxCount":10}]},
+ {"pokeId":5,"name":"Charmeleon","type1":"FIRE","baseHp":58,"baseAtk":64,"baseDef":58,"baseSpAtk":80,"baseSpDef":65,"baseSpeed":80,"attacks":[{"name":"Flamethrower","type":"FIRE","power":90,"category":"SPECIAL","cooldownMs":27600,"learnLevel":1}],"loot":[]},
+ {"pokeId":7,"name":"Squirtle","type1":"WATER","baseHp":44,"baseAtk":48,"baseDef":65,"baseSpAtk":50,"baseSpDef":64,"baseSpeed":43,"attacks":[{"name":"Water Gun","type":"WATER","power":40,"category":"SPECIAL","cooldownMs":15900,"learnLevel":1}],"loot":[{"name":"Water Gem","chance":50000,"minCount":1,"maxCount":5}]},
+ {"pokeId":19,"name":"Rattata","type1":"NORMAL","baseHp":30,"baseAtk":56,"baseDef":35,"baseSpAtk":25,"baseSpDef":35,"baseSpeed":72,"attacks":[{"name":"Tackle","type":"NORMAL","power":40,"category":"PHYSICAL","cooldownMs":15900,"learnLevel":1}],"loot":[{"name":"Essence of Fire","chance":90000,"minCount":5,"maxCount":10}]}
+]}

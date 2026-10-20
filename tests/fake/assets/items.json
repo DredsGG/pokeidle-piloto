@@ -1,0 +1,1 @@
+{"items":[{"id":200,"name":"Small Potion","category":"heal","npcPrice":50,"priceGold":5},{"id":205,"name":"Revive","category":"revive","npcPrice":600,"priceGold":40},{"id":300,"name":"Fire Stone","category":"stone","npcPrice":5000},{"id":400,"name":"Essence of Fire","category":"loot","npcPrice":800},{"id":401,"name":"Water Gem","category":"loot","npcPrice":900}]}
