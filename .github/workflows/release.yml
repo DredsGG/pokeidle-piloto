@@ -1,0 +1,39 @@
+name: Release
+
+# Push a tag like v1.2.3 (same as "version" in extension/manifest.json)
+# and this builds the ready-to-install zip and publishes the GitHub Release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that the tag matches manifest.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          MANIFEST="$(jq -r .version extension/manifest.json)"
+          if [ "$TAG" != "$MANIFEST" ]; then
+            echo "::error::Tag v$TAG does not match manifest version $MANIFEST"; exit 1
+          fi
+
+      - name: Build zip (manifest.json at the root)
+        run: cd extension && zip -r "../pokeidle-piloto-${GITHUB_REF_NAME}.zip" . -x '.*'
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: pokeidle-piloto-${{ github.ref_name }}.zip
+          generate_release_notes: true
+          body: |
+            ### Install
+            1. Download **pokeidle-piloto-${{ github.ref_name }}.zip** below.
+            2. Open `chrome://extensions` and turn on **Developer mode**.
+            3. Drag the zip onto the page (or unzip it and use **Load unpacked**).
+
+            Updating: remove the old version first, or load the new folder over it.

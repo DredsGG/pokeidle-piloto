@@ -64,9 +64,9 @@ No build step: plain JavaScript modules, Manifest V3.
 
 ## Install
 
-1. Download or clone this repo.
+1. Download **pokeidle-piloto-vX.Y.Z.zip** from the [latest release](https://github.com/DredsGG/pokeidle-piloto/releases/latest).
 2. Open `chrome://extensions` and turn on **Developer mode**.
-3. Click **Load unpacked** and pick the `extension/` folder.
+3. Drag the zip onto the page (or unzip it and use **Load unpacked**). From a clone of this repo, load the `extension/` folder.
 4. Open the game. Everything starts **off**. Suggested order: check the reserve in the Vault tab → Routine (pass and XP Share cost nothing) → Automation (hunt and restock) → Radar options (buying and reselling).
 
 Use a single game tab: each tab has its own vault.
