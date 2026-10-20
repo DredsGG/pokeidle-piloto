@@ -16,33 +16,213 @@
   const curto = (v) => (typeof v === 'number' && Number.isFinite(v) ? (Math.abs(v) >= 10000 ? nfc.format(v) : nf.format(v)) : '—');
   const pct = (v) => (typeof v === 'number' && Number.isFinite(v) ? `${Math.round(v * 100)}%` : '');
 
-  // ---- ícones do jogo: item pelo items-icons.json, pokémon pelo atlas de marcadores ------------
+  // ---- a arte do jogo (1.13) --------------------------------------------------------------------
+  // Pokémon: o MESMO sprite animado das janelas do jogo (sprites.mjs → spriteAnimado): o atlas do
+  // looktype em /assets/asset-packs, virado para o sul, recortado pela união dos quadros e trocando
+  // de quadro a cada 220 ms. Item: o mesmo ícone do inventário (items-icons.json, items.json, os
+  // fixos e os cristais Z), ampliado por um número inteiro para o pixel não borrar.
+  const PACK = '/assets/asset-packs';
+  const localizar = (p) => String(p).replace(/^\/assets-packs/, PACK);
+  const MS_QUADRO = 220;
+  const ALFA_MIN = 8;
+  const ICONE_GENERICO = 'site/assets/ui/menu-bolsa.png';
+  const ICONES_FIXOS = { 30: 'site/assets/items/dark_gem.png', 63: 'site/assets/items/goggles.png', 47: 'site/assets/items/farfetchd_stick.png', 5041: 'site/assets/items/farfetchd_stick.png', 70070: '/img/itens/golden-potion.png', 59194: '/img/itens/zmove/fragmento.png', 40530: '/img/itens/zmove/aoe-peca.png', 40575: '/img/itens/zmove/aoe-disco.png' };
+  const caminhoRel = (icon) => (!icon ? null : icon.startsWith('site/') ? icon : icon.startsWith('/') ? `site${icon}` : `site/assets/items/${icon}`);
+  const srcIcone = (rel) => (String(rel).startsWith('/') ? rel : `/assets/${rel}`);
+
   let iconesItem = null;
+  let itensJogo = null;
   let atlas = null;
+  let shinyLooks = {};
+  PIH.on?.('welcome', (m) => { if (m && m.shinyLooks && typeof m.shinyLooks === 'object') shinyLooks = m.shinyLooks; });
   const carregarIcones = (() => {
     let p = null;
     return () => (p ??= Promise.all([
       fetch('/assets/items-icons.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+      fetch('/assets/items.json').then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch('/assets/site/assets/maps/marker-atlas.json').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    ]).then(([ic, at]) => { iconesItem = ic || {}; atlas = at; }));
+    ]).then(([ic, it, at]) => {
+      iconesItem = ic || {};
+      itensJogo = new Map(((it && it.items) || []).map((x) => [Number(x.id), x]));
+      atlas = at;
+    }));
   })();
   let especies = null;
   const carregarEspecies = () => (PIH.carregarJogo ? PIH.carregarJogo().then((j) => { especies = j.especies; }).catch(() => {}) : Promise.resolve());
 
-  function htmlIcone(d, px) {
-    if (d.categoria === 'item' && d.itemId != null && iconesItem) {
-      const rel = iconesItem[String(d.itemId)];
-      if (rel) return `<img class="plt-mini-img" src="${esc(rel.startsWith('/') ? rel : `/assets/${rel}`)}" width="${px}" height="${px}" alt="">`;
+  function srcDoItem(id) {
+    if (ICONES_FIXOS[id]) return srcIcone(ICONES_FIXOS[id]);
+    const item = itensJogo && itensJogo.get(Number(id));
+    const z = item && /^([A-Za-z]+)-Type TM Disk$/.exec(item.name || '');
+    if (z) return `/img/itens/zmove/${z[1].toLowerCase()}.png`;
+    const rel = (iconesItem && iconesItem[String(id)]) || caminhoRel(item && item.icon);
+    return srcIcone(rel || ICONE_GENERICO);
+  }
+  function looktypeDo(d) {
+    const esp = especies && especies.get(Number(d.speciesId));
+    const base = (esp && esp.looktype) ?? d.looktype ?? null;
+    if (!d.shiny) return base;
+    const id = Number(d.speciesId);
+    return shinyLooks[id] ?? base;
+  }
+
+  // Sprites: um por looktype (promessa), imagens do atlas em cache.
+  let indice = null;
+  const carregarIndice = () => (indice ??= fetch(`${PACK}/outfits-index.json`).then((r) => (r.ok ? r.json() : {})).then((j) => (j && j.outfits) || {}).catch(() => { indice = null; return {}; }));
+  const imagens = new Map();
+  const carregarImagem = (src) => {
+    if (!imagens.has(src)) imagens.set(src, new Promise((ok, falha) => { const im = new Image(); im.onload = () => ok(im); im.onerror = falha; im.src = src; }));
+    return imagens.get(src);
+  };
+  const sprites = new Map();
+  function carregarSprite(lt) {
+    if (!sprites.has(lt)) {
+      const p = (async () => {
+        const e = (await carregarIndice())[String(lt)];
+        if (!e || !e.manifest) return null;
+        const man = await fetch(localizar(e.manifest)).then((r) => r.json());
+        const cat = Object.values(man.categories || {})[0];
+        if (!cat || !Array.isArray(cat.pages)) return null;
+        const imgs = await Promise.all(cat.pages.map((pg) => carregarImagem(localizar(pg.image))));
+        const porDir = {};
+        for (const [chave, a] of Object.entries(man.assets || {})) {
+          const stem = chave.split('/').pop().replace(/\.png$/, '');
+          if (stem.endsWith('_template')) continue;
+          const n = stem.split('_').map(Number);
+          const f = a && a.frames && a.frames[0];
+          if (!f) continue;
+          (porDir[n[3]] ??= [])[n[0] - 1] = { pagina: f.page ?? 0, x: f.x, y: f.y, w: f.w, h: f.h };
+        }
+        for (const d of Object.keys(porDir)) porDir[d] = porDir[d].filter(Boolean);
+        const quadros = porDir[3] && porDir[3].length ? porDir[3] : Object.values(porDir)[0] || [];
+        if (!quadros.length) return null;
+        return { quadros, imgs, jan: janelaVisivel(quadros, imgs) };
+      })().catch(() => null);
+      p.then((sp) => { if (!sp) setTimeout(() => sprites.delete(lt), 60_000); });
+      sprites.set(lt, p);
     }
-    if (d.categoria === 'pokemon' && d.speciesId != null && atlas && atlas.slots && especies) {
-      const lt = especies.get(Number(d.speciesId))?.looktype;
-      const slot = lt != null ? atlas.slots[String(lt)] : null;
-      if (slot) {
-        const url = atlas.version ? `/assets/site/assets/maps/marker-atlas.png?v=${atlas.version}` : '/assets/site/assets/maps/marker-atlas.png';
-        return `<span class="plt-mini-img" style="width:${px}px;height:${px}px;background-image:url('${url}');background-size:${(atlas.cols || 16) * px}px ${(atlas.rows || 1) * px}px;background-position:${-slot[0] * px}px ${-slot[1] * px}px"></span>`;
+    return sprites.get(lt);
+  }
+  // A união do que aparece em todos os quadros: a escala fica a mesma e o bicho não pulsa.
+  function janelaVisivel(quadros, imgs) {
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    const cv = document.createElement('canvas');
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    for (const q of quadros) {
+      const img = imgs[q.pagina];
+      if (!img) continue;
+      cv.width = q.w; cv.height = q.h;
+      ctx.clearRect(0, 0, q.w, q.h);
+      ctx.drawImage(img, q.x, q.y, q.w, q.h, 0, 0, q.w, q.h);
+      let px;
+      try { px = ctx.getImageData(0, 0, q.w, q.h).data; } catch { return { sx: 0, sy: 0, sw: quadros[0].w, sh: quadros[0].h }; }
+      for (let y = 0; y < q.h; y++) for (let x = 0; x < q.w; x++) {
+        if (px[(y * q.w + x) * 4 + 3] <= ALFA_MIN) continue;
+        if (x < x1) x1 = x; if (y < y1) y1 = y; if (x > x2) x2 = x; if (y > y2) y2 = y;
       }
     }
-    return K.ico(d.categoria === 'pokemon' ? 'pvp' : 'mercado', 'plt-mini-ico');
+    if (!Number.isFinite(x1)) return { sx: 0, sy: 0, sw: quadros[0].w, sh: quadros[0].h };
+    return { sx: x1, sy: y1, sw: x2 - x1 + 1, sh: y2 - y1 + 1 };
+  }
+  // Um relógio só para todos os sprites na tela.
+  const vivos = new Set();
+  setInterval(() => {
+    const agora = Date.now();
+    for (const v of vivos) {
+      if (!v.cv.isConnected) { if (agora - v.visto > 20_000) { vivos.delete(v); nos.delete(v.chave); } continue; }
+      v.visto = agora;
+      v.pintar();
+    }
+  }, MS_QUADRO);
+
+  function canvasDoPokemon(lt, px, chave, reserva) {
+    const cv = document.createElement('canvas');
+    cv.className = 'plt-mini-img plt-sprite';
+    cv.width = cv.height = 32;
+    cv.style.width = cv.style.height = `${px}px`;
+    carregarSprite(lt).then((sp) => {
+      if (!sp) { const r = reserva(); if (r && cv.parentNode) cv.replaceWith(r); return; }
+      const { quadros, imgs, jan } = sp;
+      cv.width = jan.sw; cv.height = jan.sh;
+      const esc = Math.min(px / jan.sw, px / jan.sh);
+      cv.style.width = `${Math.round(jan.sw * esc)}px`;
+      cv.style.height = `${Math.round(jan.sh * esc)}px`;
+      const ctx = cv.getContext('2d');
+      let i = 0;
+      const v = { cv, chave, visto: Date.now(), pintar: () => {
+        const q = quadros[i++ % quadros.length];
+        const img = imgs[q.pagina];
+        if (!img) return;
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        ctx.drawImage(img, q.x + jan.sx, q.y + jan.sy, jan.sw, jan.sh, 0, 0, jan.sw, jan.sh);
+      } };
+      v.pintar();
+      if (quadros.length > 1) vivos.add(v);
+    });
+    return cv;
+  }
+  function imgDoItem(src, px) {
+    const img = document.createElement('img');
+    img.className = 'plt-mini-img plt-item-img';
+    img.alt = '';
+    img.decoding = 'async';
+    img.style.width = img.style.height = `${px}px`;
+    img.style.objectFit = 'contain';
+    img.onload = () => {
+      const lado = Math.max(img.naturalWidth, img.naturalHeight) || px;
+      // ampliação inteira (2×, 3×…) para o pixel ficar nítido; se já é maior que a caixa, encaixa
+      const k = lado <= px ? Math.floor(px / lado) : px / lado;
+      img.style.width = `${Math.round(img.naturalWidth * k)}px`;
+      img.style.height = `${Math.round(img.naturalHeight * k)}px`;
+    };
+    img.onerror = () => { img.onerror = null; img.src = srcIcone(ICONE_GENERICO); };
+    img.src = src;
+    return img;
+  }
+  function htmlAtlas(d, px) {
+    const lt = looktypeDo(d);
+    const slot = lt != null && atlas && atlas.slots ? atlas.slots[String(lt)] : null;
+    if (!slot) return null;
+    const url = atlas.version ? `/assets/site/assets/maps/marker-atlas.png?v=${atlas.version}` : '/assets/site/assets/maps/marker-atlas.png';
+    const sp = document.createElement('span');
+    sp.className = 'plt-mini-img';
+    sp.style.cssText = `width:${px}px;height:${px}px;background-image:url('${url}');background-size:${(atlas.cols || 16) * px}px ${(atlas.rows || 1) * px}px;background-position:${-slot[0] * px}px ${-slot[1] * px}px`;
+    return sp;
+  }
+
+  // O HTML leva só um lugar marcado; `hidratar` põe ali o canvas/img de verdade. O mesmo nó é
+  // reaproveitado quando o cartão é redesenhado (o do passar do mouse se redesenha a cada 1 s).
+  const nos = new Map();
+  function htmlIcone(d, px) {
+    const chave = `${d.anuncioId ?? d.nome}:${px}`;
+    return `<span class="plt-arte" data-arte="${esc(chave)}" style="width:${px}px;height:${px}px"></span>`;
+  }
+  function noDaArte(d, px, chave) {
+    if (nos.has(chave)) return nos.get(chave);
+    let no = null;
+    if (d.categoria === 'pokemon') {
+      const lt = looktypeDo(d);
+      const reserva = () => htmlAtlas(d, px) || criarIco(d);
+      no = lt != null ? canvasDoPokemon(lt, px, chave, reserva) : reserva();
+    } else if (d.itemId != null) {
+      no = imgDoItem(srcDoItem(d.itemId), px);
+    } else no = criarIco(d);
+    nos.set(chave, no);
+    if (nos.size > 80) nos.delete(nos.keys().next().value);
+    return no;
+  }
+  function criarIco(d) {
+    const t = document.createElement('template');
+    t.innerHTML = K.ico(d.categoria === 'pokemon' ? 'pvp' : 'mercado', 'plt-mini-ico');
+    return t.content.firstElementChild;
+  }
+  function hidratar(raiz, d) {
+    for (const el of raiz.querySelectorAll('[data-arte]')) {
+      const px = parseInt(el.style.width, 10) || 32;
+      const no = noDaArte(d, px, el.dataset.arte);
+      if (no) el.replaceChildren(no);
+    }
   }
 
   // ---- o lugar na tela --------------------------------------------------------------------------
@@ -115,8 +295,8 @@
   addEventListener('scroll', posicionarPilha, true);
   const abrirMercado = () => document.dispatchEvent(new CustomEvent('piloto:abrir', { detail: '{}' }));
   const painelNoMercado = () => {
-    const p = document.querySelector('.plt-painel');
-    return !!(p && p.querySelector('.plt-conteudo[data-aba="mercado"]'));
+    const p = document.querySelector('.plt-janela');
+    return !!(p && p.querySelector('[data-conteudo][data-aba="mercado"]'));
   };
 
   // ---- notificação curta ----------------------------------------------------------------------
@@ -142,6 +322,7 @@
       </span>
       <button type="button" class="plt-toast-x" aria-label="Fechar">${K.ico('fechar')}</button>
       <span class="plt-toast-vida"></span>`;
+    if (d.tipo !== 'voto') hidratar(el, d);
     el.addEventListener('click', (ev) => {
       if (ev.target.closest('.plt-toast-x')) { el.remove(); return; }
       if (d.tipo === 'voto') document.getElementById('btn-votar')?.click(); else abrirMercado();
@@ -200,6 +381,7 @@
         x.el.className = 'plt-ficha nova';
         x.el.dataset.id = String(id);
         x.el.innerHTML = `${htmlIcone(x.d, 26)}<i></i>`;
+        hidratar(x.el, x.d);
         x.el.setAttribute('aria-label', x.d.nome);
         bandeja.append(x.el);
         setTimeout(() => x.el && x.el.classList.remove('nova'), 1200);
@@ -229,6 +411,7 @@
         <span><small>Lucro</small><strong>${d.lucro != null ? curto(d.lucro) : '—'}</strong></span>
       </div>
       <div class="plt-pop-estado">${frase}</div>`;
+    hidratar(pop, d);
   }
   function mostrarPop(ficha) {
     const id = Number(ficha.dataset.id);
@@ -258,7 +441,7 @@
   const lerVoto = () => { try { return JSON.parse(localStorage.getItem(CHAVE_VOTO)) || {}; } catch { return {}; } };
   const gravarVoto = (v) => { try { localStorage.setItem(CHAVE_VOTO, JSON.stringify(v)); } catch { /* sem armazenamento */ } };
   const temVoto = () => !!document.getElementById('btn-votar')?.classList.contains('tem-voto');
-  const janelaAberta = () => [...document.querySelectorAll('.modal-caixa')].some((m) => m.offsetParent !== null && !m.closest('.hidden, [hidden]'));
+  const janelaAberta = () => [...document.querySelectorAll('#modal .modal-caixa')].some((m) => m.offsetParent !== null && !m.closest('.hidden, [hidden]'));
   const diarioVoto = (txt, tipo = 'ok') => document.dispatchEvent(new CustomEvent('piloto:radar-diario', { detail: JSON.stringify({ t: Date.now(), txt: `voto: ${txt}`, tipo }) }));
   let votando = false;
   let abertoEm = 0;

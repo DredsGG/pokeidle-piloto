@@ -33,6 +33,9 @@
     relogio: 'M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm-1 3h2v5.6l3.7 2.2-1 1.7L11 13.7z',
     sol: 'M11 1h2v3h-2zm0 19h2v3h-2zM1 11h3v2H1zm19 0h3v2h-3zM4.2 5.6l1.4-1.4 2.1 2.1-1.4 1.4zm12.1 12.1l1.4-1.4 2.1 2.1-1.4 1.4zM4.2 18.4l2.1-2.1 1.4 1.4-2.1 2.1zM16.3 6.3l2.1-2.1 1.4 1.4-2.1 2.1zM12 6a6 6 0 1 1 0 12 6 6 0 0 1 0-12z',
     lua: 'M14.5 2A10 10 0 1 0 22 15.5 8 8 0 0 1 14.5 2z',
+    raio: 'M13 2L4 14h6l-1 8 9-12h-6z',
+    check: 'M9.5 16.6L4.9 12l-1.4 1.4 6 6L21 7.9l-1.4-1.4z',
+    bola: 'M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm-7.9 11a8 8 0 0 0 15.8 0h-4.5a3.5 3.5 0 0 1-6.8 0zm7.9-2.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM4.1 11h4.5a3.5 3.5 0 0 1 6.8 0h4.5a8 8 0 0 0-15.8 0z',
     escudo: 'M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5zm-1 13.2l6-6-1.4-1.4-4.6 4.6-2.1-2.1-1.4 1.4z',
   };
   const ico = (nome, classe = '') => `<svg class="plt-ico ${classe}" viewBox="0 0 24 24" aria-hidden="true"><path d="${P[nome] || P.info}"/></svg>`;
@@ -52,5 +55,35 @@
   const opcao = (input, rotulo, d = '') => `<label class="plt-opcao"${d ? ` title="${esc(d)}"` : ''}>${input}<span>${rotulo}</span></label>`;
   const botao = (rotulo, attrs = '', icone = '') => `<button type="button" class="plt-bt" ${attrs}>${icone ? ico(icone) : ''}${rotulo}</button>`;
 
-  PIH.kit = Object.freeze({ ico, dica, cartao, campo, opcao, botao, esc, ICONES: Object.freeze({ ...P }) });
+  // ---- 1.13: as peças das janelas do PRÓPRIO jogo (classes do estilo.css dele) -----------------
+  // Linha de opção = .cfg-linha da janela Configurações: nome em Tahoma, o "?" amarelo que abre a
+  // explicação (.cfg-desc) e o interruptor ON/OFF (.cfg-toggle). Os controles do modo Manual moram
+  // num bloco abaixo (.plt-ajustes). `alvo` é "modulo:caminho" (o ui.js roteia a mudança).
+  const ajuda = (texto, nome = '') => (texto ? `<button type="button" class="cfg-ajuda" aria-expanded="false" title="O que é isto?" aria-label="O que é isto? ${esc(nome)}"><b aria-hidden="true">?</b></button>` : '');
+  const interruptor = (alvo, on, { trava = false, nome = '' } = {}) => `<button type="button" class="cfg-toggle${on ? ' on' : ''}" role="switch" aria-checked="${!!on}" data-alternar="${esc(alvo)}" aria-label="${esc(nome)}"${trava ? ' disabled' : ''}></button>`;
+  function linha({ id = '', icone = '', nome, dica = '', alvo = null, on = false, trava = false, status = '', ajustes = '', classe = '', direita = '' }) {
+    const chave = id || (alvo || nome);
+    return `<div class="cfg-linha plt-l ${classe}" data-linha="${esc(chave)}">
+      <span class="cfg-rot">${icone ? `<span class="plt-l-ico">${ico(icone)}</span>` : ''}<span class="cfg-cola"><span class="cfg-nome">${nome}</span>${ajuda(dica, nome)}</span>${status ? `<small class="plt-l-status">${status}</small>` : ''}</span>
+      ${alvo ? interruptor(alvo, on, { trava, nome }) : direita || '<span></span>'}
+      ${dica ? `<p class="cfg-desc">${esc(dica)}</p>` : ''}
+      ${ajustes ? `<div class="plt-ajustes">${ajustes}</div>` : ''}
+    </div>`;
+  }
+  // Escolha entre poucas opções: os botões .cfg-escala-bt do jogo (roxo = escolhido).
+  const escala = (alvo, valor, opcoes, trava = false) => `<span class="cfg-escala plt-escala">${opcoes.map(([v, r, d]) => `<button type="button" class="cfg-escala-bt${String(v) === String(valor) ? ' on' : ''}" data-escolha="${esc(alvo)}" data-valor="${esc(v)}"${d ? ` title="${esc(d)}"` : ''}${trava ? ' disabled' : ''}>${r}</button>`).join('')}</span>`;
+  const numero = (alvo, v, min, max, step, trava = false) => `<input type="number" class="plt-num" min="${min}"${max != null ? ` max="${max}"` : ''} step="${step}" value="${esc(v)}" data-definir="${esc(alvo)}"${trava ? ' disabled' : ''}>`;
+  const selecao = (alvo, v, opcoes, trava = false) => `<select class="plt-sel" data-definir="${esc(alvo)}"${trava ? ' disabled' : ''}>${opcoes.map(([o, r]) => `<option value="${esc(o)}"${String(v) === String(o) ? ' selected' : ''}>${r}</option>`).join('')}</select>`;
+  const mini = (alvo, on, rotulo, dica = '', trava = false) => `<label class="plt-mini-op"${dica ? ` title="${esc(dica)}"` : ''}>${interruptor(alvo, on, { trava, nome: rotulo })}<span>${rotulo}</span></label>`;
+  const fcampo = (rotulo, controle, d = '') => `<label class="plt-f"${d ? ` title="${esc(d)}"` : ''}><small>${rotulo}</small>${controle}</label>`;
+  const grupo = (titulo) => `<div class="plt-grupo">${titulo}</div>`;
+  const acao = (rotulo, attrs = '', icone = '', trava = false) => `<button type="button" class="cfg-escala-bt plt-acao on" ${attrs}${trava ? ' disabled' : ''}>${icone ? ico(icone) : ''}${rotulo}</button>`;
+  // Número grande em caixa (os KPIs): o vão do jogo com rótulo em cima.
+  const numeroGrande = ({ icone = '', rotulo, valor, sub = '', classe = '', pct = null }) => `<div class="plt-k ${classe}">${icone ? ico(icone) : ''}<small>${rotulo}</small><strong>${valor}</strong>${sub ? `<em>${sub}</em>` : ''}${pct == null ? '' : `<span class="plt-k-barra"><i style="width:${Math.round(Math.min(1, Math.max(0, pct)) * 100)}%"></i></span>`}</div>`;
+  const pilula = (estado) => `<i class="plt-pilula" data-estado="${esc(estado)}">${{ on: 'ON', pausa: 'PAUSA', erro: 'ERRO' }[estado] || 'OFF'}</i>`;
+
+  PIH.kit = Object.freeze({
+    ico, dica, cartao, campo, opcao, botao, esc, ICONES: Object.freeze({ ...P }),
+    ajuda, interruptor, linha, escala, numero, selecao, mini, fcampo, grupo, acao, numeroGrande, pilula,
+  });
 })(globalThis);

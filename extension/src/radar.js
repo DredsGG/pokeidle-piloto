@@ -1840,7 +1840,16 @@
       if (!perfil || !st) return;
       const salvo = await st.get(Config.CHAVE);
       const atual = Config.validar(salvo[Config.CHAVE]);
-      await st.set({ [Config.CHAVE]: { ...atual, ...perfil } });
+      // 1.13: no Automático cada automação tem o seu interruptor. Ao recarregar a página, o perfil
+      // volta, mas o que você desligou no Automático continua desligado. Escolher o Automático de
+      // novo no botão religa tudo (e esquece as escolhas).
+      const escolhas = {};
+      if (d.modo === 'automatico' && d.recarga) {
+        const r = await st.get('radar:auto-escolhas');
+        const g = (r && r['radar:auto-escolhas']) || {};
+        for (const k of ['radarLigado', 'compraAutomatica', 'compraAutomaticaPokemon', 'revendaAutomatica']) if (typeof g[k] === 'boolean') escolhas[k] = g[k];
+      } else if (d.modo === 'automatico') await st.set({ 'radar:auto-escolhas': {} });
+      await st.set({ [Config.CHAVE]: { ...atual, ...perfil, ...escolhas } });
     })().catch(erro);
   });
 

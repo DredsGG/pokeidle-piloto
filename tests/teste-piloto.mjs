@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
-const RAIZ = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../extension/src');
+const AQUI = path.dirname(new URL(import.meta.url).pathname);
+const RAIZ = path.resolve(AQUI, '../extension/src');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let falhas = 0;
 async function caso(nome, fn) {
@@ -14,7 +15,7 @@ async function caso(nome, fn) {
 // ---- o navegador falso -----------------------------------------------------------------------
 const armazenado = new Map();
 globalThis.localStorage = { getItem: (k) => armazenado.get(k) ?? null, setItem: (k, v) => armazenado.set(k, String(v)), removeItem: (k) => armazenado.delete(k) };
-globalThis.location = { origin: 'file://' + path.resolve(path.dirname(new URL(import.meta.url).pathname), 'stub'), href: 'https://pokeidle.io/app', host: 'pokeidle.io' };
+globalThis.location = { origin: 'file://' + path.resolve(AQUI, 'stub'), href: 'https://pokeidle.io/app', host: 'pokeidle.io' };
 globalThis.addEventListener = () => {};
 const doc = new EventTarget();
 doc.readyState = 'complete';
@@ -29,7 +30,7 @@ globalThis.WebSocket = WSFalso;
 const msg = (obj) => WSFalso.ultimo.dispatchEvent(Object.assign(new Event('message'), { data: JSON.stringify(obj) }));
 
 const carregar = (rel) => vm.runInThisContext(fs.readFileSync(`${RAIZ}/${rel}`, 'utf8'), { filename: rel, importModuleDynamically: vm.constants.USE_MAIN_CONTEXT_DEFAULT_LOADER });
-for (const f of ['hook.js', 'piloto/cofre.js', 'hunt/game.js', 'hunt/engine.js', 'hunt/geo.js', 'hunt/nivel.js', 'hunt/auto.js', 'piloto/rotina.js']) carregar(f);
+for (const f of ['hook.js', 'piloto/kit.js', 'piloto/cofre.js', 'hunt/game.js', 'hunt/engine.js', 'hunt/geo.js', 'hunt/nivel.js', 'hunt/auto.js', 'piloto/rotina.js', 'piloto/captura.js']) carregar(f);
 const PIH = globalThis.__pokeidleHunt;
 PIH.carregarJogo = async () => ({
   itensPorId: new Map([[205, { id: 205, name: 'Revive', category: 'revive', priceGold: 40 }], [300, { id: 300, name: 'Fire Stone', category: 'stone' }]]),
@@ -205,24 +206,133 @@ await caso('evolução não gasta pedra que o radar comprou para revender', asyn
   cfg.evoluir.ligado = false;
 });
 
-await caso('rotina: sem a regra de nota do Auto Coleção, vender o Depot segue o botão do jogo e a Oferenda é recusada', async () => {
+await caso('rotina: Depot vende igual ao botão do jogo (sem exigir nota), pula a Exp. Share e a Oferenda segue exigindo a nota', async () => {
   const cfg = PIH.rotina._interno.cfg();
   cfg.passe.ligado = cfg.xpshare.ligado = cfg.outland.ligado = cfg.chocadeira.ligado = cfg.evoluir.ligado = false;
-  cfg.depot.modo = 'vender'; cfg.depot.limiar = 2;
+  cfg.pvp.time = cfg.pvp.fila = false;
+  cfg.depot.modo = 'vender'; cfg.depot.limiar = 2; cfg.depot.horas = 1;
+  localStorage.setItem('piloto:rotina:v1', JSON.stringify({ cfg, marcas: {} }));
   const muitos = Array.from({ length: 5 }, (_, i) => ({ id: 100 + i, slot: null, level: 5, nome: 'X', speciesId: 1 }));
+  muitos.push({ id: 999, slot: null, level: 5, nome: 'Com XP Share', speciesId: 1, heldItemId: 70050 });
+  muitos.push({ id: 500, slot: 0, level: 50, nome: 'Na equipe', speciesId: 1 });
   msg({ t: 'estado', estado: { pokemons: muitos, automation: {} } });
   enviados.length = 0;
   await PIH.rotina._interno.tique(); await sleep(1300);
   const vendas = enviados.filter((m) => m.t === 'shop.sellAllPokemons');
-  assert.equal(vendas.length, 1);
-  assert.equal(vendas[0].ateId, 104);
+  assert.equal(vendas.length, 1, `esperava 1 venda, veio: ${enviados.map((m) => m.t)}`);
+  assert.equal(vendas[0].ateId, 104, 'ateId = maior id do Depot sem contar quem segura a Exp. Share');
+  // Já vendeu: não repete antes do intervalo.
   enviados.length = 0;
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  assert.equal(enviados.filter((m) => m.t === 'shop.sellAllPokemons').length, 0);
+  // Oferenda sem nota mínima: não manda.
   cfg.depot.modo = 'oferenda';
-  delete PIH.rotina._interno.marcas().depot;
-  PIH.rotina._interno.cfg().depot.modo = 'oferenda';
+  localStorage.setItem('piloto:rotina:v1', JSON.stringify({ cfg, marcas: {} }));
+  enviados.length = 0;
   await PIH.rotina._interno.tique(); await sleep(1300);
   assert.equal(enviados.filter((m) => m.t === 'oferenda.tudo').length, 0);
+  cfg.depot.modo = 'off';
   localStorage.setItem('piloto:rotina:v1', JSON.stringify({ cfg, marcas: {} }));
+});
+
+await caso('rotina: o perfil Automático liga a venda do Depot', async () => {
+  const cfg = PIH.rotina._interno.cfg();
+  cfg.depot.modo = 'off'; cfg.depot.limiar = 100; cfg.depot.horas = 6;
+  PIH.rotina.aplicar({ depotVender: true });
+  const c2 = PIH.rotina._interno.cfg();
+  assert.equal(c2.depot.modo, 'vender'); assert.equal(c2.depot.limiar, 50); assert.equal(c2.depot.horas, 1);
+  c2.depot.modo = 'off';
+});
+
+await caso('PvP: lê, monta a equipe com os 5 de maior Poder, liga a fila automática (VIP) e entra na fila', async () => {
+  const cfg = PIH.rotina._interno.cfg();
+  for (const k of ['passe', 'xpshare', 'outland', 'chocadeira', 'evoluir', 'rodizio']) cfg[k].ligado = false;
+  cfg.depot.modo = 'off';
+  cfg.pvp.time = true; cfg.pvp.fila = true;
+  const pks = [[1, 900], [2, 50], [3, 400], [4, 1200], [5, 700], [6, 300], [7, 650]].map(([id, poder]) => ({ id, slot: id <= 3 ? id - 1 : null, level: 100, nome: `P${id}`, speciesId: 1, poder }));
+  msg({ t: 'estado', estado: { pokemons: pks, loja: { vip: true }, automation: { ballIds: [1], potionIds: [200], pvpAutoFila: false } } });
+  enviados.length = 0;
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  assert.ok(enviados.some((m) => m.t === 'pvp.info'), `faltou pvp.info: ${enviados.map((m) => m.t)}`);
+  msg({ t: 'pvp', time: [1, 2], fila: { na: false } });
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  const ts = enviados.find((m) => m.t === 'pvp.time.salvar');
+  assert.deepEqual(ts && ts.pokemonIds, [4, 1, 5, 7, 3], `equipe por Poder: ${JSON.stringify(ts)}`);
+  msg({ t: 'pvp', timeSalvo: [4, 1, 5, 7, 3] });
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  const au = enviados.find((m) => m.t === 'auto.set');
+  assert.ok(au && au.pvpAutoFila === true && Array.isArray(au.ballIds) && au.ballIds[0] === 1, `auto.set tem que manter o resto da automação: ${JSON.stringify(au)}`);
+  msg({ t: 'estado', estado: { automation: { ballIds: [1], potionIds: [200], pvpAutoFila: true } } });
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  assert.ok(enviados.some((m) => m.t === 'pvp.fila.entrar'), `faltou entrar na fila: ${enviados.map((m) => m.t)}`);
+  // segurança: auto.set não mexe em outra coisa; equipe com pokémon de outro jogador não sai
+  assert.equal(PIH.pedir({ t: 'auto.set', autoBallSemParar: true }, 'teste').ok, false);
+  assert.equal(PIH.pedir({ t: 'pvp.time.salvar', pokemonIds: [4, 999999] }, 'teste').ok, false);
+  assert.equal(PIH.pedir({ t: 'pvp.time.salvar', pokemonIds: [4, 4] }, 'teste').ok, false);
+  // Sem roleta: alguém de fora só entra com 2%+ de Poder acima do mais fraco da equipe.
+  const marcas = PIH.rotina._interno.marcas();
+  const pks2 = pks.map((p) => (p.id === 6 ? { ...p, poder: 405 } : p)); // 405 vs 400 (P3): +1,25%, não troca
+  msg({ t: 'estado', estado: { pokemons: pks2 } });
+  delete marcas.pvpTime; enviados.length = 0;
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  assert.equal(enviados.filter((m) => m.t === 'pvp.time.salvar').length, 0, `trocou por 1%: ${JSON.stringify(enviados)}`);
+  const pks3 = pks.map((p) => (p.id === 6 ? { ...p, poder: 450 } : p)); // 450 vs 400: +12,5%, troca o P3
+  msg({ t: 'estado', estado: { pokemons: pks3 } });
+  delete marcas.pvpTime; enviados.length = 0;
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  const ts2 = enviados.find((m) => m.t === 'pvp.time.salvar');
+  assert.deepEqual(ts2 && ts2.pokemonIds, [4, 1, 5, 7, 6], `o melhor novo entra no lugar do mais fraco: ${JSON.stringify(ts2)}`);
+  msg({ t: 'pvp', timeSalvo: [4, 1, 5, 7, 6] });
+  // Mesmo time com Poder mexendo um pouco: não salva de novo.
+  const pks4 = pks3.map((p) => (p.id === 1 ? { ...p, poder: 905 } : p));
+  msg({ t: 'estado', estado: { pokemons: pks4 } });
+  delete marcas.pvpTime; enviados.length = 0;
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  assert.equal(enviados.filter((m) => m.t === 'pvp.time.salvar').length, 0);
+  cfg.pvp.time = false; cfg.pvp.fila = false;
+});
+
+await caso('rotina: antes de vender o Depot, guarda na Coleção a equipe do PvP, shiny e P5', async () => {
+  const cfg = PIH.rotina._interno.cfg();
+  for (const k of ['passe', 'xpshare', 'outland', 'chocadeira', 'evoluir', 'rodizio']) cfg[k].ligado = false;
+  cfg.pvp.time = false; cfg.pvp.fila = false;
+  cfg.depot.modo = 'vender'; cfg.depot.limiar = 2; cfg.depot.horas = 1;
+  const marcas = PIH.rotina._interno.marcas();
+  for (const k of Object.keys(marcas)) delete marcas[k];
+  const pks = [
+    { id: 1, slot: 0, level: 900, nome: 'Charizard', speciesId: 6, poder: 3000 },
+    ...[11, 12, 13, 14].map((id) => ({ id, slot: null, level: 100, nome: 'Shedinja', speciesId: 292, poder: 50 })),
+    { id: 15, slot: null, level: 100, nome: 'Brilhante', speciesId: 1, poder: 10, shiny: true },
+    { id: 16, slot: null, level: 100, nome: 'Pfive', speciesId: 1, poder: 10, potencia: 5 },
+  ];
+  msg({ t: 'estado', estado: { level: 900, activeId: 1, pokemons: pks, automation: { pokemonTravado: [] } } });
+  msg({ t: 'pvp', time: [1, 11, 12] });
+  enviados.length = 0;
+  for (let i = 0; i < 4; i++) { await PIH.rotina._interno.tique(); await sleep(1300); }
+  const movidos = enviados.filter((m) => m.t === 'colecao.mover').map((m) => m.pokemonId).sort((a, b) => a - b);
+  assert.deepEqual(movidos, [11, 12, 15, 16], `guardados: ${JSON.stringify(enviados)}`);
+  assert.equal(enviados.filter((m) => m.t === 'shop.sellAllPokemons').length, 0, 'não vende com protegido fora da Coleção');
+  assert.ok(enviados.every((m) => m.para !== 'depot'));
+  msg({ t: 'estado', estado: { automation: { pokemonTravado: [11, 12, 15, 16] } } });
+  enviados.length = 0;
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  const v = enviados.find((m) => m.t === 'shop.sellAllPokemons');
+  assert.ok(v && v.ateId === 14, `vende o resto, ateId sem os guardados: ${JSON.stringify(enviados)}`);
+  assert.equal(PIH.pedir({ t: 'colecao.mover', pokemonId: 11, para: 'depot' }, 'teste').ok, false);
+  assert.equal(PIH.pedir({ t: 'colecao.mover', pokemonId: 999999, para: 'colecao' }, 'teste').ok, false);
+  cfg.depot.modo = 'off';
+});
+
+await caso('hook: nada do protótipo passa pela lista fechada (constructor, __proto__, toString)', async () => {
+  for (const t of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) assert.equal(PIH.pedir({ t }, 'teste').ok, false, t);
+});
+
+await caso('cofre: o dia vira sozinho às 00:00 de Brasília e zera o gasto', async () => {
+  const st = PIH.cofre._interno.estado();
+  st.dia = '2000-01-01'; st.gasto = { repor: 123456 };
+  assert.equal(PIH.cofre.gastoHoje(), 0);
+  assert.notEqual(st.dia, '2000-01-01');
+  assert.deepEqual(st.gasto, {});
 });
 
 await caso('engine: ouro/h não soma mais o loot antigo do creatures.json', async () => {
@@ -231,6 +341,42 @@ await caso('engine: ouro/h não soma mais o loot antigo do creatures.json', asyn
   const src = fs.readFileSync(`${RAIZ}/hunt/engine.js`, 'utf8');
   assert.ok(!/lootKill \+=/.test(src), 'não pode haver soma de lootKill');
   assert.ok(/ouroDoAbate\(nivel, bonusLoot\)/.test(src));
+});
+
+await caso('captura: já vem ligada sem VIP; bola de ouro no corpo, shiny primeiro, 1 a cada 1,3 s; bloqueada com VIP', async () => {
+  PIH.cofre.definirLigado?.(true);
+  assert.equal(PIH.captura._interno.cfg().ligado, true, 'sem VIP, já vem ligada');
+  msg({ t: 'estado', estado: { balls: { 1: 5, 9: 5 }, automation: { ballIds: [9, 1] }, loja: { vip: false } } });
+  msg({ t: 'campo.init', slug: 'outland_x', mobs: [] });
+  const antes = enviados.length;
+  msg({ t: 'campo', mobs: [{ s: 50, x: 1, xr: 30000, n: 'Rattata', nv: 5, sh: 0 }, { s: 51, x: 1, xr: 30000, n: 'Pidgey', nv: 5, sh: 1 }] });
+  await sleep(900);
+  let bolas = enviados.slice(antes).filter((m) => m.t === 'ball.throw');
+  assert.equal(bolas.length, 1, 'uma bola só, e não as duas juntas');
+  assert.deepEqual(bolas[0], { t: 'ball.throw', ballId: 1, slot: 51 }, 'shiny primeiro, e a bola 9 (fora do catálogo de ouro) nunca');
+  await sleep(1900);
+  bolas = enviados.slice(antes).filter((m) => m.t === 'ball.throw');
+  assert.equal(bolas.length, 2);
+  assert.equal(bolas[1].slot, 50);
+  // o gancho recusa corpo que não existe, bola que não é de ouro e corpo repetido
+  assert.equal(PIH.pedir({ t: 'ball.throw', ballId: 1, slot: 999 }, 'captura').ok, false);
+  msg({ t: 'campo', mobs: [{ s: 60, x: 1, xr: 30000, n: 'Zubat', nv: 5, sh: 0 }] });
+  assert.equal(PIH.pedir({ t: 'ball.throw', ballId: 9, slot: 60 }, 'captura').ok, false, 'Beast Ball / bola sem preço em ouro');
+  // VIP lançando: fica parada
+  msg({ t: 'estado', estado: { loja: { vip: true }, automation: { ballIds: [1], autoBallSemParar: false } } });
+  const meio = enviados.length;
+  msg({ t: 'campo', mobs: [{ s: 61, x: 1, xr: 30000, n: 'Zubat', nv: 5, sh: 0 }] });
+  await sleep(1800);
+  assert.equal(enviados.slice(meio).filter((m) => m.t === 'ball.throw').length, 0);
+  assert.match(PIH.captura.resumo().motivo, /VIP/);
+  assert.match(PIH.captura.linha('automatico'), /cfg-toggle[^>]*disabled/, 'com VIP o interruptor fica travado');
+  // guardar: com 5 bolas e guardar 5, não lança
+  msg({ t: 'estado', estado: { loja: { vip: false }, automation: { ballIds: [1], autoBallSemParar: false } } });
+  PIH.captura.definir('guardar', 5);
+  msg({ t: 'campo', mobs: [{ s: 62, x: 1, xr: 30000, n: 'Zubat', nv: 5, sh: 0 }] });
+  await sleep(1800);
+  assert.equal(enviados.slice(meio).filter((m) => m.t === 'ball.throw').length, 0);
+  PIH.captura.definir('ligado', false);
 });
 
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTUDO PASSOU');

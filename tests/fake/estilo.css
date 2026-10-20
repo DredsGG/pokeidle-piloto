@@ -1,1 +1,51 @@
+/* Recorte do estilo.css do jogo (v1.337.0, 20/10/2026) só com as peças que o Piloto reaproveita.
+   Usado apenas no teste (o jogo de verdade carrega o arquivo inteiro). */
+:root { --verde: #6fd08a; --vermelho: #d8574a; --laranja: #f0a03c; --vermelho-luz: #ffc9bd; --vm-luz: #ffe0d6; --vm-esc: #9c3229; --vm-clr: #ef7b62; --vm-rosa: #ffb4a0; --mad-linha: #480e1e; --mad-luz: #f1d3b7; --mad-luz2: #e7a86d; --mad: #bd6951; --mad-esc: #914850; --mad-quente: #df824c; --mad-base: #722c3f; --rx-luz: #ffdef0; --rx-esc: #8d49b8; --rx: #ba5ad1; --rx-clr: #e77ad2; --rx-rosa: #ffa7d7; --vao: #33202b; --vao2: #462b39; --vao-luz: #5c3948; --sobre-mad: #fff6ef; --sobre-mad-dim: #f5cdb9; --vao-dim: #c9a9b4; --xp: #4a8ab8; --xp-luz: #6fc0f0; --barra-vazia: #1e1219; --ouro-luz: #ffe9a3; --ouro: #e2a93f; --ouro-esc: #7d5313; }
+body { margin: 0; font: 13px / 1.45 "Segoe UI", system-ui, sans-serif; color: var(--sobre-mad); background-color: #3357e3; }
+.modal-topo button, .cfg-escala-bt, .cfg-cat { border: 0px; border-radius: 6px; cursor: pointer; font-family: Tahoma, Verdana, "Segoe UI", sans-serif; font-weight: 700; color: rgb(255, 255, 255); text-shadow: -1px -1px 0 var(--rx-esc), 1px -1px 0 var(--rx-esc), -1px 1px 0 var(--rx-esc), 1px 1px 0 var(--rx-esc); background: linear-gradient(180deg, var(--rx-luz) 0 6px, var(--rx-esc) 6px 13px, var(--rx) 13px calc(100% - 13px), var(--rx-clr) calc(100% - 13px) calc(100% - 7px), var(--rx-rosa) calc(100% - 7px) 100%); box-shadow: inset 0 0 0 2px var(--mad-linha), inset 0 0 0 4px var(--mad-luz2), inset 0 0 0 5px var(--mad), 0 2px 0 var(--mad-base); transition: filter 0.1s, transform 0.06s, box-shadow 0.06s; }
+.modal-topo button:hover, .cfg-escala-bt:hover, .cfg-cat:hover { filter: brightness(1.12); }
+.modal-topo button:active, .cfg-escala-bt:active, .cfg-cat:active { transform: translateY(2px); box-shadow: inset 0 0 0 2px var(--mad-linha), inset 0 0 0 4px var(--mad-luz2), inset 0 0 0 5px var(--mad); }
+.cfg-escala-bt:not(.on), .cfg-cat:not(.on) { color: var(--sobre-mad-dim); text-shadow: -1px -1px 0 var(--mad-base), 1px -1px 0 var(--mad-base), -1px 1px 0 var(--mad-base), 1px 1px 0 var(--mad-base); background: linear-gradient(180deg, var(--mad-luz2) 0 6px, var(--mad-esc) 6px 13px, var(--mad) 13px calc(100% - 9px), var(--mad-quente) calc(100% - 9px) 100%); }
+.cfg-corpo { flex: 1 1 0%; min-height: 0px; display: flex; flex-direction: column; container: cfg / inline-size; }
+.cfg-layout { flex: 1 1 0%; min-height: 0px; display: grid; gap: 14px; grid-template-columns: minmax(0px, 1fr); grid-template-rows: auto minmax(0px, 1fr); }
+.cfg-paineis { min-height: 0px; display: flex; flex-direction: column; }
+.cfg-cats { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); gap: 6px; align-content: start; }
+.cfg-cat { position: relative; min-width: 0px; height: 58px; padding: 5px 6px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 10.5px; letter-spacing: 0.2px; line-height: 1.1; }
+.cfg-cat-ico { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; }
+.cfg-cat-rot { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cfg-painel { flex: 1 1 0%; min-height: 0px; display: flex; flex-direction: column; overflow: hidden; border-radius: 6px; background: var(--vao); box-shadow: inset 0 0 0 2px var(--mad-linha), 0 1px 0 var(--mad-luz2); }
+.cfg-cab { flex: 0 0 auto; display: none; align-items: center; gap: 12px; padding: 11px 16px; background: var(--vao2); box-shadow: 0 2px 0 var(--mad-linha); }
+.cfg-cab-ico { flex: 0 0 auto; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--rx-rosa); background: var(--vao); box-shadow: inset 0 0 0 2px var(--mad-linha); }
+.cfg-corpo .cfg-cab h3 { margin: 0px; font-size: 15px; letter-spacing: 1.2px; }
+.cfg-cab h3 { font-family: Tahoma, Verdana, sans-serif; font-weight: 700; text-transform: uppercase; color: #fff; text-shadow: -2px -2px 0 var(--mad-base), 2px -2px 0 var(--mad-base), -2px 2px 0 var(--mad-base), 2px 2px 0 var(--mad-base); }
+.cfg-linhas { flex: 1 1 0%; min-height: 0px; display: flex; flex-direction: column; gap: 6px; padding: 8px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable both-edges; }
+.cfg-linha { flex: 0 0 auto; display: grid; grid-template-columns: minmax(0px, 1fr) auto; align-items: center; gap: 0px 16px; min-height: 56px; padding: 8px 14px; border-radius: 6px; background: var(--vao2); box-shadow: inset 0 0 0 2px var(--mad-linha); }
+.cfg-linha:has(> .cfg-toggle.on) { box-shadow: inset 0 0 0 2px var(--mad-linha), inset 6px 0 0 var(--rx); }
+.cfg-rot { min-width: 0px; line-height: 1.35; }
+.cfg-cola { white-space: nowrap; }
+.cfg-nome { font-family: Tahoma, Verdana, "Segoe UI", sans-serif; font-weight: 700; font-size: 13px; color: var(--sobre-mad); }
+.cfg-ajuda { position: relative; display: inline-grid; place-items: center; vertical-align: middle; width: 22px; height: 22px; margin: -2px 0px 0px 8px; padding: 0px; border: 0px; border-radius: 50%; cursor: pointer; color: var(--mad-base); background: var(--ouro-luz); box-shadow: inset 0 0 0 2px var(--ouro-esc); transition: filter 0.1s, transform 0.06s; }
+.cfg-ajuda b { font: 700 13px / 1 Tahoma, Verdana, "Segoe UI", sans-serif; }
+.cfg-desc { display: none; grid-column: 1 / -1; margin: 8px 0px 2px; padding: 9px 13px 10px; border-radius: 5px; font-size: 12px; line-height: 1.5; color: var(--sobre-mad); background: var(--vao); box-shadow: inset 0 0 0 1px var(--mad-linha), inset 3px 0 0 var(--ouro); }
+.cfg-linha.aberta .cfg-desc { display: block; }
+.cfg-toggle { flex: 0 0 auto; position: relative; width: 52px; height: 28px; padding: 0px; border: 0px; border-radius: 6px; cursor: pointer; background: var(--vao2); box-shadow: inset 0 0 0 2px var(--mad-linha); transition: background 0.15s, filter 0.12s; }
+.cfg-toggle::after { content: ""; position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; border-radius: 4px; background: var(--vao-dim); box-shadow: inset 0 0 0 2px var(--mad-linha); transition: transform 0.18s cubic-bezier(0.4, 1.2, 0.5, 1), background 0.15s; }
+.cfg-toggle.on { background: linear-gradient(180deg, var(--rx-luz) 0 3px, var(--rx-esc) 3px 8px, var(--rx) 8px calc(100% - 8px), var(--rx-clr) calc(100% - 8px) calc(100% - 4px), var(--rx-rosa) calc(100% - 4px) 100%); }
+.cfg-toggle.on::after { transform: translateX(22px); background: rgb(255, 255, 255); }
+.cfg-toggle:disabled { cursor: not-allowed; opacity: 0.45; filter: none; }
+.cfg-corpo .cfg-toggle { --cfg-larg: 64px; --cfg-alt: 30px; --cfg-mao: 22px; width: var(--cfg-larg); height: var(--cfg-alt); background-color: var(--vao); box-shadow: inset 0 0 0 2px var(--mad-linha), 0 1px 0 var(--mad-luz2); }
+.cfg-corpo .cfg-toggle::after { top: 4px; left: 4px; width: var(--cfg-mao); height: var(--cfg-mao); background: linear-gradient(180deg, var(--mad-luz2) 0 4px, var(--mad) 4px calc(100% - 3px), var(--mad-base) calc(100% - 3px) 100%); box-shadow: inset 0 0 0 2px var(--mad-linha); }
+.cfg-corpo .cfg-toggle.on::after { transform: translateX(calc(var(--cfg-larg) - var(--cfg-mao) - 8px)); background: rgb(255, 255, 255); }
+.cfg-corpo .cfg-toggle::before { content: "OFF"; position: absolute; inset: 0px 10px 0px auto; display: grid; place-items: center; pointer-events: none; font: 700 10px / 1 Tahoma, Verdana, "Segoe UI", sans-serif; letter-spacing: 0.5px; color: var(--vao-dim); }
+.cfg-corpo .cfg-toggle.on::before { content: "ON"; right: auto; left: 12px; color: rgb(255, 255, 255); text-shadow: -1px -1px 0 var(--rx-esc), 1px -1px 0 var(--rx-esc), -1px 1px 0 var(--rx-esc), 1px 1px 0 var(--rx-esc); }
+.cfg-escala { display: flex; flex-wrap: wrap; gap: 6px; }
+.cfg-escala-bt { min-width: 52px; height: 32px; padding: 0px 12px; font-size: 12px; white-space: nowrap; }
+@container cfg (min-width: 600px) { .cfg-layout { grid-template-columns: 204px minmax(0px, 1fr); grid-template-rows: minmax(0px, 1fr); gap: 18px; } .cfg-cats { grid-auto-flow: row; grid-auto-columns: auto; gap: 10px; } .cfg-cat { height: 46px; padding: 0px 14px; flex-direction: row; justify-content: flex-start; gap: 11px; font-size: 13px; letter-spacing: 0.3px; text-align: left; } .cfg-cat-rot { flex: 1 1 0%; min-width: 0px; } .cfg-cab { display: flex; } .cfg-linhas { padding: 10px; gap: 8px; } }
+.modal-caixa { background: linear-gradient(180deg, var(--mad-esc) 0 12px, var(--mad) 12px calc(100% - 16px), var(--mad-quente) calc(100% - 16px) calc(100% - 8px), var(--mad) calc(100% - 8px) 100%); border: 0px; border-radius: 9px; color: var(--sobre-mad); position: relative; overflow: hidden; width: min(960px, 96vw); max-height: 88vh; display: flex; flex-direction: column; box-shadow: inset 0 0 0 2px var(--mad-linha), inset 0 0 0 4px var(--mad-luz), inset 0 0 0 6px var(--mad), 0 6px 0 var(--mad-base), 0 24px 70px #000c; }
+.modal-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px 12px; }
+.modal-topo-esq { display: flex; align-items: center; gap: 8px; min-width: 0px; flex: 1 1 0%; }
+.modal-topo h2 { margin: 0px; font-family: Tahoma, Verdana, "Segoe UI", sans-serif; font-size: 17px; font-weight: 700; color: rgb(255, 255, 255); text-transform: uppercase; letter-spacing: 1px; text-shadow: -2px -2px 0 var(--mad-base), 2px -2px 0 var(--mad-base), -2px 2px 0 var(--mad-base), 2px 2px 0 var(--mad-base); }
+.modal-topo button { flex: 0 0 auto; width: 36px; height: 36px; font-size: 19px; line-height: 1; display: grid; place-items: center; }
+.modal-acoes { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+.modal-corpo { padding: 4px 20px 20px; overflow-y: auto; }
 

@@ -404,36 +404,47 @@
   const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
   const cx = (k, label, titulo = '') => `<label title="${esc(titulo)}"><input type="checkbox" data-rot="${k}" ${k.split('.').reduce((o, p) => o[p], cfg) ? 'checked' : ''}> ${label}</label>`;
 
-  function html() {
+  // ---- a aba Rotina (1.13): linhas da janela Configurações do jogo ------------------------------
+  // modo: 'automatico' só os interruptores e o que está acontecendo; 'manual' também os ajustes;
+  // 'desligado' o mesmo do automático, travado.
+  const hhmm = (t) => (t ? new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '');
+  const nfR = new Intl.NumberFormat('pt-BR');
+  function html(modo = 'manual') {
     const K = PIH.kit;
+    const manual = modo === 'manual';
+    const trava = modo === 'desligado';
+    const L = (o) => K.linha({ trava, ...o, ajustes: manual ? o.ajustes : '' });
     const r = cfg.rodizio;
     const d = cfg.depot;
-    const sw = (k) => `<input type="checkbox" data-rot="${k}" ${k.split('.').reduce((o, p) => o[p], cfg) ? 'checked' : ''}>`;
-    const sel = (k, v, ops) => `<select data-rot-sel="${k}">${ops.map(([o, t]) => `<option value="${o}" ${v === o ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
-    const num = (k, v, min, max, step) => `<input type="number" min="${min}" max="${max}" step="${step}" value="${v}" data-rot-num="${k}">`;
-    const pequeno = (icone, titulo, chave, dica) => K.cartao({ icone, titulo, dica, interruptor: sw(chave), classe: 'plt-card-mini' });
-    return `<div class="plt-secao">Sem custo</div>
-      <div class="plt-grade2">
-        ${pequeno('passe', 'Passe diário', 'passe.ligado', 'Resgata o prêmio do dia (perder um dia volta a trilha ao Dia 1)')}
-        ${pequeno('outland', 'Tier Outland', 'outland.ligado', 'Na Outland, sobe para o maior tier liberado: mesmo XP e ouro, drops raros ×1 a ×8')}
-        ${K.cartao({ icone: 'xpshare', titulo: 'XP Share', dica: 'Põe nos postos vazios da casa quem está mais atrasado na equipe', interruptor: sw('xpshare.ligado'), corpo: K.opcao(sw('xpshare.trocarAtivo'), 'Tirar quem luta', 'O registrado que está lutando não ganha a fatia') })}
-        ${K.cartao({ icone: 'nivel', titulo: 'Rodízio', dica: 'Troca o pokémon ativo por outro da equipe que mata com segurança na hunt atual', interruptor: sw('rodizio.ligado'),
-          corpo: `<div class="plt-linha">${K.campo('Modo', sel('rodizio.modo', r.modo, [['atrasado', 'Mais atrasado'], ['xp', 'Mais XP/h']]))}${K.campo('A cada (min)', num('rodizio.intervaloMin', r.intervaloMin, 10, 240, 5))}</div>` })}
-      </div>
-      <div class="plt-secao">PvP Ranqueado</div>
-      <div class="plt-grade2">
-        ${pequeno('pvp', 'Equipe top 5', 'pvp.time', 'Os 5 de maior Poder, o mais forte abrindo. Só troca quando aparece um pokémon com 2% ou mais de Poder acima do mais fraco da equipe. Treinador Nv 150+.')}
-        ${pequeno('radar', 'Fila', 'pvp.fila', 'Com VIP liga a fila automática do jogo; sem VIP, entra na fila quando estiver fora (no máximo a cada 3 min).')}
-      </div>
-      <div class="plt-secao">Sem volta</div>
-      <div class="plt-grade2">
-        ${K.cartao({ icone: 'evoluir', titulo: 'Evoluir', classe: 'plt-perigo', dica: 'Com nível e pedra na mochila. Nunca shiny, Outland nem Mega. Um por minuto.', interruptor: sw('evoluir.ligado'),
-          corpo: `<div class="plt-linha">${K.campo('Quem', sel('evoluir.escopo', cfg.evoluir.escopo, [['equipe', 'Só a equipe'], ['tudo', 'Equipe, Depot e Coleção']]))}${K.opcao(sw('evoluir.ramificada'), 'Com escolha', 'Cadeias com escolha (Eevee…): o primeiro destino')}</div>` })}
-        ${K.cartao({ icone: 'ovo', titulo: 'Chocadeira', classe: 'plt-perigo', dica: 'Põe o ovo que você tem (Shiny, P4, P3, P2)', interruptor: sw('chocadeira.ligado'),
-          corpo: K.opcao(sw('chocadeira.comprarP2'), 'Comprar P2 (100M)', 'Só com teto da categoria "ovos" no Cofre (padrão 0 = proibido)') })}
-        ${K.cartao({ icone: 'depot', titulo: 'Limpar Depot', classe: 'plt-perigo', dica: 'Igual ao botão "Vender todo o Depot": o jogo protege shiny, P5, lendário, Coleção, equipes, refinados e quem tem TM ou item. Com a regra "Nota mínima" do Auto Coleção ligada, os bons vão para a Coleção antes. A Oferenda precisa dessa regra.',
-          corpo: `<div class="plt-linha">${K.campo('Como', sel('depot.modo', d.modo, [['off', 'Desligado'], ['oferenda', 'Oferenda'], ['vender', 'Vender ao NPC']]))}${K.campo('Acima de', num('depot.limiar', d.limiar, 20, 5000, 10))}${K.campo('A cada (h)', num('depot.horas', d.horas, 1, 72, 1))}</div>` })}
-      </div>`;
+    const travados = new Set(((eu && eu.automation && eu.automation.pokemonTravado) || []).map(Number));
+    const noDepot = (eu && eu.pokemons || []).filter((p) => p.slot == null && p.id !== eu.activeId && !travados.has(Number(p.id))).length;
+    const pv = eu && eu.pvp;
+    const tier = pv ? `${String(pv.tierId || '').replace(/^./, (c) => c.toUpperCase())} ${pv.divisaoNum || ''} · ${nfR.format(pv.pontos || 0)} PR` : '';
+    const somaPvp = Array.isArray(pvp.time) ? pvp.time.reduce((s2, id) => s2 + (Number(((eu && eu.pokemons) || []).find((p) => p.id === id)?.poder) || 0), 0) : 0;
+    const nivelPvp = (eu && eu.level || 0) >= PVP_NIVEL_MIN;
+    return `
+      ${K.grupo('Todo dia')}
+      ${L({ icone: 'passe', nome: 'Passe diário', alvo: 'rotina:passe.ligado', on: cfg.passe.ligado, dica: 'Resgata o prêmio do dia do Passe de Batalha (perder um dia volta a trilha ao Dia 1).', status: marcas.passe ? `último resgate às ${hhmm(marcas.passe)}` : '' })}
+      ${L({ icone: 'outland', nome: 'Tier da Outland', alvo: 'rotina:outland.ligado', on: cfg.outland.ligado, dica: 'Na Outland, sobe para o maior tier liberado: mesmo XP e ouro, drops raros ×1 a ×8.', status: eu && eu.outlandTier ? `tier ${eu.outlandTier}` : '' })}
+      ${L({ icone: 'xpshare', nome: 'XP Share', alvo: 'rotina:xpshare.ligado', on: cfg.xpshare.ligado, dica: 'Põe nos postos vazios da casa quem está mais atrasado na equipe.',
+        ajustes: K.mini('rotina:xpshare.trocarAtivo', cfg.xpshare.trocarAtivo, 'Tirar quem luta', 'O registrado que está lutando não ganha a fatia', trava) })}
+      ${L({ icone: 'nivel', nome: 'Rodízio da equipe', alvo: 'rotina:rodizio.ligado', on: r.ligado, dica: 'Troca o pokémon ativo por outro da equipe que mata com segurança na hunt atual.',
+        status: r.ligado ? `${r.modo === 'xp' ? 'quem rende mais XP/h' : 'o mais atrasado'} · a cada ${r.intervaloMin} min` : '',
+        ajustes: `${K.fcampo('Quem entra', K.escala('rotina:rodizio.modo', r.modo, [['atrasado', 'Mais atrasado'], ['xp', 'Mais XP/h']], trava))}${K.fcampo('A cada (min)', K.numero('rotina:rodizio.intervaloMin', r.intervaloMin, 10, 240, 5, trava))}` })}
+      ${K.grupo('PvP Ranqueado')}
+      ${L({ icone: 'pvp', nome: 'Equipe dos 5 mais fortes', alvo: 'rotina:pvp.time', on: cfg.pvp.time, dica: 'Os 5 de maior Poder, o mais forte abrindo. Só troca quando aparece um pokémon com 2% ou mais de Poder acima do mais fraco da equipe. Treinador Nv 150+.',
+        status: !nivelPvp ? 'treinador abaixo do Nv 150' : somaPvp ? `Poder somado ${nfR.format(Math.round(somaPvp))}${tier ? ` · ${tier}` : ''}` : tier })}
+      ${L({ icone: 'radar', nome: 'Fila automática', alvo: 'rotina:pvp.fila', on: cfg.pvp.fila, dica: 'Com VIP liga a fila automática do jogo; sem VIP, entra na fila quando estiver fora (no máximo a cada 3 min).',
+        status: pvp.fila ? (pvp.fila.na ? 'na fila agora' : 'fora da fila') : '' })}
+      ${K.grupo('Sem volta')}
+      ${L({ icone: 'evoluir', nome: 'Evoluir', classe: 'plt-l-perigo', alvo: 'rotina:evoluir.ligado', on: cfg.evoluir.ligado, dica: 'Evolui quem tem nível e pedra na mochila. Nunca shiny, Outland nem Mega. Um por minuto.',
+        status: cfg.evoluir.ligado ? (cfg.evoluir.escopo === 'tudo' ? 'equipe, Depot e Coleção' : 'só a equipe') : '',
+        ajustes: `${K.fcampo('Quem', K.escala('rotina:evoluir.escopo', cfg.evoluir.escopo, [['equipe', 'Só a equipe'], ['tudo', 'Todos']], trava))}${K.mini('rotina:evoluir.ramificada', cfg.evoluir.ramificada, 'Cadeias com escolha', 'Eevee e outras: vai para o primeiro destino', trava)}` })}
+      ${L({ icone: 'ovo', nome: 'Chocadeira', classe: 'plt-l-perigo', alvo: 'rotina:chocadeira.ligado', on: cfg.chocadeira.ligado, dica: 'Põe na chocadeira o ovo que você tem (Shiny, P4, P3, P2).',
+        ajustes: K.mini('rotina:chocadeira.comprarP2', cfg.chocadeira.comprarP2, 'Comprar P2 (100 mi)', 'Só com teto da categoria "ovos" no Cofre (padrão 0 = proibido)', trava) })}
+      ${L({ icone: 'depot', nome: 'Limpar o Depot', classe: 'plt-l-perigo', alvo: 'rotina:depot.ligado', on: d.modo !== 'off', dica: 'Igual ao botão "Vender todo o Depot" do jogo. Antes de vender, guarda na Coleção a equipe do PvP, os shiny e os P5. A Coleção, o ativo e quem segura a Exp. Share nunca vão.',
+        status: `${nfR.format(noDepot)} no Depot${d.modo !== 'off' ? ` · ${d.modo === 'oferenda' ? 'oferenda' : 'vende'} a partir de ${nfR.format(d.limiar)}` : ''}`,
+        ajustes: `${K.fcampo('Como', K.escala('rotina:depot.modo', d.modo === 'off' ? (d.ultimoModo || 'vender') : d.modo, [['vender', 'Vender ao NPC'], ['oferenda', 'Oferenda']], trava))}${K.fcampo('A partir de', K.numero('rotina:depot.limiar', d.limiar, 20, 5000, 10, trava))}${K.fcampo('A cada (h)', K.numero('rotina:depot.horas', d.horas, 1, 72, 1, trava))}` })}`;
   }
 
   function setCaminho(caminho, v) {
@@ -441,16 +452,20 @@
     cfg[g][k] = v;
     gravar();
   }
-  function ligar(painel, redesenhar) {
-    for (const el of painel.querySelectorAll('[data-rot]')) el.addEventListener('change', () => { setCaminho(el.dataset.rot, el.checked); diario(`${el.dataset.rot} ${el.checked ? 'ligado' : 'desligado'}`); redesenhar(); });
-    for (const el of painel.querySelectorAll('[data-rot-sel]')) el.addEventListener('change', () => { setCaminho(el.dataset.rotSel, el.value); redesenhar(); });
-    // 1.12.3: vazio ou inválido não vira 0 (com 0 h o Depot venderia a cada 20 s); vale o mínimo do campo.
-    for (const el of painel.querySelectorAll('[data-rot-num]')) el.addEventListener('change', () => {
-      const v = el.value.trim() === '' ? NaN : Number(el.value);
-      if (Number.isFinite(v)) setCaminho(el.dataset.rotNum, Math.max(Number(el.min) || 0, el.max !== '' ? Math.min(Number(el.max), v) : v));
-      redesenhar();
-    });
+  // Uma mudança vinda do painel (interruptor, escolha ou número). Números já chegam validados.
+  function definir(caminho, v) {
+    if (caminho === 'depot.ligado') {
+      if (v) cfg.depot.modo = cfg.depot.ultimoModo || 'vender';
+      else { if (cfg.depot.modo !== 'off') cfg.depot.ultimoModo = cfg.depot.modo; cfg.depot.modo = 'off'; }
+      gravar();
+      diario(`Limpar o Depot ${v ? 'ligado' : 'desligado'}`);
+      return;
+    }
+    if (caminho === 'depot.modo') { cfg.depot.ultimoModo = v; if (cfg.depot.modo !== 'off') cfg.depot.modo = v; gravar(); return; }
+    setCaminho(caminho, v);
+    if (typeof v === 'boolean') diario(`${caminho} ${v ? 'ligado' : 'desligado'}`);
   }
+  function ligar() { /* 1.13: o painel roteia as mudanças por definir() */ }
 
   // Perfil do botão único: só as tarefas sem custo e reversíveis (Passe, XP Share, Outland).
   // Evoluir, chocadeira e Depot são irreversíveis e ficam como você deixou.
@@ -460,5 +475,5 @@
     if (m && m.depotVender && cfg.depot.modo === 'off') { cfg.depot.modo = 'vender'; cfg.depot.limiar = Math.min(cfg.depot.limiar, 50); cfg.depot.horas = Math.min(cfg.depot.horas, 1); }
     gravar();
   }
-  PIH.rotina = { html, ligar, aplicar, _interno: { cfg: () => cfg, tique, TAREFAS, marcas: () => marcas } };
+  PIH.rotina = { html, ligar, aplicar, definir, _interno: { cfg: () => cfg, tique, TAREFAS, marcas: () => marcas } };
 })(globalThis);

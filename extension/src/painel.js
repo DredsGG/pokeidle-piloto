@@ -37,7 +37,7 @@
     .cartao[hidden] { display: none !important; }
     .rm-subabas { display: flex; gap: 6px; margin: 0 0 8px; }
     .rm-subabas[hidden] { display: none; }
-    .rm-subabas .aba { padding: 4px 10px; font-size: 12px; }
+    .rm-subabas .aba { height: 28px; padding: 0 12px; font-size: 11px; }
     .rm-vazio-grupo { margin: 0 0 8px; color: #9aa1ad; font-size: 12px; }
     .cartao { background: var(--rm-fundo); color: var(--rm-texto); border: 1px solid var(--rm-borda); border-radius: 8px; padding: 10px 12px; }
     .cabeca { display: flex; align-items: baseline; gap: 8px; }
@@ -134,7 +134,7 @@
     for (const [chave, rotulo] of GRUPOS) {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'aba';
+      b.className = 'aba cfg-escala-bt';
       b.setAttribute('role', 'tab');
       b.dataset.grupo = chave;
       b.textContent = rotulo;
@@ -165,7 +165,7 @@
       c.el.hidden = g !== sub.grupo;
     }
     for (const [chave] of GRUPOS) {
-      if (sub.botoes[chave]) sub.botoes[chave].setAttribute('aria-selected', String(chave === sub.grupo));
+      if (sub.botoes[chave]) { const _b = sub.botoes[chave]; _b.setAttribute('aria-selected', String(chave === sub.grupo)); _b.classList.toggle('on', chave === sub.grupo); }
       if (sub.numeros[chave]) {
         sub.numeros[chave].textContent = String(abertos[chave]);
         sub.numeros[chave].hidden = abertos[chave] === 0;

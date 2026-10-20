@@ -1,5 +1,7 @@
 node_modules/
 *.zip
 tests/telas/
+tests/telas-*/
+tests/*.log
 .DS_Store
 Thumbs.db

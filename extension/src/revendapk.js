@@ -56,7 +56,7 @@
     const topo = el('div', 'rv-topo');
     topo.setAttribute('role', 'tablist');
     for (const [chave, rotulo] of GRUPOS) {
-      const b = el('button', 'aba', rotulo);
+      const b = el('button', 'aba cfg-escala-bt', rotulo);
       b.type = 'button';
       b.setAttribute('role', 'tab');
       b.dataset.grupoPk = chave;
@@ -99,7 +99,7 @@
       if (visiveis[outro] > 0) { ui.grupo = outro; filtrar(); return; }
     }
     for (const [chave] of GRUPOS) {
-      ui.botoes[chave].setAttribute('aria-selected', String(chave === ui.grupo));
+      { const _b = ui.botoes[chave]; _b.setAttribute('aria-selected', String(chave === ui.grupo)); _b.classList.toggle('on', chave === ui.grupo); }
       ui.numeros[chave].textContent = String(conta[chave]);
       ui.numeros[chave].hidden = conta[chave] === 0;
     }

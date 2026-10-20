@@ -400,6 +400,67 @@
     return hunt + repor + diarioHtml;
   }
 
+  // ---- 1.13: as duas linhas da caça na aba Caçar (troca de hunt e reposição) ------------------
+  function linhas(modo = 'manual') {
+    const K = PIH.kit;
+    const manual = modo === 'manual';
+    const trava = modo === 'desligado';
+    const h = cfg.hunt;
+    const p = cfg.repor;
+    const agora = Date.now();
+    const itens = eu ? itensVigiados() : [];
+    const baixos = itens.filter((it) => it.tem < alvoDe(it).min);
+    const castigos = Object.entries(cfg.castigo).filter(([, ate]) => ate > agora);
+    const stHunt = h.ligado ? [`${h.criterio === 'ouro' ? 'Ouro/h' : 'XP/h'} · análise ${quanto(ultimaAnalise + h.intervaloMin * 60_000 - agora) === 'agora' ? 'agora' : `em ${quanto(ultimaAnalise + h.intervaloMin * 60_000 - agora)}`}`,
+      castigos.length ? `de castigo: ${castigos.map(([sl]) => esc(nomeHunt(sl))).join(', ')}` : '', rotina ? esc(rotina.motivo) : ''].filter(Boolean).join(' · ') : '';
+    const stRepor = p.ligado ? (itens.length ? (baixos.length ? `baixo: ${baixos.map((x) => esc(x.nome)).join(', ')}` : `${itens.length} itens em dia`) : 'marque bolas e poções nas Automações do jogo') : '';
+    const tabela = itens.length
+      ? `<table class="plt-tab"><thead><tr><th>Item</th><th>Tem</th><th>Mínimo</th><th>Repõe até</th><th>Preço</th></tr></thead><tbody>${itens.map((it) => {
+        const a = alvoDe(it);
+        return `<tr><td>${esc(it.nome)}</td><td class="${it.tem < a.min ? 'pih-alerta' : ''}">${nf.format(it.tem)}</td>
+          <td>${K.numero(`auto:alvo.${it.chave}.min`, a.min, 0, null, 1, trava)}</td><td>${K.numero(`auto:alvo.${it.chave}.alvo`, a.alvo, 0, null, 1, trava)}</td><td>${nf.format(it.preco)}</td></tr>`;
+      }).join('')}</tbody></table>`
+      : '<p class="plt-nota">Marque bolas, poções e revives nas Automações do jogo.</p>';
+    return K.linha({ icone: 'cacar', nome: 'Troca de hunt', alvo: 'auto:hunt.ligado', on: h.ligado, trava, status: stHunt,
+      dica: 'Vai sozinho para a hunt que mais rende. Espera sair de combate (trava de 3 s do jogo) antes de mudar.',
+      ajustes: manual ? `${K.fcampo('Critério', K.escala('auto:hunt.criterio', h.criterio, [['xp', 'XP/h'], ['ouro', 'Ouro/h']], trava))}
+        ${K.fcampo('A cada (min)', K.numero('auto:hunt.intervaloMin', h.intervaloMin, 10, 240, 5, trava))}
+        ${K.fcampo('Margem %', K.numero('auto:hunt.margemPct', h.margemPct, 0, 200, 1, trava), 'Só troca se a outra render pelo menos isso a mais')}
+        <span class="plt-f-quebra"></span>
+        ${K.mini('auto:hunt.curar', h.curar, 'Curar antes', 'Passa no Centro e cura antes de ir', trava)}
+        ${K.mini('auto:hunt.evitarRisco', h.evitarRisco, 'Evitar risco', 'Fora hunts com 1 hit, mortes estimadas ou golpe que tira 50%+ do HP', trava)}
+        ${K.mini('auto:hunt.conferir', h.conferir, 'Conferir a troca', 'Aos 5 e aos 30 min refaz a conta com o medido e volta se piorou', trava)}
+        ${K.acao('Analisar agora', 'data-acao="testar-hunt"', 'cacar', trava)}` : '' })
+      + K.linha({ icone: 'repor', nome: 'Reposição', alvo: 'auto:repor.ligado', on: p.ligado, trava, status: stRepor,
+        dica: 'Repõe as bolas, poções e revives marcados nas Automações do jogo, sempre dentro do cofre.',
+        ajustes: manual ? `${K.fcampo('Guardar (ouro)', K.numero('auto:repor.reservaOuro', p.reservaOuro, 0, null, 100000, trava), 'Nunca gasta abaixo disso')}
+          ${K.fcampo('A cada (min)', K.numero('auto:repor.intervaloMin', p.intervaloMin, 1, 60, 1, trava))}
+          ${K.mini('auto:repor.irAoCentro', p.irAoCentro, 'Ir ao Centro', 'Se o jogo só vender no Centro: vai, compra, cura e volta', trava)}
+          ${K.acao('Conferir agora', 'data-acao="testar-repor"', 'repor', trava)}
+          <div class="plt-f-largo">${tabela}</div>` : '' });
+  }
+
+  // Mudança vinda do painel. "alvo.<chave>.<campo>" são os mínimos e alvos da reposição.
+  function definir(caminho, v) {
+    const partes = caminho.split('.');
+    if (partes[0] === 'alvo') {
+      const [, k, campo] = partes;
+      cfg.repor.alvos[k] = { ...(cfg.repor.alvos[k] ?? {}), [campo]: Math.max(0, Math.round(Number(v) || 0)) };
+      gravar();
+      return;
+    }
+    const [grupo, campo] = partes;
+    if (!cfg[grupo] || !(campo in cfg[grupo])) return;
+    cfg[grupo][campo] = v;
+    if (grupo === 'hunt' && campo === 'ligado' && v) { ultimaAnalise = 0; anotar('troca automática de hunt ligada'); }
+    if (grupo === 'repor' && campo === 'ligado' && v) { ultimaReposicao = 0; anotar('reposição ligada'); }
+    gravar();
+  }
+  const acoes = {
+    'testar-hunt': () => avaliarHunt(true).catch((e) => anotar(e.message, 'erro')),
+    'testar-repor': () => avaliarReposicao(true).catch((e) => anotar(e.message, 'erro')),
+  };
+
   function ligar(painel, redesenhar) {
     for (const el of painel.querySelectorAll('[data-cfg]')) {
       el.addEventListener('change', () => {
@@ -435,5 +496,5 @@
     if (m?.repor) Object.assign(cfg.repor, { ligado: !!m.repor.ligado });
     gravar();
   }
-  PIH.auto = { html, ligar, aplicar, diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + cfg.hunt.intervaloMin * 60_000, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina } };
+  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + cfg.hunt.intervaloMin * 60_000, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina } };
 })(globalThis);

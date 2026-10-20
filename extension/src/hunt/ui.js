@@ -187,7 +187,7 @@
       if (typeof d.txt !== 'string' || typeof d.t !== 'number') return;
       diarioRadar.unshift({ t: d.t, txt: d.txt.slice(0, 200), tipo: ['erro', 'aviso'].includes(d.tipo) ? d.tipo : 'ok' });
       diarioRadar.length = Math.min(diarioRadar.length, 20);
-      if (painel && prefs.aba === 'resumo' && !painel.contains(document.activeElement)) desenhar();
+      if (painel && prefs.aba === 'resumo' && !digitando()) desenhar();
     } catch { /* ignora */ }
   });
   document.addEventListener('piloto:radar', (ev) => {
@@ -319,7 +319,8 @@
     const cof = PIH.cofre?.resumo?.();
     if (!cof) return;
     const livre = PIH.cofre?.livre ? Math.max(0, Math.floor(Number(PIH.cofre.livre('mercado')) || 0)) : null;
-    const d = JSON.stringify({ ouroH: Number(cof.ouroH) || 0, teto: Number(cof.teto) || 0, livre });
+    // 1.13: o modo vai junto — a tela do Radar (outro mundo) se desenha diferente em cada um.
+    const d = JSON.stringify({ ouroH: Number(cof.ouroH) || 0, teto: Number(cof.teto) || 0, livre, modo: modoAtual() });
     if (!forcar && d === contextoPublicado) return;
     contextoPublicado = d;
     document.dispatchEvent(new CustomEvent('piloto:contexto', { detail: d }));
@@ -329,7 +330,7 @@
     publicarContexto(true);
     // O modo é quem manda: no Automático, o Radar volta ao perfil automático a cada carga da página
     // (antes, 3 falhas desligavam a compra dele e ela ficava desligada com o Piloto em Automático).
-    if (modoAtual() === 'automatico') document.dispatchEvent(new CustomEvent('piloto:modo', { detail: JSON.stringify({ modo: 'automatico' }) }));
+    if (modoAtual() === 'automatico') document.dispatchEvent(new CustomEvent('piloto:modo', { detail: JSON.stringify({ modo: 'automatico', recarga: true }) }));
     // 1.10, uma vez: quem já estava no Automático passa a vender o Depot sozinho (pedido do André).
     if (modoAtual() === 'automatico' && !lerJson('piloto:migr:depot110', false)) {
       gravarJson('piloto:migr:depot110', true);
@@ -341,69 +342,89 @@
     if (modoAtual() === 'automatico') { gravarJson(CHAVE_MODO, 'manual'); pintarBarra(); }
   });
 
-  // ---- o painel ------------------------------------------------------------------------
+  // ---- o painel (1.13): a janela do PRÓPRIO jogo -----------------------------------------------
+  // Moldura .modal-caixa, menu e linhas da janela Configurações (.cfg-*), botões e interruptores
+  // do estilo.css do jogo: se o jogo mudar o visual, o Piloto muda junto. Cada aba se desenha em
+  // três jeitos: Off (tudo travado e cinza), Auto (só os interruptores e o que está acontecendo) e
+  // Manual (os interruptores e todos os ajustes de cada um).
   const ABAS = [
-    ['resumo', 'Resumo', 'resumo'], ['hunts', 'Caçar', 'cacar'], ['meta', 'Nível', 'nivel'], ['auto', 'Auto', 'auto'],
-    ['rotina', 'Rotina', 'rotina'], ['mercado', 'Mercado', 'mercado'], ['cofre', 'Cofre', 'cofre'],
+    ['resumo', 'Resumo', 'resumo', 'Como está a conta agora'],
+    ['hunts', 'Caçar', 'cacar', 'Troca de hunt, reposição e onde render mais'],
+    ['meta', 'Nível', 'nivel', 'Quanto falta e quando chega'],
+    ['rotina', 'Rotina', 'rotina', 'Passe, PvP, XP Share, Depot e o resto'],
+    ['mercado', 'Mercado', 'mercado', 'O Radar: compra, sorteios e revenda'],
+    ['cofre', 'Cofre', 'cofre', 'Quanto pode gastar, e onde gastou'],
+  ];
+  if (prefs.aba === 'auto') prefs.aba = 'hunts'; // a aba "Auto" virou parte de Caçar
+  const MODOS = [
+    ['desligado', 'Off', 'fechar', 'Desligado: nada automático roda, nem a compra do Radar'],
+    ['manual', 'Manual', 'escudo', 'Manual: você liga e ajusta cada automação'],
+    ['automatico', 'Auto', 'leme', 'Automático: o Piloto lê a conta e calcula tudo; você só liga e desliga'],
   ];
   let painel = null;
   let mostrando = POR_PAGINA;
   let assinatura = '';
   let relogio = 0;
-  const inicioSessao = Date.now();
+  const abertas = new Set(); // linhas com a explicação ("?") aberta
+  const layoutDo = (modo) => (modo === 'manual' ? 'manual' : modo === 'desligado' ? 'desligado' : 'automatico');
 
   function alternarPainel() {
     if (painel) return fecharPainel();
     painel = document.createElement('div');
-    painel.className = 'plt-painel';
+    painel.className = 'plt-janela modal-caixa';
     painel.setAttribute('role', 'dialog');
     painel.setAttribute('aria-label', 'Piloto');
     painel.innerHTML = `
-      <header class="plt-cab">
-        <span class="plt-titulo">${ico('leme')}Piloto</span>
-        <span class="plt-sub" data-sub></span>
-        <div class="plt-modo" role="group" aria-label="Modo do Piloto">
-          <button type="button" data-modo="desligado" title="Desligado: nada automático sai, nem a compra do Radar">${ico('fechar')}<span>Off</span></button>
-          <button type="button" data-modo="manual" title="Manual: só o que você ligar em cada aba; o Radar só avisa">${ico('escudo')}<span>Manual</span></button>
-          <button type="button" data-modo="automatico" title="Automático: troca de hunt, reposição, Passe, XP Share, Outland, PvP e o Radar comprando e revendendo em ouro, dentro do cofre">${ico('leme')}<span>Auto</span></button>
+      <div class="modal-topo plt-topo">
+        <div class="modal-topo-esq">
+          <h2 class="plt-h2">${ico('leme', 'plt-h2-ico')}Piloto</h2>
+          <span class="plt-sub" data-sub></span>
         </div>
-        <button type="button" class="plt-fechar plt-tema" data-acao="tema"></button>
-        <button type="button" class="plt-fechar" data-acao="fechar" aria-label="Fechar (Esc)" title="Fechar (Esc)">${ico('fechar')}</button>
-      </header>
-      <div class="plt-corpo">
-        <nav class="plt-nav" aria-label="Seções">${ABAS.map(([k, r, i]) => `<button type="button" data-aba="${k}" title="${r}">${ico(i)}<span>${r}</span><b data-n="${k}" hidden></b></button>`).join('')}
-          ${PIH.idioma ? PIH.idioma.bandeiras() : ''}
-          <a class="plt-assinatura" href="https://github.com/DredsGG" target="_blank" rel="noopener noreferrer" title="Abrir o GitHub do Dreds" aria-label="Feito por Dreds: abrir o GitHub"><i class="plt-rebite" aria-hidden="true"></i><small>feito por</small><b>Dreds</b><em data-versao></em><i class="plt-rebite" aria-hidden="true"></i></a>
-        </nav>
-        <section class="plt-conteudo" data-conteudo></section>
+        <div class="cfg-escala plt-modos" role="radiogroup" aria-label="Modo do Piloto">
+          ${MODOS.map(([k, r, i, d]) => `<button type="button" class="cfg-escala-bt plt-modo-bt" role="radio" data-modo="${k}" title="${d}">${ico(i)}<span>${r}</span></button>`).join('')}
+        </div>
+        <div class="modal-acoes">
+          <button type="button" class="plt-tema" data-acao="tema"></button>
+          <button type="button" data-acao="fechar" aria-label="Fechar (Esc)" title="Fechar (Esc)">×</button>
+        </div>
+      </div>
+      <div class="modal-corpo plt-modal-corpo">
+        <div class="cfg-corpo">
+          <div class="cfg-layout">
+            <nav class="cfg-cats plt-cats" role="tablist" aria-label="Seções">
+              ${ABAS.map(([k, r, i]) => `<button type="button" class="cfg-cat" role="tab" data-aba="${k}"><span class="cfg-cat-ico">${ico(i, 'dlg-svg')}</span><span class="cfg-cat-rot">${r}</span><b class="plt-cat-n" data-n="${k}" hidden></b></button>`).join('')}
+              <span class="plt-cats-fim"></span>
+              ${PIH.idioma ? PIH.idioma.bandeiras() : ''}
+              <a class="plt-assinatura" href="https://github.com/DredsGG" target="_blank" rel="noopener noreferrer" title="Abrir o GitHub do Dreds" aria-label="Feito por Dreds: abrir o GitHub"><i class="plt-rebite" aria-hidden="true"></i><small>feito por</small><b>Dreds</b><em data-versao></em><i class="plt-rebite" aria-hidden="true"></i></a>
+            </nav>
+            <div class="cfg-paineis">
+              <section class="cfg-painel plt-aba" role="tabpanel">
+                <header class="cfg-cab"><span class="cfg-cab-ico" data-cab-ico></span><h3 data-titulo></h3><span class="plt-cab-modo" data-cab-modo></span></header>
+                <div class="cfg-linhas plt-corpo-aba" data-conteudo></div>
+              </section>
+            </div>
+          </div>
+        </div>
       </div>`;
     document.body.append(painel);
-    painel.querySelector('[data-acao="fechar"]').addEventListener('click', fecharPainel);
+    painel.addEventListener('click', aoClicarNoPainel);
+    painel.addEventListener('change', aoMudarNoPainel);
+    painel.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches('input')) ev.target.blur(); });
     pintarBotaoTema();
-    painel.querySelector('[data-acao="tema"]').addEventListener('click', () => { definirTema(temaAtual() === 'claro' ? 'escuro' : 'claro'); pintarBotaoTema(); });
-    for (const b of painel.querySelectorAll('[data-modo]')) b.addEventListener('click', () => { definirModo(b.dataset.modo); desenhar(); });
-    for (const b of painel.querySelectorAll('[data-idioma]')) b.addEventListener('click', () => {
-      PIH.idioma?.definir(b.dataset.idioma);
-      for (const x of painel.querySelectorAll('[data-idioma]')) x.setAttribute('aria-pressed', String(x === b));
-      desenhar();
-    });
-    for (const b of painel.querySelectorAll('.plt-nav [data-aba]')) {
-      b.addEventListener('click', () => { prefs.aba = b.dataset.aba; gravarJson(CHAVE_PREFS, prefs); mostrando = POR_PAGINA; desenhar(); });
-    }
     pintarMoldura();
     posicionarPainel();
     desenhar();
     addEventListener('keydown', aoTeclar, true);
     setTimeout(() => addEventListener('pointerdown', aoClicarFora, true));
-    // Tempo real (1.12.2): Resumo, Cofre, Automação e Rotina conferem a cada 1 s e só trocam o
-    // que mudou (sem piscar); Nível refaz a cada 10 s. Não refaz enquanto você digita num campo
-    // (antes, qualquer clique num botão do painel travava a atualização até clicar fora).
+    // Tempo real: as abas conferem a cada 1 s e só trocam o que mudou (sem piscar). Nível refaz a
+    // cada 10 s. Não refaz enquanto você digita num campo.
     let voltas = 0;
     relogio = setInterval(() => {
       if (!painel || digitando()) return;
       voltas++;
-      if (['resumo', 'auto', 'rotina', 'cofre'].includes(prefs.aba)) desenhar();
+      if (['resumo', 'hunts', 'rotina', 'cofre'].includes(prefs.aba)) desenhar();
       else if (prefs.aba === 'meta' && voltas % 10 === 0) desenhar();
+      else pintarMoldura();
     }, 1_000);
   }
   function fecharPainel() {
@@ -412,6 +433,7 @@
     painel?.remove();
     painel = null;
     assinatura = '';
+    ultimoHtml = '';
     removeEventListener('keydown', aoTeclar, true);
     removeEventListener('pointerdown', aoClicarFora, true);
   }
@@ -421,10 +443,67 @@
     if (painel && !caminho.includes(painel) && !caminho.includes(botao)) fecharPainel();
   };
 
+  // ---- todos os cliques e mudanças do painel passam aqui (um ouvinte só, não se perde ao repintar)
+  function rotear(alvo, valor) {
+    const i = alvo.indexOf(':');
+    const mod = alvo.slice(0, i);
+    const caminho = alvo.slice(i + 1);
+    if (mod === 'ui') { prefs[caminho] = valor; gravarJson(CHAVE_PREFS, prefs); }
+    else if (mod === 'auto') PIH.auto?.definir?.(caminho, valor);
+    else if (mod === 'rotina') PIH.rotina?.definir?.(caminho, valor);
+    else if (mod === 'cofre') PIH.cofre?.definir?.(caminho, valor);
+    else if (mod === 'captura') PIH.captura?.definir?.(caminho, valor);
+    ultimoHtml = '';
+    desenhar();
+  }
+  function aoClicarNoPainel(ev) {
+    const t = ev.target.closest('button, a');
+    if (!t || !painel.contains(t)) return;
+    if (t.disabled) return;
+    if (t.matches('.plt-modo-bt[data-modo]')) { definirModo(t.dataset.modo); ultimoHtml = ''; desenhar(); return; }
+    if (t.matches('.cfg-cat[data-aba]')) { prefs.aba = t.dataset.aba; gravarJson(CHAVE_PREFS, prefs); mostrando = POR_PAGINA; ultimoHtml = ''; desenhar(); return; }
+    if (t.matches('[data-idioma]')) {
+      PIH.idioma?.definir(t.dataset.idioma);
+      for (const x of painel.querySelectorAll('[data-idioma]')) x.setAttribute('aria-pressed', String(x === t));
+      ultimoHtml = ''; desenhar();
+      return;
+    }
+    if (t.matches('.cfg-ajuda')) {
+      const l = t.closest('.cfg-linha');
+      if (!l) return;
+      const aberta = !l.classList.contains('aberta');
+      l.classList.toggle('aberta', aberta);
+      t.setAttribute('aria-expanded', String(aberta));
+      if (aberta) abertas.add(l.dataset.linha); else abertas.delete(l.dataset.linha);
+      return;
+    }
+    if (t.matches('.cfg-toggle[data-alternar]')) { rotear(t.dataset.alternar, !t.classList.contains('on')); return; }
+    if (t.matches('.cfg-escala-bt[data-escolha]')) { rotear(t.dataset.escolha, t.dataset.valor); return; }
+    const acao = t.dataset.acao;
+    if (!acao) return;
+    if (acao === 'fechar') fecharPainel();
+    else if (acao === 'tema') { definirTema(temaAtual() === 'claro' ? 'escuro' : 'claro'); pintarBotaoTema(); }
+    else if (acao === 'mais') { mostrando += POR_PAGINA; ultimoHtml = ''; desenhar(); }
+    else if (acao.startsWith('religar:')) { PIH.cofre?.religar?.(acao.slice(8)); ultimoHtml = ''; desenhar(); }
+    else if (PIH.auto?.acoes?.[acao]) Promise.resolve(PIH.auto.acoes[acao]()).finally(() => { ultimoHtml = ''; desenhar(); });
+  }
+  function aoMudarNoPainel(ev) {
+    const el = ev.target;
+    if (!el.matches('[data-definir]') || el.disabled) return;
+    let v = el.value;
+    if (el.type === 'number') {
+      // vazio ou inválido não vira 0; vale o mínimo e o máximo do campo
+      const n = el.value.trim() === '' ? NaN : Number(el.value);
+      if (!Number.isFinite(n)) { ultimoHtml = ''; desenhar(); return; }
+      v = Math.max(el.min !== '' ? Number(el.min) : -Infinity, el.max !== '' ? Math.min(Number(el.max), n) : n);
+    }
+    rotear(el.dataset.definir, v);
+  }
+
   function posicionarPainel() {
     if (!painel) return;
     const base = document.getElementById('p-ativo')?.getBoundingClientRect() ?? botao.getBoundingClientRect();
-    const larg = painel.offsetWidth || 760;
+    const larg = painel.offsetWidth || 900;
     let left = base.right + 10;
     let top = Math.max(8, base.top - 40);
     if (left + larg > innerWidth - 8) {
@@ -437,26 +516,43 @@
     painel.style.top = `${top}px`;
   }
 
-  /** O cabeçalho e o menu: quem está em campo, onde, o interruptor geral e os números das abas. */
+  /** O topo e o menu: quem está em campo, o modo, a aba e os números das abas. */
   function pintarMoldura() {
     if (!painel) return;
     const pk = pkAtivo();
     const h = (welcome?.hunts ?? []).find((x) => x.slug === eu?.huntSlug);
     const sub = painel.querySelector('[data-sub]');
-    if (sub) {
-      sub.textContent = pk
-        ? `${pk.nome}, Nv ${num(pk.level ?? 1)}${h ? ` em ${h.nome}` : eu?.noCentro ? ' no Centro' : ''}`
-        : 'nenhum pokémon em campo';
-    }
+    const txt = pk ? `${pk.nome}, Nv ${num(pk.level ?? 1)}${h ? ` em ${h.nome}` : eu?.noCentro ? ' no Centro' : ''}` : 'nenhum pokémon em campo';
+    if (sub && sub.textContent !== txt) sub.textContent = txt;
     const cof = PIH.cofre?.resumo?.();
     const modo = modoAtual();
-    for (const b of painel.querySelectorAll('[data-modo]')) b.setAttribute('aria-pressed', String(b.dataset.modo === modo));
-    painel.classList.toggle('plt-desligado', !cof?.ligado);
-    for (const b of painel.querySelectorAll('.plt-nav [data-aba]')) b.setAttribute('aria-current', String(b.dataset.aba === prefs.aba));
+    if (painel.dataset.modo !== modo) painel.dataset.modo = modo;
+    for (const b of painel.querySelectorAll('.plt-modo-bt[data-modo]')) {
+      const on = b.dataset.modo === modo;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', String(on));
+    }
+    for (const b of painel.querySelectorAll('.cfg-cat[data-aba]')) {
+      const on = b.dataset.aba === prefs.aba;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', String(on));
+    }
     const n = painel.querySelector('[data-n="mercado"]');
     if (n) { n.hidden = !(radar?.avisos > 0); n.textContent = radar?.avisos ?? ''; }
     const nc = painel.querySelector('[data-n="cofre"]');
     if (nc) { const d = cof?.desligados?.length ?? 0; nc.hidden = !d; nc.textContent = d ? '!' : ''; }
+    const v = document.documentElement.dataset.pilotoVersao;
+    const campoV = painel.querySelector('[data-versao]');
+    if (v && campoV && !campoV.textContent) { campoV.textContent = `v${v}`; campoV.closest('a').title = `PokeIdle Piloto v${v} · abrir o GitHub do Dreds`; }
+  }
+  function pintarCabecalho(aba) {
+    const def = ABAS.find(([k]) => k === aba) ?? ABAS[0];
+    const t = painel.querySelector('[data-titulo]');
+    if (t.textContent !== def[1]) { t.textContent = def[1]; painel.querySelector('[data-cab-ico]').innerHTML = ico(def[2], 'dlg-svg'); }
+    const modo = modoAtual();
+    const txt = { desligado: 'Off · tudo parado', manual: 'Manual · você ajusta', automatico: 'Auto · o Piloto calcula' }[modo];
+    const m = painel.querySelector('[data-cab-modo]');
+    if (m.textContent !== txt) { m.textContent = txt; m.dataset.modo = modo; }
   }
 
   // ---- Mercado: o painel do Radar encaixado aqui --------------------------------------------
@@ -466,6 +562,7 @@
       alvo.innerHTML = '<div id="piloto-slot-mercado" class="plt-slot"><div class="pih-carga">Abrindo o Radar…</div></div>';
     }
     mercadoMontado = true;
+    publicarContexto(true); // o modo chega antes: o Radar já se desenha no jeito certo
     document.dispatchEvent(new CustomEvent('piloto:mercado-montar', { detail: '{}' }));
   }
   function soltarMercado() {
@@ -474,14 +571,10 @@
     document.dispatchEvent(new CustomEvent('piloto:mercado-soltar', { detail: '{}' }));
   }
 
+  // ---- Off: um aviso no topo de cada aba ---------------------------------------------------------
+  const avisoOff = () => K.linha({ id: 'off', icone: 'fechar', nome: 'Piloto desligado', classe: 'plt-l-off', status: 'Nada automático roda. Escolha Manual ou Auto lá em cima para mexer.' });
+
   // ---- Resumo: a conta inteira numa tela -----------------------------------------------------
-  const PILULA = { on: 'ON', pausa: 'PAUSA', erro: 'ERRO', '': 'OFF' };
-  function frente(estado, icone, nome, detalhe) {
-    return `<li class="plt-frente" data-estado="${estado}" title="${esc(detalhe)}">${ico(icone)}<b>${esc(nome)}</b><i class="plt-pill">${PILULA[estado] ?? 'OFF'}</i><span>${esc(detalhe)}</span></li>`;
-  }
-  function kpi(classe, icone, rotulo, valor, sub, pct = null) {
-    return `<div class="plt-kpi ${classe}">${ico(icone)}<small>${rotulo}</small><strong>${valor}</strong><em>${sub}</em>${pct == null ? '' : `<div class="plt-barrinha"><span style="width:${Math.round(Math.min(1, pct) * 100)}%"></span></div>`}</div>`;
-  }
   function blocoResumo() {
     const pk = pkAtivo();
     const N = PIH.nivel;
@@ -496,11 +589,11 @@
     const xpPk = medido?.pokemon ?? null;
     const proxPk = pk && N ? N.xpTotal((pk.level ?? 1) + 1) - (pk.xp ?? 0) : null;
     const etaPk = xpPk > 0 && proxPk > 0 ? duracao((proxPk / xpPk) * 3_600_000) : '—';
-    const numeros = `<div class="plt-kpis" title="${medido ? `Medido nos últimos ${medido.minutos} min de caça contínua` : 'Aparece depois de 5 min caçando com a aba aberta'}">
-        ${kpi('k-xp', 'xp', 'XP/h treinador', xpTr != null ? curto(xpTr) : '—', `Nv +1 em ${etaTr}`)}
-        ${kpi('k-xp', 'nivel', `XP/h ${pk ? esc(pk.nome) : 'pokémon'}`, xpPk != null ? curto(xpPk) : '—', `Nv +1 em ${etaPk}`)}
-        ${kpi('k-ouro', 'ouro', 'Ouro/h', medido ? curto(medido.ouro) : '—', `saldo ${eu ? curto(Number(eu.gold) || 0) : '—'}`)}
-        ${kpi('k-gasto', 'gasto', 'Gasto hoje', cof ? curto(cof.gasto) : '—', `teto ${cof ? curto(cof.teto) : '—'}`, cof && cof.teto > 0 ? cof.gasto / cof.teto : 0)}
+    const numeros = `<div class="plt-ks" title="${medido ? `Medido nos últimos ${medido.minutos} min de caça contínua` : 'Aparece depois de 5 min caçando com a aba aberta'}">
+        ${K.numeroGrande({ icone: 'xp', rotulo: 'XP/h treinador', valor: xpTr != null ? curto(xpTr) : '—', sub: `Nv +1 em ${etaTr}`, classe: 'k-xp' })}
+        ${K.numeroGrande({ icone: 'nivel', rotulo: `XP/h ${pk ? esc(pk.nome) : 'pokémon'}`, valor: xpPk != null ? curto(xpPk) : '—', sub: `Nv +1 em ${etaPk}`, classe: 'k-xp' })}
+        ${K.numeroGrande({ icone: 'ouro', rotulo: 'Ouro/h', valor: medido ? curto(medido.ouro) : '—', sub: `saldo ${eu ? curto(Number(eu.gold) || 0) : '—'}`, classe: 'k-ouro' })}
+        ${K.numeroGrande({ icone: 'gasto', rotulo: 'Gasto hoje', valor: cof ? curto(cof.gasto) : '—', sub: `teto ${cof ? curto(cof.teto) : '—'}`, classe: 'k-gasto', pct: cof && cof.teto > 0 ? cof.gasto / cof.teto : 0 })}
       </div>`;
 
     const itens = PIH.auto ? PIH.auto._interno.itensVigiados() : [];
@@ -508,34 +601,30 @@
     const prox = a?.hunt.ligado && PIH.auto.proximaAnalise ? Math.max(0, PIH.auto.proximaAnalise() - Date.now()) : null;
     const rot = rotinaLigadas();
     const pvpLig = rot.includes('PvP');
-    const frentes = `<ul class="plt-frentes">
-        ${frente(f.hunt && a?.hunt.ligado ? f.hunt : '', 'cacar', 'Troca de hunt', a?.hunt.ligado ? `${a.hunt.criterio === 'ouro' ? 'Ouro/h' : 'XP/h'} · análise ${prox == null ? 'agora' : `em ${duracao(prox)}`}` : 'desligada')}
-        ${frente(f.hunt && a?.repor.ligado ? (baixos.length ? 'pausa' : 'on') : '', 'repor', 'Reposição', a?.repor.ligado ? (itens.length ? (baixos.length ? `baixo: ${baixos.map((x) => x.nome).join(', ')}` : `${itens.length} itens em dia`) : 'marque bolas e poções no jogo') : 'desligada')}
-        ${frente(f.rotina, 'rotina', 'Rotina', rot.filter((x) => x !== 'PvP').join(', ') || 'nada ligado')}
-        ${frente(f.rotina && pvpLig ? f.rotina : '', 'pvp', 'PvP', pvpLig ? 'equipe por Poder · fila' : 'desligado')}
-        ${frente(f.radar, 'radar', 'Radar', radar ? `${radar.texto}${radar.avisos ? ` · ${radar.avisos} aviso${radar.avisos > 1 ? 's' : ''}` : ''}${radar.auto ? ` · comprou ${curto(radar.gastoAutoHoje ?? 0)} hoje` : ''}` : 'esperando')}
-        ${frente(cof?.ligado ? (cof.desligados.length ? 'erro' : 'on') : '', 'cofre', 'Cofre', cof ? `reserva ${curto(cof.reserva)}${cof.pendente ? ` · ${curto(cof.pendente)} em uso` : ''}${cof.desligados.length ? ` · disjuntor: ${cof.desligados.join(', ')}` : ''}` : '—')}
-      </ul>`;
+    const fr = (estado, icone, nome, status) => K.linha({ id: `res:${nome}`, icone, nome, status, direita: K.pilula(estado), classe: estado === 'on' ? 'plt-l-on' : '' });
+    const frentes = [
+      fr(f.hunt && a?.hunt.ligado ? f.hunt : '', 'cacar', 'Troca de hunt', a?.hunt.ligado ? `${a.hunt.criterio === 'ouro' ? 'Ouro/h' : 'XP/h'} · análise ${prox == null ? 'agora' : `em ${duracao(prox)}`}` : 'desligada'),
+      fr(f.hunt && a?.repor.ligado ? (baixos.length ? 'pausa' : 'on') : '', 'repor', 'Reposição', a?.repor.ligado ? (itens.length ? (baixos.length ? `baixo: ${baixos.map((x) => x.nome).join(', ')}` : `${itens.length} itens em dia`) : 'marque bolas e poções no jogo') : 'desligada'),
+      fr(f.rotina, 'rotina', 'Rotina', rot.filter((x) => x !== 'PvP').join(', ') || 'nada ligado'),
+      ...(PIH.captura ? [(() => { const c = PIH.captura.resumo(); return fr(cof?.ligado && c.ligado && !c.vip ? 'on' : '', 'bola', 'Pokébola automática', PIH.captura.status()); })()] : []),
+      fr(f.rotina && pvpLig ? f.rotina : '', 'pvp', 'PvP', pvpLig ? 'equipe por Poder · fila' : 'desligado'),
+      fr(f.radar, 'radar', 'Radar', radar ? `${radar.texto}${radar.avisos ? ` · ${radar.avisos} aviso${radar.avisos > 1 ? 's' : ''}` : ''}${radar.auto ? ` · comprou ${curto(radar.gastoAutoHoje ?? 0)} hoje` : ''}` : 'esperando'),
+      fr(cof?.ligado ? (cof.desligados.length ? 'erro' : 'on') : '', 'cofre', 'Cofre', cof ? `reserva ${curto(cof.reserva)}${cof.pendente ? ` · ${curto(cof.pendente)} em uso` : ''}${cof.desligados.length ? ` · disjuntor: ${cof.desligados.join(', ')}` : ''}` : '—'),
+    ].join('');
 
     const hora = (t) => new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const eventos = [...(PIH.cofre?.ultimos?.(8) ?? []), ...(PIH.auto?.diario?.() ?? []).slice(0, 8), ...diarioRadar.slice(0, 8)]
       .sort((x, y) => y.t - x.t).slice(0, 8);
-    const ultimos = `<ol class="plt-ultimos">${eventos.length
+    const ultimos = `<ul class="plt-diario">${eventos.length
       ? eventos.map((d) => `<li class="pih-d-${d.tipo}"><time>${hora(d.t)}</time>${esc(d.txt.replace(/^rotina: /, ''))}</li>`).join('')
-      : '<li class="pih-dim">Nada ainda.</li>'}</ol>`;
-
-    const modo = { desligado: 'Off', manual: 'Manual', automatico: 'Auto' }[modoAtual()];
-    return `<div class="plt-resumo">
-        ${numeros}
-        <div class="plt-secao">Automações · ${modo}</div>${frentes}
-        <div class="plt-secao">Últimas ações</div>${ultimos}
-      </div>`;
+      : '<li class="pih-dim">Nada ainda.</li>'}</ul>`;
+    return `${numeros}${K.grupo('Automações')}${frentes}${K.grupo('Últimas ações')}${ultimos}`;
   }
 
   function blocoStats(pk) {
     if (!pk?.stats) return '';
     const rot = [['hp', 'HP'], ['atk', 'ATK'], ['def', 'DEF'], ['spAtk', 'SP.ATK'], ['spDef', 'SP.DEF'], ['speed', 'SPD']];
-    return `<div class="pih-vao pih-stats">${rot.map(([k, r]) => `
+    return `<div class="plt-caixa pih-stats">${rot.map(([k, r]) => `
       <div class="pih-stat"><b>${r}</b><span>${num(pk.stats[k] ?? 0)}</span>${pk.ivs?.[k] != null ? `<i>IV ${pk.ivs[k]}</i>` : ''}</div>`).join('')}
     </div>`;
   }
@@ -547,7 +636,7 @@
     const fmt = (i) => `${esc(i.nome)} ${i.mult >= 2 ? x(i.mult) : `+${(Math.round((i.mult - 1) * 1000) / 10).toString().replace('.', ',')}%`}`;
     const lista = b.itens.length ? b.itens.map(fmt).join(' · ') : 'nenhum bônus ativo';
     const iguais = Math.abs(b.pokemon - b.treinador) < 1e-6;
-    return `<div class="pih-vao pih-bonus" title="Os bônus se multiplicam entre si (Pokepédia → Níveis e XP)">
+    return `<div class="plt-caixa pih-bonus" title="Os bônus se multiplicam entre si (Pokepédia → Níveis e XP)">
       <b>Bônus de XP:</b> ${lista}
       <span class="pih-bonus-total">${iguais ? x(b.pokemon) : `pokémon ${x(b.pokemon)} · treinador ${x(b.treinador)}`}</span>
     </div>`;
@@ -599,7 +688,7 @@
   }
 
   /** Resolve de onde vem o XP/h: medido de verdade ou o modelo de uma hunt da lista. */
-  function fonteDoRitmo(r, pk) {
+  function fonteDoRitmo(r, pk, manual) {
     const N = PIH.nivel;
     const viaveis = r.linhas.filter((l) => !l.inviavel);
     const medido = N.ritmoMedido(pk.id);
@@ -610,7 +699,7 @@
     const lista = viaveis.slice(0, 15);
     if (linhaAtual && !lista.includes(linhaAtual)) lista.unshift(linhaAtual);
     for (const l of lista) opcoes.push({ v: `hunt:${l.slug}`, rotulo: `${l.nome} · Nv ${num(l.nivel)} (modelo${l === linhaAtual ? ', onde você está' : ''})` });
-    let escolha = prefs.fonte;
+    let escolha = manual ? prefs.fonte : 'auto';
     if (escolha === 'medido' && !medido) escolha = 'auto';
     if (escolha.startsWith('hunt:') && !viaveis.some((l) => `hunt:${l.slug}` === escolha)) escolha = 'auto';
     let efetiva = escolha;
@@ -637,7 +726,7 @@
     return { opcoes, escolha, fonte };
   }
 
-  function cartaoMeta({ titulo, chave, nivel, xp, meta, base, multEm, cortes, fracao, extra = '' }) {
+  function cartaoMeta({ titulo, chave, nivel, xp, meta, base, multEm, cortes, fracao, extra = '', manual }) {
     const N = PIH.nivel;
     const agora = Date.now();
     const lista = N.marcos(nivel, meta);
@@ -651,10 +740,10 @@
       return `<tr><td>Nv ${num(L)}</td><td>${curto(N.xpTotal(L) - N.xpTotal(L - 1))}</td>
         <td>${p ? duracao(p.ms) : '—'}</td><td>${p ? quando(p.em) : '—'}</td></tr>`;
     }).join('');
-    return `<div class="pih-vao pih-meta-card">
+    return `<div class="plt-caixa pih-meta-card">
       <div class="pih-meta-top">
         <b>${titulo}</b> <span class="pih-dim">Nv ${num(nivel)}</span>
-        <label class="pih-meta-alvo">meta Nv <input type="number" min="${nivel + 1}" step="1" value="${meta}" data-meta="${chave}"></label>
+        ${manual ? `<label class="plt-f plt-f-linha"><small>meta</small>${K.numero(`ui:${chave}`, meta, nivel + 1, null, 1)}</label>` : `<span class="pih-dim">meta Nv ${num(meta)}</span>`}
       </div>
       ${meta > nivel ? `
       <div class="pih-meta-num">
@@ -663,27 +752,27 @@
         <div><small>chega</small><strong>${fim ? quando(fim.em) : '—'}</strong></div>
       </div>
       <div class="pih-meta-sub">próximo nível (${num(nivel + 1)}) em <b>${prox ? duracao(prox.ms) : '—'}</b>${extra}</div>
-      <table class="pih-tab pih-meta-tab"><thead><tr><th>Nível</th><th>XP do nível</th><th>Em</th><th>Quando</th></tr></thead>
-        <tbody>${linhas}</tbody></table>` : '<div class="pih-meta-sub">Escolha uma meta acima do nível atual.</div>'}
+      ${manual ? `<table class="plt-tab pih-meta-tab"><thead><tr><th>Nível</th><th>XP do nível</th><th>Em</th><th>Quando</th></tr></thead>
+        <tbody>${linhas}</tbody></table>` : ''}` : '<div class="pih-meta-sub">Escolha uma meta acima do nível atual.</div>'}
     </div>`;
   }
 
-  function blocoMeta(r, ctx) {
+  function blocoMeta(r, ctx, manual) {
     const e = eu;
     const pk = pkAtivo();
     if (!PIH.nivel || !e || !pk) return '<div class="pih-erro">Sem dados de nível ainda.</div>';
-    const { opcoes, escolha, fonte } = fonteDoRitmo(r, pk);
+    const { opcoes, escolha, fonte } = fonteDoRitmo(r, pk, manual);
     if (!fonte) return '<div class="pih-erro">Nenhuma hunt viável para estimar o ritmo.</div>';
     const bonus = PIH.engine._interno.bonusXp;
     const cortes = cortesDeBonus(e);
-    const fracao = Math.min(24, Math.max(0.5, Number(prefs.horasDia) || 24)) / 24;
+    const fracao = manual ? Math.min(24, Math.max(0.5, Number(prefs.horasDia) || 24)) / 24 : 1;
     const ab = aberturas(e.level);
-    const metaTr = Math.max(e.level + 1, Math.round(Number(prefs.metaTr)) || (ab[0]?.nivel ?? Math.ceil((e.level + 1) / 100) * 100));
-    const metaPk = Math.max(pk.level + 1, Math.round(Number(prefs.metaPk)) || Math.max(pk.level + 1, metaTr));
+    const autoTr = ab[0]?.nivel ?? Math.ceil((e.level + 1) / 100) * 100;
+    const metaTr = manual ? Math.max(e.level + 1, Math.round(Number(prefs.metaTr)) || autoTr) : Math.max(e.level + 1, autoTr);
+    const metaPk = manual ? Math.max(pk.level + 1, Math.round(Number(prefs.metaPk)) || Math.max(pk.level + 1, metaTr)) : Math.max(pk.level + 1, Math.min(metaTr + 5, Math.ceil((pk.level + 1) / 100) * 100));
     const multTr = (t) => bonus(e, ctx, t).treinador;
     const multPk = (t) => bonus(e, ctx, t).pokemon;
 
-    // As próximas hunts que abrem, com quando chegam, na linha do treinador.
     const abre = ab.slice(0, 3);
     const projAbre = PIH.nivel.projetar({ base: fonte.trBase, multEm: multTr, cortes, fracao, alvos: abre.map((a) => PIH.nivel.xpTotal(a.nivel) - e.xp) });
     const extraTr = abre.length
@@ -693,40 +782,30 @@
       ? '<br><span class="pih-alerta">⚠ o pokémon só entra em campo até o nível do treinador + 5</span>'
       : (fonte.pkModelo ? '<br><span class="pih-dim">ritmo do pokémon pelo modelo da hunt (ainda sem 5 min medidos com ele)</span>' : '');
 
-    const horizonte = Date.now() + 30 * 86_400_000;
-    const venc = vencimentos(e, horizonte);
+    const venc = vencimentos(e, Date.now() + 30 * 86_400_000);
     const avisoVenc = venc.length
-      ? `<div class="pih-meta-sub">Já na conta: ${venc.map((v) => `<b>${esc(v.nome)}</b> (${v.quem}) acaba em ${duracao(v.t - Date.now())}`).join(' · ')}.
-         Agora: treinador ${xV(r.bonusXp.treinador)} · pokémon ${xV(r.bonusXp.pokemon)}.</div>`
+      ? `<div class="pih-meta-sub">Já na conta: ${venc.map((v) => `<b>${esc(v.nome)}</b> (${v.quem}) acaba em ${duracao(v.t - Date.now())}`).join(' · ')}.</div>`
       : '';
-
-    return `<div class="pih-ctrl pih-meta-ctrl">
-        <label>ritmo <select data-fonte>${opcoes.map((o) => `<option value="${esc(o.v)}" ${o.v === escolha ? 'selected' : ''}>${esc(o.rotulo)}</option>`).join('')}</select></label>
-        <label title="Os bônus vencem no relógio, cace ou não">caço <input type="number" min="0.5" max="24" step="0.5" value="${Math.round(fracao * 48) / 2}" data-horas> h/dia</label>
-      </div>
+    const controles = manual ? `<div class="plt-caixa plt-ajustes plt-ajustes-solto">
+        ${K.fcampo('Ritmo', K.selecao('ui:fonte', escolha, opcoes.map((o) => [o.v, esc(o.rotulo)])))}
+        ${K.fcampo('Caço (h/dia)', K.numero('ui:horasDia', Math.round(fracao * 48) / 2, 0.5, 24, 0.5), 'Os bônus vencem no relógio, cace ou não')}
+      </div>` : '';
+    return `${controles}
       <div class="pih-meta-sub pih-meta-fonte">XP/h agora: <b>${curto(fonte.trBase * r.bonusXp.treinador)}</b> do treinador · <b>${curto(fonte.pkBase * r.bonusXp.pokemon)}</b> do pokémon — ${esc(fonte.texto)}.</div>
       ${avisoVenc}
       <div class="pih-meta-grid">
-        ${cartaoMeta({ titulo: 'Treinador', chave: 'metaTr', nivel: e.level, xp: e.xp, meta: metaTr, base: fonte.trBase, multEm: multTr, cortes, fracao, extra: extraTr })}
-        ${cartaoMeta({ titulo: esc(pk.nome), chave: 'metaPk', nivel: pk.level, xp: pk.xp, meta: metaPk, base: fonte.pkBase, multEm: multPk, cortes, fracao, extra: extraPk })}
+        ${cartaoMeta({ titulo: 'Treinador', chave: 'metaTr', nivel: e.level, xp: e.xp, meta: metaTr, base: fonte.trBase, multEm: multTr, cortes, fracao, extra: extraTr, manual })}
+        ${cartaoMeta({ titulo: esc(pk.nome), chave: 'metaPk', nivel: pk.level, xp: pk.xp, meta: metaPk, base: fonte.pkBase, multEm: multPk, cortes, fracao, extra: extraPk, manual })}
       </div>
-      <div class="pih-rodape">Curva do jogo: XP total do nível L = 50/3 × (L³ − 6L² + 17L − 12). O XP por abate depende só do nível do selvagem, então na mesma hunt o XP/h é fixo e cada nível pede mais. Bônus com prazo cortam o ritmo no instante em que vencem.</div>`;
+      ${manual ? '<div class="pih-rodape">Curva do jogo: XP total do nível L = 50/3 × (L³ − 6L² + 17L − 12). O XP por abate depende só do nível do selvagem, então na mesma hunt o XP/h é fixo e cada nível pede mais. Bônus com prazo cortam o ritmo no instante em que vencem.</div>' : ''}`;
   }
 
-  function controles() {
-    return `<div class="pih-ctrl">
-      <span class="pih-seg">
-        <button type="button" data-ordem="xp" class="${prefs.ordem === 'xp' ? 'on' : ''}">XP/h</button>
-        <button type="button" data-ordem="ouro" class="${prefs.ordem === 'ouro' ? 'on' : ''}">Ouro/h</button>
-      </span>
-      <label><input type="checkbox" data-pref="soLiberadas" ${prefs.soLiberadas ? 'checked' : ''}> só hunts liberadas</label>
-      <label title="Com a automação de poção ligada, só morre quem leva um golpe maior que o HP inteiro"><input type="checkbox" data-pref="comPocao" ${prefs.comPocao ? 'checked' : ''}> poção automática</label>
-      ${prefs.ordem === 'ouro' ? '<button type="button" class="pih-ajuda" data-acao="ajuda-ouro" aria-expanded="false" aria-controls="pih-dica-ouro" title="O que entra no ouro/h">?</button>' : ''}
-    </div>
-    ${prefs.ordem === 'ouro' ? `<div class="pih-vao pih-dica" id="pih-dica-ouro" hidden>
-      O ouro/h é o <b>ouro de cada abate</b> com o <b>bônus de loot</b> (o loot vendável saiu do jogo em 15/10/2026),
-      já com Loot Boost, guild e evento ativos. A <b>venda dos pokémon capturados</b> e as pedras não entram.
-    </div>` : ''}`;
+  function controlesCacar() {
+    return `<div class="plt-caixa plt-ajustes plt-ajustes-solto">
+      ${K.fcampo('Ordenar por', K.escala('ui:ordem', prefs.ordem, [['xp', 'XP/h'], ['ouro', 'Ouro/h']]))}
+      ${K.mini('ui:soLiberadas', prefs.soLiberadas, 'Só hunts liberadas')}
+      ${K.mini('ui:comPocao', prefs.comPocao, 'Poção automática', 'Com a automação de poção ligada, só morre quem leva um golpe maior que o HP inteiro')}
+    </div>`;
   }
 
   function risco(l) {
@@ -765,24 +844,25 @@
     </tr>`;
   }
 
-  function corpo(r, jogo) {
+  function corpo(r, jogo, manual) {
     const linhas = r.linhas;
     if (!linhas.length) return '<div class="pih-erro">Nenhuma hunt liberada para o seu nível de treinador.</div>';
     const top = linhas.find((l) => !l.inviavel);
     const outro = prefs.ordem === 'ouro' ? 'XP/h' : 'Ouro/h';
-    const melhor = top ? `<div class="pih-vao pih-melhor">
+    const limite = manual ? mostrando : 5;
+    const melhor = top ? `<div class="plt-caixa pih-melhor">
         <span class="pih-coroa">👑</span>
         <div><strong>${esc(top.nome)}</strong> <span class="pih-dim">${regiao(top.regiao)} · Nv ${num(top.nivel)}</span><br>
         ${curto(top.xpPokemonH)} XP/h do pokémon · ${curto(top.xpTreinadorH)} XP/h do treinador · ${curto(top.ouroH)} ouro/h · ${num(top.kph)} abates/h${top.melhorGolpe ? ` · ${esc(top.melhorGolpe.nome)}` : ''}</div>
       </div>` : '';
     return `${melhor}
-      <div class="pih-vao pih-lista"><table class="pih-tab">
+      <div class="plt-caixa pih-lista"><table class="plt-tab pih-tab">
         <thead><tr><th>#</th><th>Hunt</th><th>${prefs.ordem === 'ouro' ? 'Ouro/h' : 'XP/h'}</th><th>Abates/h</th><th>Mata em</th><th>Risco</th><th>${outro}</th></tr></thead>
-        <tbody>${linhas.slice(0, mostrando).map(linhaHtml).join('')}</tbody>
+        <tbody>${linhas.slice(0, limite).map(linhaHtml).join('')}</tbody>
       </table>
-      ${linhas.length > mostrando ? `<button type="button" class="pih-mais" data-acao="mais">mostrar mais (${linhas.length - mostrando})</button>` : ''}
+      ${manual && linhas.length > mostrando ? `<button type="button" class="cfg-escala-bt plt-mais" data-acao="mais">mostrar mais (${linhas.length - mostrando})</button>` : ''}
       </div>
-      <div class="pih-rodape">Dados do jogo ${jogo.versao ? `v${esc(jogo.versao)}` : 'no ar'} · ${r.linhas.length} de ${r.total} hunts · cálculo em ${r.ms} ms · ranking com ondas cheias · geometria medida em ${PIH.geo?.huntsMedidas?.() ?? 0} hunts (≈ = padrão · ● = você já caçou aqui, passe o mouse)${r.aoe ? ` · TM AoE: ${r.aoe.alvosPorGolpe.toFixed(1).replace('.', ',')} alvos/golpe (${r.aoe.calibradoEm ? `calibrado em ${r.aoe.calibradoEm} hunt${r.aoe.calibradoEm > 1 ? 's' : ''} suas` : 'padrão, até você caçar 10+ min com ele'})` : ''}</div>`;
+      ${manual ? `<div class="pih-rodape">Dados do jogo ${jogo.versao ? `v${esc(jogo.versao)}` : 'no ar'} · ${r.linhas.length} de ${r.total} hunts · cálculo em ${r.ms} ms · ranking com ondas cheias · geometria medida em ${PIH.geo?.huntsMedidas?.() ?? 0} hunts (≈ = padrão · ● = você já caçou aqui, passe o mouse)${r.aoe ? ` · TM AoE: ${r.aoe.alvosPorGolpe.toFixed(1).replace('.', ',')} alvos/golpe` : ''}</div>` : ''}`;
   }
 
   // Só um campo de digitar (número, texto, lista) segura a atualização; botão não.
@@ -797,49 +877,51 @@
     if (aba === ultimaAba && html === ultimoHtml && alvo.childElementCount) return false;
     ultimaAba = aba;
     ultimoHtml = html;
+    const rolagem = alvo.scrollTop;
     alvo.innerHTML = html;
+    for (const l of alvo.querySelectorAll('.cfg-linha[data-linha]')) {
+      if (abertas.has(l.dataset.linha)) { l.classList.add('aberta'); l.querySelector('.cfg-ajuda')?.setAttribute('aria-expanded', 'true'); }
+    }
+    alvo.scrollTop = rolagem;
     return true;
   }
 
+  let desenhando = 0;
   async function desenhar() {
     if (!painel) return;
     pintarMoldura();
-    const v = document.documentElement.dataset.pilotoVersao;
-    const campoV = painel.querySelector('[data-versao]');
-    if (v && campoV && !campoV.textContent) { campoV.textContent = `v${v}`; campoV.closest('a').title = `PokeIdle Piloto v${v} · abrir o GitHub do Dreds`; }
     const alvo = painel.querySelector('[data-conteudo]');
     const aba = ABAS.some(([k]) => k === prefs.aba) ? prefs.aba : 'resumo';
     alvo.dataset.aba = aba;
+    pintarCabecalho(aba);
+    const modo = modoAtual();
+    const layout = layoutDo(modo);
+    const manual = layout === 'manual';
+    const topo = modo === 'desligado' ? avisoOff() : '';
     if (aba !== 'mercado') soltarMercado();
     if (aba === 'mercado') { ultimaAba = 'mercado'; ultimoHtml = ''; montarMercado(alvo); return; }
-    if (aba === 'resumo') { pintarSeMudou(alvo, aba, blocoResumo()); return; }
-    const modulo = { auto: PIH.auto, rotina: PIH.rotina, cofre: PIH.cofre }[aba];
-    if (modulo) {
-      if (pintarSeMudou(alvo, aba, modulo.html())) modulo.ligar(alvo, desenhar);
-      return;
-    }
-    ultimaAba = aba;
+    if (aba === 'resumo') { pintarSeMudou(alvo, aba, topo + blocoResumo()); return; }
+    if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '')); return; }
+    if (aba === 'cofre') { pintarSeMudou(alvo, aba, topo + (PIH.cofre ? PIH.cofre.html(layout) : '')); return; }
     const pk = pkAtivo();
-    if (!welcome || !eu) { alvo.innerHTML = '<div class="pih-carga">Esperando o jogo conectar…</div>'; return; }
-    if (!pk) { alvo.innerHTML = '<div class="pih-erro">Coloque um pokémon em campo para ver onde caçar.</div>'; return; }
-    if (!alvo.querySelector('.pih-tab, .pih-meta-grid')) alvo.innerHTML = '<div class="pih-carga">Lendo o jogo…</div>';
+    const linhasCaca = aba === 'hunts' ? `${PIH.auto ? PIH.auto.linhas(layout) : ''}${PIH.captura ? PIH.captura.linha(layout) : ''}${K.grupo('Onde render mais')}` : '';
+    if (!welcome || !eu) { pintarSeMudou(alvo, aba, `${topo}${linhasCaca}<div class="pih-carga">Esperando o jogo conectar…</div>`); return; }
+    if (!pk) { pintarSeMudou(alvo, aba, `${topo}${linhasCaca}<div class="pih-erro">Coloque um pokémon em campo para ver onde caçar.</div>`); return; }
+    const vez = ++desenhando;
     try {
       const jogo = await PIH.carregarJogo();
-      if (!painel || prefs.aba !== aba) return;
+      if (!painel || prefs.aba !== aba || vez !== desenhando) return;
       const ctx = contexto(jogo, pk);
       const r = PIH.engine.analisar(pk, ctx, prefs);
-      const rolagem = alvo.querySelector('.pih-lista, .pih-meta-grid')?.scrollTop ?? 0;
-      alvo.innerHTML = aba === 'meta'
-        ? `${blocoBonus(r.bonusXp)}${blocoMeta(r, ctx)}`
-        : `${blocoStats(r.pokemon)}${blocoBonus(r.bonusXp)}${controles()}${corpo(r, jogo)}`;
-      const area = alvo.querySelector('.pih-lista, .pih-meta-grid');
-      if (area) area.scrollTop = rolagem;
+      const html = aba === 'meta'
+        ? `${topo}${blocoBonus(r.bonusXp)}${blocoMeta(r, ctx, manual)}`
+        : `${topo}${linhasCaca}${manual ? `${blocoStats(r.pokemon)}${controlesCacar()}` : ''}${blocoBonus(r.bonusXp)}${corpo(r, jogo, manual)}`;
+      pintarSeMudou(alvo, aba, html);
       assinatura = assinaturaDe(pk);
     } catch (err) {
       console.error('[piloto]', err);
-      if (painel) alvo.innerHTML = `<div class="pih-erro">Não consegui calcular: ${esc(err.message)}</div>`;
+      if (painel) pintarSeMudou(alvo, aba, `${topo}${linhasCaca}<div class="pih-erro">Não consegui calcular: ${esc(err.message)}</div>`);
     }
-    ligarEventos();
   }
 
   function contexto(jogo, pk) {
@@ -875,38 +957,6 @@
   }
   PIH.lootPct = lootPct;
 
-  function ligarEventos() {
-    if (!painel) return;
-    painel.querySelector('[data-acao="mais"]')?.addEventListener('click', () => { mostrando += POR_PAGINA; desenhar(); });
-    const ajuda = painel.querySelector('[data-acao="ajuda-ouro"]');
-    ajuda?.addEventListener('click', () => {
-      const dica = painel.querySelector('#pih-dica-ouro');
-      dica.hidden = !dica.hidden;
-      ajuda.setAttribute('aria-expanded', String(!dica.hidden));
-    });
-    const salvarERedesenhar = () => { gravarJson(CHAVE_PREFS, prefs); desenhar(); };
-    painel.querySelector('[data-fonte]')?.addEventListener('change', (ev) => { prefs.fonte = ev.target.value; salvarERedesenhar(); });
-    painel.querySelector('[data-horas]')?.addEventListener('change', (ev) => {
-      const v = Number(ev.target.value);
-      prefs.horasDia = Number.isFinite(v) && v > 0 ? Math.min(24, v) : 24;
-      salvarERedesenhar();
-    });
-    for (const inp of painel.querySelectorAll('[data-meta]')) {
-      inp.addEventListener('change', () => {
-        const v = Math.round(Number(inp.value));
-        prefs[inp.dataset.meta] = Number.isFinite(v) && v > 0 ? v : null;
-        salvarERedesenhar();
-      });
-      inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') inp.blur(); });
-    }
-    for (const b of painel.querySelectorAll('[data-ordem]')) {
-      b.addEventListener('click', () => { prefs.ordem = b.dataset.ordem; gravarJson(CHAVE_PREFS, prefs); desenhar(); });
-    }
-    for (const c of painel.querySelectorAll('[data-pref]')) {
-      c.addEventListener('change', () => { prefs[c.dataset.pref] = c.checked; gravarJson(CHAVE_PREFS, prefs); desenhar(); });
-    }
-  }
-
   // Recalcula com o painel aberto só quando muda o que entra na conta (outro pokémon, nível
   // novo, refino, TM) — não a cada golpe recebido.
   const assinaturaDe = (pk) => (pk ? `${pk.id}|${pk.level}|${pk.tmElemental ?? ''}|${pk.tmAoe ?? ''}|${JSON.stringify(pk.stats)}` : '');
@@ -919,7 +969,7 @@
 
   // O diário da automação e o do piloto mudam o que Automação, Cofre e Resumo mostram.
   const redesenharSe = (abas) => { if (painel && abas.includes(prefs.aba) && !digitando()) desenhar(); };
-  PIH.on('auto.diario', () => redesenharSe(['auto', 'resumo']));
+  PIH.on('auto.diario', () => redesenharSe(['hunts', 'resumo']));
   PIH.on('piloto.diario', () => { redesenharSe(['cofre', 'resumo']); pintarBarra(); });
   PIH.on('welcome', (m) => {
     welcome = m;

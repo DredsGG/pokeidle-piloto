@@ -468,6 +468,21 @@
     if (n - ultimo.em > 1500 || ultimoEnvioRadarEm > ultimo.em - 200) return null;
     return ultimo;
   }
+  // 1.14: os corpos no chão (x:1, xr = ms que ainda restam) — só eles aceitam bola. O servidor tira
+  // o corpo do mapa no mesmo tick do arremesso, acerte ou não: uma bola por corpo.
+  const corposPih = new Map();
+  let ultimoArremessoPih = 0;
+  function anotarCorpos(tipo, m) {
+    if (tipo === 'campo.init') corposPih.clear();
+    const n = agora();
+    for (const x of (m && m.mobs) || []) {
+      if (!x || !Number.isInteger(x.s)) continue;
+      if (x.x && Number(x.xr) > 0) corposPih.set(x.s, n + Number(x.xr));
+      else if (x.x === 0 || x.x === false) corposPih.delete(x.s);
+    }
+    for (const sl of (m && m.fora) || []) corposPih.delete(sl);
+    for (const [sl, ate] of corposPih) if (ate <= n) corposPih.delete(sl);
+  }
   function pihReceber(texto) {
     const cab = texto.slice(0, 40);
     let tipo = null;
@@ -502,6 +517,7 @@
           } catch (e) { erro(e); }
         }
       }
+      if (tipo === 'campo' || tipo === 'campo.init') anotarCorpos(tipo, m);
       emitirInterno(tipo, m);
     }
   }
@@ -543,6 +559,21 @@
       return { t: 'chocadeira.colocar', slot: p.slot, ovo: p.ovo };
     },
     'oferenda.tudo': () => ({ t: 'oferenda.tudo' }),
+    // 1.14: bola num corpo caído — a mesma mensagem do clique na lista "Proximidade para Capturar".
+    // Só bola paga em OURO (Beast Ball é de diamante: nunca), que você tem, num corpo que ainda está
+    // no chão, e nunca mais rápido que o lançamento automático do VIP (1 a cada 1,2 s).
+    'ball.throw': (p) => {
+      const cat = ((pihUltimo.get('welcome') || {}).catalogoBolas) || [];
+      const bola = Array.isArray(cat) ? cat.find((b) => b && b.id === p.ballId) : null;
+      const bolas = (pihUltimo.get('estado') || {}).balls || {};
+      if (!int(p.ballId, 1, 1e6) || !int(p.slot, 0, ID) || !bola || !(Number(bola.priceGold) > 0) || !(Number(bolas[p.ballId]) > 0)) return null;
+      const ate = corposPih.get(p.slot);
+      const n = agora();
+      if (!ate || ate - n < 400 || n - ultimoArremessoPih < 1200) return null;
+      ultimoArremessoPih = n;
+      corposPih.delete(p.slot);
+      return { t: 'ball.throw', ballId: p.ballId, slot: p.slot };
+    },
     'shop.sellAllPokemons': (p) => (int(p.ateId, 1, ID) ? { t: 'shop.sellAllPokemons', ateId: p.ateId } : null),
     // 1.12.4: guardar um pokémon SEU na Coleção (protege da venda do Depot). Só para dentro, nunca "depot".
     'colecao.mover': (p) => {

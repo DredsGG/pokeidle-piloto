@@ -79,23 +79,42 @@
     button { font: inherit; cursor: pointer; }
     button:focus-visible, input:focus-visible { outline: 2px solid var(--pl-ouro-luz); outline-offset: 2px; }
     /* botão pixel do jogo: roxo = ação/ativo, madeira = inativo */
-    .botao, .aba, .seg button {
+    .botao, .seg button {
       border: 0; border-radius: 6px; min-height: 30px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
       font: 700 11px/1 var(--tahoma); text-transform: uppercase; letter-spacing: .5px; color: #fff; transition: filter .1s, transform .06s;
     }
-    .botao, .aba[aria-selected="true"], .seg button.on {
+    .botao, .seg button.on {
       background: linear-gradient(180deg, var(--rxl) 0 4px, var(--rxe) 4px 8px, var(--rx0) 8px calc(100% - 8px), var(--rxc) calc(100% - 8px) calc(100% - 4px), var(--rxr) calc(100% - 4px) 100%);
       box-shadow: inset 0 0 0 2px var(--linha), 0 2px 0 var(--base);
       text-shadow: -1px -1px 0 var(--rxe), 1px -1px 0 var(--rxe), -1px 1px 0 var(--rxe), 1px 1px 0 var(--rxe);
     }
-    .aba, .seg button {
+    .seg button {
       color: var(--tdim);
       background: linear-gradient(180deg, var(--luz2) 0 4px, var(--esc) 4px 8px, var(--pmad) 8px calc(100% - 6px), var(--quente) calc(100% - 6px) 100%);
       box-shadow: inset 0 0 0 2px var(--linha), 0 2px 0 var(--base);
       text-shadow: -1px -1px 0 var(--base), 1px -1px 0 var(--base), -1px 1px 0 var(--base), 1px 1px 0 var(--base);
     }
-    .botao:hover, .aba:hover, .seg button:hover { filter: brightness(1.12); }
-    .botao:active, .aba:active, .seg button:active { transform: translateY(1px); }
+    .botao:hover, .seg button:hover { filter: brightness(1.12); }
+    .botao:active, .seg button:active { transform: translateY(1px); }
+    /* 1.13: as abas são os botões de escala do jogo (.cfg-escala-bt, do estilo.css dele) */
+    .aba { display: inline-flex; align-items: center; gap: 4px; height: 32px; min-width: 0; padding: 0 12px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; }
+    .aba[hidden] { display: none !important; }
+    /* 1.13: linhas de ajuste iguais às da janela Configurações do jogo */
+    .faixa, .ajustes { flex: none; display: block; }
+    .faixa { margin-bottom: 10px; }
+    .faixa .r-linhas, .faixa { padding: 0; }
+    .faixa:not([hidden]) { display: flex; flex-direction: column; gap: 6px; }
+    .r-linhas { padding: 0; overflow: visible; }
+    .r-linha { min-height: 52px; }
+    .r-status { display: block; margin-top: 2px; font: 500 12px/1.35 "Barlow", sans-serif; color: var(--dim); overflow-wrap: anywhere; }
+    .r-ajustes { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 10px 0 2px; padding: 12px 14px 14px; border-radius: 6px; background: var(--fundo); box-shadow: inset 0 0 0 2px var(--linha); }
+    .r-ajustes .lim { background: var(--sup2); }
+    .r-ajustes .lims { width: 100%; }
+    .r-mini { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; font: 700 12.5px/1.2 var(--tahoma); color: var(--texto); }
+    .r-mini .cfg-toggle { --cfg-larg: 54px; --cfg-alt: 26px; --cfg-mao: 18px; }
+    .painel.encaixado .cab .botao { display: none; }
+    .painel[data-modo="desligado"] .faixa, .painel[data-modo="desligado"] .ajustes { filter: grayscale(1) brightness(.78); }
+    .cfg-toggle:disabled, .cfg-escala-bt:disabled { cursor: not-allowed; }
     .botao.auto[aria-pressed="true"], .seg button.on.ouro { color: #3a2a00; text-shadow: 0 1px 0 rgba(255,255,255,.4); background: linear-gradient(180deg, #ffe9a8 0 4px, #d09a17 4px 100%); }
     .fechar { width: 30px; min-height: 30px; padding: 0; font: 700 16px/1 var(--tahoma); }
     .botao.alternar { min-width: 84px; }
@@ -185,6 +204,7 @@
     cfg: Config.validar(null),
     base: Config.validar(null),
     ctx: null,
+    modoPiloto: 'manual',
     estado: null,
     mercado: null,
     pessoal: { historico: null, historicoCompras: null, meus: null },
@@ -355,6 +375,10 @@
     painelHost.id = 'radar-mercado-tela';
     painelHost.style.cssText = 'display:none !important;';
     const sombra = painelHost.attachShadow({ mode: 'open' });
+    // 1.13: o estilo.css do PRÓPRIO jogo também aqui dentro — as abas, linhas, interruptores e
+    // botões do Radar são as mesmas peças das janelas do jogo.
+    const cssJogo = document.querySelector('link[rel="stylesheet"][href*="estilo.css"]');
+    if (cssJogo) { const lk = document.createElement('link'); lk.rel = 'stylesheet'; lk.href = cssJogo.href; sombra.append(lk); }
     const estilo = el('style');
     estilo.textContent = CSS_PAINEL + ((globalThis.RadarCartoes && globalThis.RadarCartoes.CSS) || '') + ((globalThis.RadarRevendaUI && globalThis.RadarRevendaUI.CSS) || '');
     const painel = el('div', 'painel');
@@ -376,13 +400,16 @@
     fecharBtn.setAttribute('aria-label', 'Fechar');
     cab.append(titulo, p.auto, p.alternar, fecharBtn);
 
+    // Modo Auto do Piloto: só os interruptores do Radar, num bloco no topo (sem a aba Ajustes).
+    p.faixa = el('div', 'faixa cfg-corpo');
+    p.faixa.addEventListener('click', aoClicarNosAjustes);
     const abas = el('nav', 'abas');
     abas.setAttribute('role', 'tablist');
     p.abas = {};
     p.conteudos = {};
     const vao = el('div', 'vao');
     for (const [chave, rotulo] of [['avisos', 'Avisos'], ['mercado', 'Ofertas'], ['compras', 'Compras'], ['vendas', 'Vendas'], ['revenda', 'Revenda'], ['lucro', 'Lucro'], ['ajustes', 'Ajustes']]) {
-      const b = el('button', 'aba', rotulo);
+      const b = el('button', 'aba cfg-escala-bt', rotulo);
       b.type = 'button';
       b.setAttribute('role', 'tab');
       b.dataset.aba = chave;
@@ -429,7 +456,9 @@
     p.ajustes = el('div', 'ajustes');
     p.conteudos.ajustes.append(p.ajustes);
 
-    painel.append(cab, abas, vao);
+    p.ajustes.classList.add('cfg-corpo');
+    p.ajustes.addEventListener('click', aoClicarNosAjustes);
+    painel.append(cab, p.faixa, abas, vao);
     sombra.append(estilo, painel);
     p.painel = painel;
     (document.body || document.documentElement).appendChild(painelHost);
@@ -454,7 +483,8 @@
 
   function mostrarAba(aba, semPedir) {
     s.aba = aba;
-    for (const [chave, b] of Object.entries(p.abas)) b.setAttribute('aria-selected', String(chave === aba));
+    if (aba === 'ajustes' && s.modoPiloto !== 'manual' && encaixado) aba = s.aba = 'avisos';
+    for (const [chave, b] of Object.entries(p.abas)) { b.setAttribute('aria-selected', String(chave === aba)); b.classList.toggle('on', chave === aba); }
     for (const [chave, secao] of Object.entries(p.conteudos)) secao.hidden = chave !== aba;
     if (!semPedir) pedirDaAba(aba, false);
     pintarAba(aba);
@@ -547,6 +577,7 @@
       const n = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
       s.ctx = { ouroH: n(d.ouroH), teto: n(d.teto), livre: n(d.livre) };
       s.cfg = Config.calibrar(s.base, s.ctx);
+      if (['desligado', 'manual', 'automatico'].includes(d.modo) && d.modo !== s.modoPiloto) { s.modoPiloto = d.modo; aplicarModoTela(); }
     } catch (e) { erro(e); }
   });
 
@@ -575,6 +606,7 @@
       painelHost.style.cssText = 'display:block !important; height:100% !important;';
       s.aberto = true;
       bus.emit('tela:quero-estado', null);
+      aplicarModoTela();
       mostrarAba(s.aba);
       pintarCabecalho();
       barraSelo.classList.remove('pisca');
@@ -588,6 +620,7 @@
     s.aberto = false;
     p.painel.classList.remove('encaixado');
     painelHost.style.cssText = 'display:none !important;';
+    aplicarModoTela();
     (document.body || document.documentElement).appendChild(painelHost);
   });
 
@@ -644,6 +677,7 @@
     p.auto.setAttribute('aria-pressed', String(ligadoAuto));
     const pausadoPorFalha = s.cfg.radarLigado && e && String(e.motivo || '').startsWith(MOTIVO_FALHAS);
     p.alternar.textContent = pausadoPorFalha ? '▶ Retomar' : s.cfg.radarLigado ? '❚❚ Pausar' : '▶ Ligar';
+    pintarFaixa();
     p.nAvisos.textContent = String(s.avisos);
     p.nAvisos.hidden = s.avisos === 0;
     p.avisosVazio.hidden = s.avisos > 0;
@@ -779,6 +813,71 @@
     return c.compraAutomatica || c.compraAutomaticaPokemon ? 'automatico' : 'manual';
   }
 
+  // ---- 1.13: os ajustes do Radar como linhas da janela Configurações do jogo -------------------
+  const escH = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const trava = () => s.modoPiloto === 'desligado';
+  const ESCOLHAS_AUTO = ['radarLigado', 'compraAutomatica', 'compraAutomaticaPokemon', 'revendaAutomatica'];
+  const tg = (k, on, inverso = false) => `<button type="button" class="cfg-toggle${on ? ' on' : ''}" role="switch" aria-checked="${!!on}" data-cfg="${k}"${inverso ? ' data-inverso="1"' : ''}${trava() ? ' disabled' : ''}></button>`;
+  const linhaR = ({ nome, dica = '', k = null, on = false, inverso = false, status = '', ajustes = '' }) => `<div class="cfg-linha r-linha">
+      <span class="cfg-rot"><span class="cfg-cola"><span class="cfg-nome">${nome}</span>${dica ? '<button type="button" class="cfg-ajuda" aria-expanded="false" title="O que é isto?"><b aria-hidden="true">?</b></button>' : ''}</span>${status ? `<small class="r-status">${status}</small>` : ''}</span>
+      ${k ? tg(k, on, inverso) : '<span></span>'}
+      ${dica ? `<p class="cfg-desc">${escH(dica)}</p>` : ''}
+      ${ajustes ? `<div class="r-ajustes">${ajustes}</div>` : ''}
+    </div>`;
+  const miniR = (k, on, rotulo, inverso = false) => `<label class="r-mini">${tg(k, on, inverso)}<span>${rotulo}</span></label>`;
+  function statusRadar() {
+    const e = s.estado;
+    if (!s.cfg.radarLigado) return 'desligado';
+    if (e && e.motivo) return `em pausa: ${escH(e.motivo)}`;
+    return e ? `vigiando ${e.itensCobertos || 0} itens${s.cfg.vigiaContinua ? ' ao vivo' : ''}` : 'esperando o jogo';
+  }
+  function linhasPrincipais(b) {
+    const e = s.estado;
+    const gasto = e && typeof e.gastoAutoHoje === 'number' ? `comprou ${fmtC(e.gastoAutoHoje)} hoje` : '';
+    return linhaR({ nome: 'Radar do Mercado', k: 'radarLigado', on: b.radarLigado, status: statusRadar(), dica: 'Vigia o Mercado sem parar e avisa as oportunidades em ouro. Gema e diamante nunca.' })
+      + linhaR({ nome: 'Comprar itens sozinho', k: 'compraAutomatica', on: b.compraAutomatica, status: b.compraAutomatica ? gasto : '', dica: 'Tudo o que vira aviso é comprado sozinho, se couber no ouro livre do cofre do Piloto. Entra em todos os sorteios que passam nas regras, vários ao mesmo tempo.' })
+      + linhaR({ nome: 'Comprar pokémon sozinho', k: 'compraAutomaticaPokemon', on: b.compraAutomaticaPokemon, dica: 'Não shiny, em ouro, pelas vendas parecidas dos últimos 30 dias. Com poucas vendas parecidas, só compra o erro de preço escancarado.' })
+      + linhaR({ nome: 'Revender sozinho', k: 'revendaAutomatica', on: b.revendaAutomatica, status: b.revendaAutomatica ? 'anuncia, baixa e sobe o preço a cada 2 min' : '', dica: 'Anuncia o que está parado, baixa o preço quando alguém passa na frente e sobe quando você ficou 5% abaixo do próximo. Sempre 1 abaixo do menor anúncio de outro jogador, nunca abaixo do custo + 15%.' });
+  }
+  function pintarFaixa() {
+    if (!p.faixa) return;
+    const auto = encaixado && s.modoPiloto !== 'manual';
+    p.faixa.hidden = !auto;
+    if (!auto) return;
+    const html = linhasPrincipais(s.base);
+    if (p.faixa._html !== html) { p.faixa._html = html; p.faixa.innerHTML = html; }
+  }
+  function aplicarModoTela() {
+    if (!p.painel) return;
+    p.painel.dataset.modo = s.modoPiloto || 'manual';
+    if (p.abas && p.abas.ajustes) p.abas.ajustes.hidden = encaixado && s.modoPiloto !== 'manual';
+    if (p.abrirOpcoes) p.abrirOpcoes.hidden = encaixado && s.modoPiloto !== 'manual';
+    if (s.aba === 'ajustes' && encaixado && s.modoPiloto !== 'manual') mostrarAba('avisos', true);
+    pintarFaixa();
+    if (s.aba === 'ajustes') pintarAjustes();
+  }
+  function aoClicarNosAjustes(ev) {
+    const t = ev.target.closest('button');
+    if (!t || t.disabled) return;
+    if (t.matches('.cfg-ajuda')) { const l = t.closest('.cfg-linha'); if (l) { l.classList.toggle('aberta'); t.setAttribute('aria-expanded', String(l.classList.contains('aberta'))); } return; }
+    if (t.matches('.cfg-toggle[data-cfg]')) {
+      const k = t.dataset.cfg;
+      const ligado = !t.classList.contains('on');
+      // No Automático, o que você desligar fica desligado também depois de recarregar a página.
+      if (s.modoPiloto === 'automatico' && ESCOLHAS_AUTO.includes(k)) {
+        chrome.storage.local.get('radar:auto-escolhas').then((r) => chrome.storage.local.set({ 'radar:auto-escolhas': { ...(r['radar:auto-escolhas'] || {}), [k]: ligado } })).catch(erro);
+      }
+      if (k === 'vigiaContinua') salvarConfig({ vigiaContinua: ligado, intervaloS: 30 }).catch(erro);
+      else salvarConfig({ [k]: t.dataset.inverso ? !ligado : ligado }).catch(erro);
+      return;
+    }
+    if (t.matches('[data-categoria]')) {
+      const set = new Set(s.base.categorias);
+      if (set.has(t.dataset.categoria)) set.delete(t.dataset.categoria); else set.add(t.dataset.categoria);
+      salvarConfig({ categorias: [...set] }).catch(erro);
+    }
+  }
+
   async function pintarAjustes() {
     const alvo = p.ajustes;
     if (!alvo) return;
@@ -793,45 +892,6 @@
     }
     const c = s.cfg;
     const b = s.base;
-    alvo.textContent = '';
-
-    // 1. o modo: o que o radar faz sozinho
-    alvo.append(el('h4', null, 'Radar'));
-    const seg = el('div', 'seg');
-    const atual = modoDoRadar(b);
-    for (const [k, r, dica] of [
-      ['desligado', 'Off', 'Não consulta o mercado.'],
-      ['manual', 'Avisar', 'Avisa as oportunidades; a compra é no seu clique.'],
-      ['automatico', 'Auto', 'Compra itens e pokémon em ouro e revende os itens sozinho, dentro do cofre. Gema e diamante nunca.'],
-    ]) {
-      const bt = el('button', k === atual ? (k === 'automatico' ? 'on ouro' : 'on') : '', r);
-      bt.type = 'button';
-      bt.title = dica;
-      bt.setAttribute('aria-pressed', String(k === atual));
-      bt.addEventListener('click', () => salvarConfig(Config.PERFIS[k]).catch(erro));
-      seg.append(bt);
-    }
-    alvo.append(seg);
-    const vg = el('label', 'caixa');
-    const vgc = el('input');
-    vgc.type = 'checkbox';
-    vgc.checked = b.vigiaContinua;
-    vgc.addEventListener('change', () => salvarConfig({ vigiaContinua: vgc.checked, intervaloS: 30 }).catch(erro));
-    vg.append(vgc, 'Vigia contínua');
-    vg.title = 'Uma varredura atrás da outra, sem intervalo e sem pausar (nem com o mercado aberto na tela). O freio é só o limite de leituras do servidor; se ele reclamar, o radar espaça sozinho até normalizar. Entra em todos os sorteios que passam nas regras, vários ao mesmo tempo; quando liberam juntos, vai primeiro no de maior lucro por jogador na disputa.';
-    alvo.append(vg);
-
-
-    // 2. os limites, calculados (só leitura, em blocos)
-    alvo.append(el('h4', null, 'Limites'));
-    const lin = el('label', 'caixa');
-    const cx = el('input');
-    cx.type = 'checkbox';
-    cx.checked = b.ajusteAutomatico;
-    cx.addEventListener('change', () => salvarConfig({ ajusteAutomatico: cx.checked }).catch(erro));
-    lin.append(cx, 'Calcular sozinho');
-    lin.title = 'Pelo seu ouro/h e pelo cofre. Tudo o que vira aviso é comprado sozinho, se couber no cofre; o motivo de não comprar aparece no Resumo.';
-    alvo.append(lin);
     const ctx = s.ctx;
     const teto = ctx && typeof ctx.teto === 'number' && ctx.teto > 0 ? ctx.teto : null;
     const livre = ctx && typeof ctx.livre === 'number' ? ctx.livre : null;
@@ -843,64 +903,16 @@
       ['Pokémon', `${fmtPct(c.descontoMinimoPokemon)} · ${fmtC(c.lucroMinimoPokemon)}`, 'Desconto e lucro mínimos para pokémon'],
       ['Ouro/h base', ctx && ctx.ouroH ? fmtC(ctx.ouroH) : 'medindo', 'Enquanto mede, valem os pisos'],
     ];
-    const grade = el('div', 'lims');
-    for (const [k, v, dica] of blocos) { const d = el('div', 'lim'); d.title = dica; d.append(el('small', null, k), el('b', null, v)); grade.append(d); }
-    alvo.append(grade);
-
-    // 3. revenda automática
-    alvo.append(el('h4', null, 'Revenda'));
-    for (const [k, r, inverso] of [
-      ['revendaAutomatica', 'Revender sozinho', false],
-      ['revendaSoDoRadar', 'Incluir seus drops', true],
-    ]) {
-      const lb = el('label', 'caixa');
-      const ck = el('input');
-      ck.type = 'checkbox';
-      ck.checked = inverso ? !b[k] : b[k];
-      ck.addEventListener('change', () => salvarConfig({ [k]: inverso ? !ck.checked : ck.checked }).catch(erro));
-      lb.append(ck, ` ${r}`);
-      alvo.append(lb);
-    }
-    alvo.lastChild.title = 'A cada 2 min: anuncia o que está parado, baixa o preço quando alguém passa na frente e sobe quando você ficou 5% abaixo do próximo. Sempre 1 abaixo do menor anúncio de outro jogador, nunca abaixo do custo + 15%. Respeita as esperas do jogo e tenta de novo sozinho. Esconder o cartão na aba Revenda tira o item.';
-
-    // 4. o que vigiar
-    alvo.append(el('h4', null, 'Itens vigiados'));
-    const cats = el('div', 'cats');
-    for (const [cat, n] of catalogoCats) {
-      const lb = el('label', 'caixa');
-      const ck = el('input');
-      ck.type = 'checkbox';
-      ck.checked = b.categorias.includes(cat);
-      ck.addEventListener('change', () => {
-        const set = new Set(b.categorias);
-        if (ck.checked) set.add(cat); else set.delete(cat);
-        salvarConfig({ categorias: [...set] }).catch(erro);
-      });
-      lb.append(ck, ` ${NOMES_CATEGORIA[cat] || cat}${typeof n === 'number' ? ` (${n})` : ''}`);
-      cats.append(lb);
-    }
-    alvo.append(cats);
-    const pk = el('label', 'caixa');
-    const pkc = el('input');
-    pkc.type = 'checkbox';
-    pkc.checked = b.pokemon;
-    pkc.addEventListener('change', () => salvarConfig({ pokemon: pkc.checked }).catch(erro));
-    pk.append(pkc, 'Pokémon em ouro');
-    pk.title = 'Não shiny, pelas vendas parecidas dos últimos 30 dias. Anúncio em Gemas nunca é comprado.';
-    alvo.append(pk);
-
-
-    // 5. como avisar
-    alvo.append(el('h4', null, 'Avisos'));
-    for (const [k, r] of [['notificacoes', 'Notificação'], ['som', 'Som'], ['abrirPainelNoAviso', 'Abrir no aviso']]) {
-      const lb = el('label', 'caixa');
-      const ck = el('input');
-      ck.type = 'checkbox';
-      ck.checked = b[k];
-      ck.addEventListener('change', () => salvarConfig({ [k]: ck.checked }).catch(erro));
-      lb.append(ck, r);
-      alvo.append(lb);
-    }
+    const lims = `<div class="lims">${blocos.map(([k, v, d]) => `<div class="lim" title="${escH(d)}"><small>${k}</small><b>${v}</b></div>`).join('')}</div>`;
+    const cats = `<div class="cfg-escala">${[...catalogoCats].map(([cat, n]) => `<button type="button" class="cfg-escala-bt${b.categorias.includes(cat) ? ' on' : ''}" data-categoria="${escH(cat)}"${trava() ? ' disabled' : ''}>${escH(NOMES_CATEGORIA[cat] || cat)}${typeof n === 'number' ? ` (${n})` : ''}</button>`).join('')}</div>`;
+    const html = `<div class="cfg-linhas r-linhas">
+      ${linhasPrincipais(b)}
+      ${linhaR({ nome: 'Vigia contínua', k: 'vigiaContinua', on: b.vigiaContinua, dica: 'Uma varredura atrás da outra, sem intervalo. O freio é só o limite de leituras do servidor; se ele reclamar, o radar espaça sozinho até normalizar.' })}
+      ${linhaR({ nome: 'Calcular os limites sozinho', k: 'ajusteAutomatico', on: b.ajusteAutomatico, dica: 'Pelo seu ouro/h e pelo cofre do Piloto. O motivo de não comprar aparece no Resumo.', ajustes: lims })}
+      ${linhaR({ nome: 'O que vigiar', dica: 'As categorias de itens que o radar olha. Pokémon em ouro: os anúncios de pokémon, não shiny.', ajustes: `${cats}${miniR('pokemon', b.pokemon, 'Pokémon em ouro')}${miniR('revendaSoDoRadar', !b.revendaSoDoRadar, 'Revender também os seus drops', true)}` })}
+      ${linhaR({ nome: 'Como avisar', ajustes: `${miniR('notificacoes', b.notificacoes, 'Notificação')}${miniR('som', b.som, 'Som')}${miniR('abrirPainelNoAviso', b.abrirPainelNoAviso, 'Abrir o painel no aviso')}` })}
+    </div>`;
+    if (alvo._html !== html) { alvo._html = html; alvo.innerHTML = html; }
   }
 
   const FONTES = { proximo: 'próximo da fila', mediana24h: 'mediana de 24 h', media7d: 'média de 7 dias' };

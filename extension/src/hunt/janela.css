@@ -1,0 +1,222 @@
+/* PokeIdle Piloto 1.13 — a janela do Piloto montada com as peças do PRÓPRIO jogo.
+   A moldura (.modal-caixa, .modal-topo), o menu (.cfg-cats/.cfg-cat), o cabeçalho da aba
+   (.cfg-cab), as linhas (.cfg-linha), o "?" (.cfg-ajuda), o interruptor ON/OFF (.cfg-toggle) e os
+   botões (.cfg-escala-bt) vêm do estilo.css do jogo. Aqui fica só o que o jogo não tem: posição e
+   tamanho, o seletor de modo, as linhas com ajustes, os números grandes, as tabelas e o Off. */
+
+/* `.plt-janela.modal-caixa` (duas classes): o `.modal-caixa` do jogo é `position: relative` e, com
+   a mesma força de seletor, ganhava — a janela caía no fluxo da página e quebrava o layout. */
+.plt-janela, .plt-janela.modal-caixa {
+  position: fixed; z-index: 38; box-sizing: border-box; margin: 0;
+  width: min(940px, calc(100vw - 16px)); height: min(86vh, 780px); max-height: none;
+  font: 500 13px/1.45 "Barlow", "Segoe UI", system-ui, sans-serif;
+}
+.plt-janela *, .plt-janela *::before, .plt-janela *::after { box-sizing: border-box; }
+
+/* ---- topo: título, quem está em campo, Off · Manual · Auto, tema e fechar ---------------- */
+.plt-janela .modal-topo { padding: 14px 18px 10px; gap: 12px; }
+.plt-janela .modal-topo-esq { gap: 12px; min-width: 0; }
+.plt-h2 { display: inline-flex; align-items: center; gap: 9px; flex: none; }
+.plt-h2 .plt-h2-ico { width: 22px; height: 22px; color: var(--ouro-luz); }
+.plt-janela .plt-sub {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 6px 12px; border-radius: 6px; font: 600 12.5px/1.2 "Barlow", sans-serif; color: var(--vao-dim);
+  background: var(--vao); box-shadow: inset 0 0 0 2px var(--mad-linha), 0 1px 0 var(--mad-luz2);
+}
+.plt-modos { flex: none; display: flex; gap: 6px; }
+.plt-janela .modal-topo .plt-modo-bt {
+  width: auto; height: 36px; padding: 0 13px; font-size: 12px; line-height: 1;
+  display: inline-flex; align-items: center; gap: 7px; letter-spacing: .4px; text-transform: uppercase;
+}
+.plt-modo-bt .plt-ico { width: 14px; height: 14px; }
+/* o escolhido: Off vermelho, Manual roxo, Auto ouro (a receita do "Mega Evoluir" do jogo) */
+.plt-janela .modal-topo .plt-modo-bt.on[data-modo="desligado"] {
+  background: linear-gradient(180deg, var(--vm-luz) 0 6px, var(--vm-esc) 6px 13px, var(--vermelho) 13px calc(100% - 13px), var(--vm-clr) calc(100% - 13px) calc(100% - 7px), var(--vm-rosa) calc(100% - 7px) 100%);
+  text-shadow: -1px -1px 0 var(--vm-esc), 1px -1px 0 var(--vm-esc), -1px 1px 0 var(--vm-esc), 1px 1px 0 var(--vm-esc);
+}
+.plt-janela .modal-topo .plt-modo-bt.on[data-modo="automatico"] {
+  color: #3a2a00;
+  background: linear-gradient(180deg, #fff3c4 0 6px, #f2c230 6px calc(100% - 9px), #d09a17 calc(100% - 9px) 100%);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .45);
+}
+.plt-janela .modal-topo .plt-modo-bt.on[data-modo="automatico"] .plt-ico { filter: none; }
+.plt-janela .modal-acoes .plt-tema { color: var(--ouro-luz); }
+.plt-janela .modal-acoes .plt-ico { width: 17px; height: 17px; }
+
+/* ---- corpo: menu à esquerda, a aba à direita ---------------------------------------------- */
+.plt-janela .plt-modal-corpo { flex: 1; min-height: 0; display: flex; padding: 2px 18px 18px; overflow: hidden; }
+.plt-janela .cfg-corpo { flex: 1; min-width: 0; }
+.plt-janela .cfg-layout { grid-template-columns: 184px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; }
+.plt-janela .cfg-cats { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.plt-janela .cfg-cat { flex: none; height: 44px; flex-direction: row; justify-content: flex-start; gap: 11px; padding: 0 14px; font-size: 12.5px; text-align: left; }
+.plt-janela .cfg-cat-ico .plt-ico { width: 18px; height: 18px; }
+.plt-janela .cfg-cat-rot { flex: 1; min-width: 0; }
+.plt-cat-n {
+  flex: none; min-width: 18px; padding: 0 5px; border-radius: 8px; font: 700 10px/17px Tahoma, Verdana, sans-serif;
+  text-align: center; text-shadow: none; color: #fff; background: var(--vermelho); box-shadow: 0 0 0 2px var(--mad-linha);
+}
+.plt-cat-n[hidden] { display: none; }
+.plt-cats-fim { flex: 1; min-height: 8px; }
+.plt-janela .cfg-cab { display: flex; }
+.plt-janela .cfg-cab-ico .plt-ico { width: 18px; height: 18px; filter: none; }
+.plt-cab-modo {
+  margin-left: auto; padding: 5px 10px; border-radius: 5px; font: 700 10.5px/1 Tahoma, Verdana, sans-serif; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--vao-dim); background: var(--vao); box-shadow: inset 0 0 0 2px var(--mad-linha);
+}
+.plt-cab-modo[data-modo="automatico"] { color: var(--ouro-luz); }
+.plt-cab-modo[data-modo="desligado"] { color: var(--vermelho-luz); }
+.plt-corpo-aba { scrollbar-color: var(--vao-luz) transparent; }
+.plt-corpo-aba[data-aba="mercado"] { padding: 0; overflow: hidden; }
+
+/* bandeirinhas e plaquinha no pé do menu (as mesmas de antes, agora dentro do menu do jogo) */
+.plt-cats .plt-idiomas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 0 2px; }
+.plt-cats .plt-idiomas button {
+  display: flex; align-items: center; justify-content: center; width: 100%; height: 30px; padding: 0; border: 0; border-radius: 5px; cursor: pointer;
+  background: var(--mad-esc); box-shadow: inset 0 0 0 2px var(--mad-linha), inset 0 0 0 3px var(--mad), 0 2px 0 var(--mad-base);
+  transition: transform .1s ease-out, filter .1s ease-out;
+}
+.plt-cats .plt-idiomas button:hover { filter: brightness(1.12); }
+.plt-cats .plt-idiomas button:active { transform: translateY(1px); }
+.plt-cats .plt-idiomas button[aria-pressed="true"] {
+  background: var(--rx); box-shadow: inset 0 0 0 2px var(--mad-linha), inset 0 2px 0 2px var(--rx-luz), inset 0 -2px 0 2px var(--rx-esc), 0 2px 0 var(--mad-base);
+}
+.plt-cats .plt-idiomas + .plt-assinatura { margin-top: 8px; }
+.plt-cats .plt-assinatura { margin-top: 0; }
+.plt-cats .plt-assinatura b {
+  margin: 0; min-width: 0; padding: 0; border-radius: 0; background: none; box-shadow: none;
+  font: 700 16px/1.05 Tahoma, Verdana, sans-serif; letter-spacing: .03em; color: var(--mad-linha); text-shadow: 0 1px 0 var(--ouro-luz);
+}
+
+/* ---- linhas: a .cfg-linha do jogo com ícone, status e o bloco de ajustes (Manual) --------- */
+.plt-l .cfg-rot { display: grid; grid-template-columns: 34px minmax(0, 1fr); column-gap: 12px; align-items: center; }
+.plt-l .cfg-rot:not(:has(.plt-l-ico)) { grid-template-columns: minmax(0, 1fr); }
+.plt-l-ico {
+  grid-row: 1 / span 2; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  color: var(--rx-rosa); background: var(--vao); box-shadow: inset 0 0 0 2px var(--mad-linha);
+}
+.plt-l-ico .plt-ico { width: 18px; height: 18px; }
+.plt-l .cfg-cola { white-space: normal; }
+.plt-l-status { display: block; margin-top: 2px; font: 500 12px/1.35 "Barlow", sans-serif; color: var(--vao-dim); overflow-wrap: anywhere; }
+.plt-l.plt-l-on { box-shadow: inset 0 0 0 2px var(--mad-linha), inset 6px 0 0 var(--rx); }
+.plt-l.plt-l-perigo:has(> .cfg-toggle.on) { box-shadow: inset 0 0 0 2px var(--mad-linha), inset 6px 0 0 var(--laranja); }
+.plt-l.plt-l-alerta { box-shadow: inset 0 0 0 2px var(--mad-linha), inset 6px 0 0 var(--laranja); }
+.plt-l.plt-l-off { box-shadow: inset 0 0 0 2px var(--mad-linha), inset 6px 0 0 var(--vermelho); }
+.plt-l.plt-l-off .plt-l-ico { color: var(--vermelho-luz); }
+.plt-l > :nth-child(2) { justify-self: end; }
+
+.plt-ajustes {
+  grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px;
+  margin: 10px 0 2px; padding: 12px 14px 14px; border-radius: 6px;
+  background: var(--vao); box-shadow: inset 0 0 0 2px var(--mad-linha);
+}
+.plt-ajustes.plt-ajustes-solto { margin: 0; }
+.plt-f { display: inline-flex; flex-direction: column; gap: 5px; min-width: 0; }
+.plt-f > small { font: 700 10px/1 Tahoma, Verdana, sans-serif; letter-spacing: .6px; text-transform: uppercase; color: var(--vao-dim); }
+.plt-f.plt-f-linha { flex-direction: row; align-items: center; gap: 8px; }
+.plt-f-quebra { flex-basis: 100%; height: 0; }
+.plt-f-largo { flex-basis: 100%; min-width: 0; }
+.plt-num, .plt-sel {
+  font: 700 13px/1.2 "Barlow", sans-serif; color: var(--sobre-mad);
+  min-height: 34px; padding: 6px 9px; border: 0; border-radius: 5px;
+  background: var(--vao2); box-shadow: inset 0 0 0 2px var(--mad-linha), 0 1px 0 var(--mad-luz2);
+}
+.plt-num { width: 116px; }
+.plt-sel { max-width: 360px; padding-right: 24px; }
+.plt-num:focus-visible, .plt-sel:focus-visible { outline: 2px solid var(--rx-clr); outline-offset: 1px; }
+.plt-num:disabled, .plt-sel:disabled { opacity: .5; cursor: not-allowed; }
+.plt-num::placeholder { color: var(--vao-dim); font-weight: 600; }
+.plt-escala { gap: 6px; }
+.plt-janela .cfg-escala-bt { height: 34px; }
+.plt-janela .cfg-escala-bt:disabled { opacity: .45; cursor: not-allowed; filter: none; transform: none; }
+.plt-acao { display: inline-flex; align-items: center; gap: 7px; }
+.plt-acao .plt-ico { width: 14px; height: 14px; }
+.plt-mini-op { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; font: 700 12.5px/1.2 Tahoma, Verdana, sans-serif; color: var(--sobre-mad); }
+.plt-janela .plt-mini-op .cfg-toggle { --cfg-larg: 54px; --cfg-alt: 26px; --cfg-mao: 18px; }
+
+/* título de grupo dentro da aba */
+.plt-grupo {
+  display: flex; align-items: center; gap: 10px; margin: 8px 4px 0;
+  font: 700 11px/1 Tahoma, Verdana, sans-serif; letter-spacing: 1px; text-transform: uppercase; color: var(--vao-dim);
+}
+.plt-grupo:first-child { margin-top: 0; }
+.plt-grupo::after { content: ""; flex: 1; height: 2px; border-radius: 1px; background: var(--vao2); }
+
+/* ---- números grandes (Resumo e Cofre) ------------------------------------------------------ */
+.plt-ks { flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.plt-k { position: relative; min-width: 0; padding: 11px 14px 10px; border-radius: 6px; background: var(--vao2); box-shadow: inset 0 0 0 2px var(--mad-linha); }
+.plt-k > .plt-ico { position: absolute; top: 10px; right: 11px; width: 18px; height: 18px; color: var(--rx-rosa); }
+.plt-k.k-xp > .plt-ico { color: var(--xp-luz); }
+.plt-k.k-ouro > .plt-ico { color: var(--ouro); }
+.plt-k.k-gasto > .plt-ico { color: var(--rx-clr); }
+.plt-k > small { display: block; padding-right: 24px; font: 700 10px/1.2 Tahoma, Verdana, sans-serif; letter-spacing: .6px; text-transform: uppercase; color: var(--vao-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plt-k > strong {
+  display: block; margin: 5px 0 2px; font: 700 21px/1.1 "Barlow", sans-serif; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: -1px -1px 0 var(--mad-linha), 1px -1px 0 var(--mad-linha), -1px 1px 0 var(--mad-linha), 1px 2px 0 var(--mad-linha);
+}
+.plt-k > em { font-style: normal; font-size: 12px; color: var(--vao-dim); }
+.plt-k-barra { display: block; height: 5px; margin-top: 7px; border-radius: 3px; overflow: hidden; background: var(--barra-vazia); box-shadow: inset 0 0 0 1px var(--mad-linha); }
+.plt-k-barra > i { display: block; height: 100%; background: var(--ouro); }
+
+.plt-pilula {
+  flex: none; padding: 2px 9px; border-radius: 5px; font: 700 10px/16px Tahoma, Verdana, sans-serif; font-style: normal; letter-spacing: .5px;
+  color: #fff; background: #6d5a64; box-shadow: inset 0 0 0 2px var(--mad-linha);
+}
+.plt-pilula[data-estado="on"] { background: #2f8a4f; }
+.plt-pilula[data-estado="pausa"] { background: #b8701c; }
+.plt-pilula[data-estado="erro"] { background: #a83a30; }
+
+/* ---- caixas de informação, tabelas e diário ------------------------------------------------ */
+.plt-caixa { flex: none; padding: 10px 14px; border-radius: 6px; background: var(--vao2); box-shadow: inset 0 0 0 2px var(--mad-linha); }
+.plt-janela .pih-lista { flex: none; overflow: visible; padding: 4px 0; }
+.plt-janela .pih-melhor { box-shadow: inset 0 0 0 2px var(--mad-linha), inset 6px 0 0 var(--ouro); padding-left: 18px; }
+.plt-tab { width: 100%; border-collapse: collapse; }
+.plt-tab th {
+  padding: 8px 10px; text-align: right; white-space: nowrap; background: var(--vao2);
+  font: 700 10px/1.2 Tahoma, Verdana, sans-serif; letter-spacing: .6px; text-transform: uppercase; color: var(--vao-dim);
+}
+.plt-tab th:nth-child(-n+2), .plt-tab td:nth-child(-n+2) { text-align: left; }
+.plt-tab td { padding: 7px 10px; text-align: right; white-space: nowrap; border-top: 1px solid var(--vao-luz); }
+.plt-tab tbody tr:hover td { background: rgba(255, 255, 255, .04); }
+.plt-tab .plt-num { width: 96px; min-height: 30px; padding: 4px 8px; }
+.plt-mais { width: calc(100% - 20px); margin: 8px 10px 4px; }
+.plt-diario { list-style: none; margin: 0; padding: 4px 10px; border-radius: 6px; background: var(--vao2); box-shadow: inset 0 0 0 2px var(--mad-linha); }
+.plt-diario li { display: flex; gap: 12px; padding: 6px 2px; font-size: 12.5px; border-top: 1px solid var(--vao-luz); }
+.plt-diario li:first-child { border-top: 0; }
+.plt-diario time { flex: none; width: 44px; color: var(--vao-dim); font-variant-numeric: tabular-nums; }
+.plt-nota { margin: 0; font-size: 12px; color: var(--vao-dim); }
+
+/* ---- Off: tudo travado e cinza (o aviso no topo continua em cor) -------------------------- */
+.plt-janela[data-modo="desligado"] .plt-corpo-aba > :not(.plt-l-off) { filter: grayscale(1) brightness(.78); }
+.plt-janela[data-modo="desligado"] .plt-corpo-aba > :not(.plt-l-off) .cfg-ajuda { filter: none; }
+
+/* ---- modo claro: os vãos clareiam, a madeira e os botões ficam ---------------------------- */
+html[data-piloto-tema="claro"] .plt-janela .cfg-paineis,
+html[data-piloto-tema="claro"] .plt-janela .plt-sub {
+  --vao: #f4e3ca; --vao2: #fff6e8; --vao-luz: #dbbd98; --barra-vazia: #ead2b2;
+  --sobre-mad: #3a1d22; --sobre-mad-dim: #5a3a35; --vao-dim: #7e5548;
+  --verde: #23793f; --laranja: #a35a00; --vermelho-luz: #b2392b; --xp-luz: #2479b3; --ouro-luz: #9c6a0c;
+  --p-vao: #f4e3ca; --p-vao2: #fff6e8; --p-vao-luz: #dbbd98; --p-vazio: #ead2b2; --p-dim: #7e5548;
+  --p-texto: #3a1d22; --p-texto-dim: #4c2a2a; --p-verde: #23793f; --p-laranja: #a35a00; --p-vermelho-luz: #b2392b; --p-xp: #2479b3; --p-ouro-luz: #9c6a0c;
+  color: #3a1d22;
+}
+html[data-piloto-tema="claro"] .plt-janela .cfg-cab h3 { color: #3a1d22; text-shadow: none; }
+html[data-piloto-tema="claro"] .plt-janela .plt-k > strong { color: #3a1d22; text-shadow: none; }
+html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { background: rgba(72, 14, 30, .05); }
+
+@media (max-width: 760px) {
+  .plt-janela .cfg-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .plt-janela .cfg-cats { flex-direction: row; overflow-x: auto; }
+  .plt-janela .cfg-cat { flex: none; }
+  .plt-janela .cfg-cat-rot, .plt-cats .plt-assinatura, .plt-cats-fim { display: none; }
+  .plt-ks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .plt-modo-bt span { display: none; }
+}
+
+/* Nível (Manual): as duas tabelas lado a lado cabem sem cortar a coluna "Quando" */
+.plt-janela .pih-meta-tab th, .plt-janela .pih-meta-tab td { padding: 6px 5px; font-size: 12px; }
+.plt-janela .pih-meta-tab td:nth-child(4) { white-space: normal; min-width: 0; }
+.plt-janela .pih-meta-card { min-width: 0; overflow: hidden; }
+
+/* 1.14: Pokébola automática bloqueada pelo VIP — a marca dourada do VIP na linha */
+.plt-l.plt-l-vip { box-shadow: inset 0 0 0 2px var(--mad-linha), inset 6px 0 0 var(--ouro); }
+.plt-l.plt-l-vip .plt-l-status { color: var(--ouro-luz); }

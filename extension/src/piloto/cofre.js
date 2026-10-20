@@ -238,45 +238,61 @@
   const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const hora = (t) => new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-  function html() {
+  // ---- aba Cofre (1.13): os números em caixas; as regras só no modo Manual ---------------------
+  function html(modo = 'manual') {
     virarDia();
     const K = PIH.kit;
     const c = s.cfg;
+    const manual = modo === 'manual';
+    const trava = modo === 'desligado';
     const CURTO = { repor: 'Reposição', mercado: 'Mercado', ovos: 'Ovos' };
-    const linhasCat = Object.keys(CATEGORIAS).map((k) => {
-      const tc = c.tetoCategoria[k];
-      return `<tr><td title="${esc(CATEGORIAS[k])}">${CURTO[k] || esc(CATEGORIAS[k])}</td><td>${fmt(Number(s.gasto[k]) || 0)}</td>
-        <td><input type="number" min="0" step="100000" placeholder="livre" value="${tc === null || tc === undefined ? '' : tc}" data-cofre-cat="${k}"></td></tr>`;
-    }).join('');
-    const desl = Object.entries(s.desligados);
-    const n = (k, v, min, max, step) => `<input type="number" min="${min}" ${max != null ? `max="${max}"` : ''} step="${step}" value="${v}" data-cofre="${k}">`;
-    const kpi = (icone, rot, val, cls = '') => `<div class="plt-kpi ${cls}">${K.ico(icone)}<small>${rot}</small><strong>${val}</strong></div>`;
+    const ICO = { repor: 'repor', mercado: 'mercado', ovos: 'ovo' };
     const gasto = gastoHoje();
     const teto = tetoDia();
-    const topo = `<div class="plt-kpis">
-        ${kpi('ouro', 'Ouro/h', s.ouroH ? fmt(s.ouroH) : '…', 'k-ouro')}
-        ${kpi('escudo', 'Reserva', fmt(reserva()))}
-        ${kpi('cofre', 'Teto hoje', fmt(teto))}
-        ${kpi('gasto', 'Gasto hoje', fmt(gasto), 'k-gasto')}
+    const topo = `<div class="plt-ks">
+        ${K.numeroGrande({ icone: 'ouro', rotulo: 'Ouro/h medido', valor: s.ouroH ? fmt(s.ouroH) : '…', classe: 'k-ouro' })}
+        ${K.numeroGrande({ icone: 'escudo', rotulo: 'Reserva', valor: fmt(reserva()), sub: 'nunca gasta abaixo' })}
+        ${K.numeroGrande({ icone: 'cofre', rotulo: 'Teto de hoje', valor: fmt(teto), sub: c.modo === 'fixo' ? 'fixo' : `${Math.round((c.fracaoTeto || 0) * 100)}% do ouro/h × 24 h` })}
+        ${K.numeroGrande({ icone: 'gasto', rotulo: 'Gasto hoje', valor: fmt(gasto), sub: teto > 0 ? `${Math.round((gasto / teto) * 100)}% do teto` : '', classe: 'k-gasto', pct: teto > 0 ? gasto / teto : 0 })}
       </div>`;
-    const regras = K.cartao({
-      icone: 'cofre', titulo: 'Regras do cofre',
-      dica: `Toda compra automática passa aqui: reserva mínima, teto do dia e teto por categoria. Diamante e Gema nunca: ${PIH.BLOQUEADOS ? PIH.BLOQUEADOS.size : 0} comandos bloqueados no núcleo. O dia vira à 00:00 de Brasília.`,
-      corpo: `<div class="plt-linha">
-          ${K.campo('Modo', `<select data-cofre="modo"><option value="proporcional" ${c.modo === 'proporcional' ? 'selected' : ''}>Pelo ganho</option><option value="fixo" ${c.modo === 'fixo' ? 'selected' : ''}>Fixo</option></select>`)}
-          ${K.campo('Fração', n('fracaoTeto', c.fracaoTeto, 0, 1, 0.05), 'Teto do dia = esta fração × ouro/h × 24 h')}
-          ${K.campo('Teto fixo', n('tetoFixoDia', c.tetoFixoDia, 0, null, 1000000))}
-          ${K.campo('Reserva mín.', n('reservaMin', c.reservaMin, 0, null, 1000000))}
-          ${K.campo('+ horas', n('horasReserva', c.horasReserva, 0, 48, 0.5), 'A reserva também cobre estas horas de ouro/h')}
-        </div>
-        <table class="pih-tab pih-auto-tab"><thead><tr><th>Categoria</th><th>Hoje</th><th>Teto (0 = proibida)</th></tr></thead><tbody>${linhasCat}</tbody></table>
-        ${desl.length ? `<p class="plt-nota pih-alerta">Disjuntor: ${desl.map(([o, d]) => `<b title="${esc(d.motivo)}">${esc(o)}</b> ${K.botao('Religar', `data-religar="${esc(o)}"`)}`).join(' ')}</p>` : ''}`,
-    });
-    const diarioHtml = K.cartao({
-      icone: 'relogio', titulo: 'Diário',
-      corpo: `<ul class="pih-diario">${registro.length ? registro.map((d) => `<li class="pih-d-${d.tipo}"><span>${hora(d.t)}</span> ${esc(d.txt)}</li>`).join('') : '<li class="pih-dim">nada ainda</li>'}</ul>`,
-    });
-    return topo + regras + diarioHtml;
+    const cats = Object.keys(CATEGORIAS).map((k) => {
+      const tc = c.tetoCategoria[k];
+      const usado = Number(s.gasto[k]) || 0;
+      const limite = tc === null || tc === undefined ? 'sem teto próprio' : tc === 0 ? 'proibida' : `teto ${fmt(tc)}`;
+      return K.linha({ id: `cat:${k}`, icone: ICO[k], nome: CURTO[k], dica: CATEGORIAS[k], status: `hoje ${fmt(usado)} · ${limite}`,
+        direita: manual ? `<input type="number" class="plt-num" min="0" step="100000" placeholder="livre" value="${tc === null || tc === undefined ? '' : tc}" data-definir="cofre:cat.${k}" aria-label="Teto de ${CURTO[k]} (0 = proibida)"${trava ? ' disabled' : ''}>` : '' });
+    }).join('');
+    const desl = Object.entries(s.desligados);
+    const disjuntor = desl.length ? K.linha({ id: 'disjuntor', icone: 'escudo', nome: 'Disjuntor', classe: 'plt-l-alerta', dica: 'Três recusas seguidas do servidor desligam o módulo. Ele religa sozinho em 30 min, ou agora no botão.',
+      status: desl.map(([o, d]) => `${esc(o)}: ${esc(d.motivo)}`).join(' · '), direita: desl.map(([o]) => K.acao(`Religar ${esc(o)}`, `data-acao="religar:${esc(o)}"`, '', trava)).join('') }) : '';
+    const regras = manual ? `${K.grupo('Regras')}
+      ${K.linha({ id: 'modo', icone: 'cofre', nome: 'Teto do dia', dica: 'Pelo ganho: uma fração do ouro/h medido × 24 h, congelada à 00:00 de Brasília. Fixo: o valor que você escolher.',
+        ajustes: `${K.fcampo('Modo', K.escala('cofre:modo', c.modo, [['proporcional', 'Pelo ganho'], ['fixo', 'Fixo']], trava))}
+          ${c.modo === 'fixo' ? K.fcampo('Teto fixo', K.numero('cofre:tetoFixoDia', c.tetoFixoDia, 0, null, 1000000, trava)) : K.fcampo('Fração', K.numero('cofre:fracaoTeto', c.fracaoTeto, 0, 1, 0.05, trava), 'Teto do dia = esta fração × ouro/h × 24 h')}` })}
+      ${K.linha({ id: 'reserva', icone: 'escudo', nome: 'Reserva', dica: 'O ouro que nunca é gasto: o maior entre o mínimo e estas horas de ouro/h.',
+        ajustes: `${K.fcampo('Mínimo', K.numero('cofre:reservaMin', c.reservaMin, 0, null, 1000000, trava))}${K.fcampo('+ horas de ouro/h', K.numero('cofre:horasReserva', c.horasReserva, 0, 48, 0.5, trava))}` })}` : '';
+    const diarioHtml = `${K.grupo('Diário')}<ul class="plt-diario">${registro.length ? registro.slice(0, 20).map((d) => `<li class="pih-d-${d.tipo}"><time>${hora(d.t)}</time>${esc(d.txt)}</li>`).join('') : '<li class="pih-dim">nada ainda</li>'}</ul>`;
+    return `${topo}${disjuntor}${K.grupo(manual ? 'Por categoria (0 = proibida)' : 'Por categoria')}${cats}${regras}${diarioHtml}`;
+  }
+
+  // Mudança vinda do painel.
+  function definir(caminho, v) {
+    if (caminho.startsWith('cat.')) {
+      const k = caminho.slice(4);
+      if (!(k in CATEGORIAS) || !Number.isFinite(v) || v < 0) return; // vazio não libera categoria (auditoria, item 9)
+      s.cfg.tetoCategoria[k] = v;
+    } else if (caminho in s.cfg) {
+      s.cfg[caminho] = v;
+      if (caminho === 'ligado') diario(v ? 'piloto ligado' : 'piloto DESLIGADO', v ? 'ok' : 'aviso');
+    } else return;
+    gravar();
+  }
+  const acoes = {};
+  function religar(o) {
+    delete s.desligados[o];
+    erros[o] = 0;
+    gravar();
+    diario(`módulo ${o} religado`, 'ok');
   }
 
   function ligar(painel, redesenhar) {
@@ -332,5 +348,5 @@
     gravar();
     diario(`Automático: religados ${ks.join(', ')}`, 'ok');
   }
-  PIH.registrarCofre({ autorizar, estornar, livre, reserva, tetoDia, gastoHoje, liberado, registrarErro, registrarSucesso, religarTudo, diario, html, ligar, CATEGORIAS, pendente, ligado, definirLigado, resumo, ultimos, _interno: { custoDe, estado: () => s } });
+  PIH.registrarCofre({ autorizar, estornar, livre, reserva, tetoDia, gastoHoje, liberado, registrarErro, registrarSucesso, religarTudo, religar, definir, acoes, diario, html, ligar, CATEGORIAS, pendente, ligado, definirLigado, resumo, ultimos, _interno: { custoDe, estado: () => s } });
 })(globalThis);

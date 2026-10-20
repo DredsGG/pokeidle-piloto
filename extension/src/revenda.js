@@ -82,7 +82,7 @@
     const cats = el('div', 'rv-topo rv-cats');
     cats.setAttribute('role', 'tablist');
     for (const [chave, rotulo] of CATEGORIAS) {
-      const b = el('button', 'aba', rotulo);
+      const b = el('button', 'aba cfg-escala-bt', rotulo);
       b.type = 'button';
       b.setAttribute('role', 'tab');
       b.dataset.categoria = chave;
@@ -98,7 +98,7 @@
     ui.topo = topo;
     topo.setAttribute('role', 'tablist');
     for (const [chave, rotulo] of GRUPOS) {
-      const b = el('button', 'aba', rotulo);
+      const b = el('button', 'aba cfg-escala-bt', rotulo);
       b.type = 'button';
       b.setAttribute('role', 'tab');
       b.dataset.grupo = chave;
@@ -134,7 +134,7 @@
     lista.hidden = !item;
     ui.areaPk.hidden = item;
     if (!item) ui.vazio.hidden = true;
-    for (const [chave] of CATEGORIAS) ui.cats[chave].setAttribute('aria-selected', String(chave === ui.categoria));
+    for (const [chave] of CATEGORIAS) { const _b = ui.cats[chave]; _b.setAttribute('aria-selected', String(chave === ui.categoria)); _b.classList.toggle('on', chave === ui.categoria); }
     if (item) filtrar();
     contarCategorias();
     bus.emit('revenda:categoria', { categoria: ui.categoria });
@@ -167,7 +167,7 @@
       if (conta[outro] > 0) { ui.grupo = outro; filtrar(); return; }
     }
     for (const [chave] of GRUPOS) {
-      ui.botoes[chave].setAttribute('aria-selected', String(chave === ui.grupo));
+      { const _b = ui.botoes[chave]; _b.setAttribute('aria-selected', String(chave === ui.grupo)); _b.classList.toggle('on', chave === ui.grupo); }
       ui.numeros[chave].textContent = String(conta[chave]);
       ui.numeros[chave].hidden = conta[chave] === 0;
     }

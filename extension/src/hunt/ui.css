@@ -2,7 +2,7 @@
    anéis em inset, botão pixel roxo (ativo) e de madeira (inativo), vão escuro recuado, títulos em
    Tahoma maiúsculo com contorno e corpo em Barlow. As cores são as variáveis do jogo (com reserva). */
 
-.plt-barra, .plt-painel, .pih-aviso {
+.plt-barra, .plt-painel, .plt-janela, .pih-aviso {
   --p-linha: var(--mad-linha, #480e1e);
   --p-luz: var(--mad-luz, #f1d3b7);
   --p-luz2: var(--mad-luz2, #e7a86d);
@@ -579,3 +579,9 @@ html[data-piloto-tema="claro"] .plt-conteudo .plt-card-cab b { color: #3a1d22; t
 .plt-mini-centro .plt-toast-x .plt-ico { width: 13px; height: 13px; }
 .plt-mini-centro .plt-toast-vida { left: 4px; right: 4px; bottom: 4px; height: 4px; }
 @media (prefers-reduced-motion: reduce) { .plt-mini-centro .plt-toast { animation: none; } .plt-mini-centro .plt-toast.saindo { transition: none; } }
+
+/* 1.13: a arte do jogo nos avisos — sprite animado do pokémon e ícone do item ampliado por inteiro */
+.plt-arte { display: grid; place-items: center; flex: none; overflow: visible; }
+.plt-arte > .plt-mini-img { image-rendering: pixelated; image-rendering: crisp-edges; }
+.plt-arte > canvas.plt-sprite { image-rendering: pixelated; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); }
+.plt-arte > img.plt-item-img { image-rendering: pixelated; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, .4)); }
