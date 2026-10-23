@@ -355,6 +355,18 @@
     'sem bola de ouro na mochila': ['no gold ball in the bag', 'sin bola de oro en la mochila'],
     'Para quem está sem VIP: joga a bola sozinho em cada corpo que cai, igual ao clique na lista "Proximidade para Capturar" do jogo. Uma bola por corpo, no máximo uma a cada 1,3 s (o ritmo do VIP). Só bola paga em ouro — Beast Ball nunca. Com VIP ativo fica bloqueada (o jogo lança). Atenção: no jogo, lançar sozinho é benefício do VIP.': ['For players without VIP: throws a ball at each body that falls, like clicking the game\'s "Nearby to Catch" list. One ball per body, at most one every 1.3 s (the VIP pace). Only gold-bought balls — never Beast Ball. With VIP active it is locked (the game throws). Note: in the game, auto-throwing is a VIP benefit.', 'Para quien no tiene VIP: lanza la bola solo en cada cuerpo que cae, igual que el clic en la lista "Proximidad para Capturar" del juego. Una bola por cuerpo, como máximo una cada 1,3 s (el ritmo del VIP). Solo bolas pagadas en oro — Beast Ball nunca. Con VIP activo queda bloqueada (el juego lanza). Atención: en el juego, lanzar solo es un beneficio VIP.'],
 
+    "Fila": ["Queue", "Cola"],
+    "Na fila": ["Queued", "En cola"],
+    "Indo…": ["Going…", "Yendo…"],
+    "Sem brecha": ["No opening", "Sin hueco"],
+    "No Centro": ["At the Center", "En el Centro"],
+    "Voltou": ["Back", "Volvió"],
+    "Volta": ["Return", "Vuelta"],
+    "Não deu": ["Failed", "No se pudo"],
+    "Fila do Centro: vai sozinho na primeira brecha (apertar de novo cancela)": ["Center queue: goes on its own at the first opening (press again to cancel)", "Cola del Centro: va solo en el primer hueco (pulsa de nuevo para cancelar)"],
+    "Ir e voltar: na primeira brecha vai ao Centro, cura e volta para esta hunt": ["Go and return: at the first opening goes to the Center, heals and comes back to this hunt", "Ir y volver: en el primer hueco va al Centro, cura y vuelve a esta hunt"],
+    "Na fila: vai na primeira brecha. Apertar de novo cancela.": ["Queued: goes at the first opening. Press again to cancel.", "En cola: va en el primer hueco. Pulsa de nuevo para cancelar."],
+    "Mais de 2 min sem brecha: esta hunt não para de lutar. Se quiser sair agora, use \"Desistir do Combate\" (custa XP). Apertar aqui cancela a fila.": ["Over 2 min with no opening: this hunt never stops fighting. To leave now, use \"Give up combat\" (costs XP). Press here to cancel the queue.", "Más de 2 min sin hueco: esta hunt no deja de luchar. Para salir ya, usa \"Rendirse del combate\" (cuesta XP). Pulsa aquí para cancelar la cola."],
     // ---- notificação curta, bandeja e cartão ----
     'Disputas': ['Draws', 'Sorteos'],
     'Comprado!': ['Bought!', '¡Comprado!'],
@@ -369,6 +381,8 @@
 
   // Frases com partes variáveis (a primeira que casar vale).
   const regras = [
+    [/^Não deu: (.+)$/u, (m) => `Failed: ${m[1]}`, (m) => `No se pudo: ${m[1]}`],
+    [/^(\d+(?:[.,]\d)?)s$/u, '$1s', '$1s'],
     [/^O que é isto\?(?: (.+))?$/u, (m) => `What is this?${m[1] ? ` ${(exato[m[1]] || [m[1]])[0]}` : ''}`, (m) => `¿Qué es esto?${m[1] ? ` ${(exato[m[1]] || [, m[1]])[1]}` : ''}`],
     [/^Teto de (.+) \(0 = proibida\)$/u, (m) => `${(exato[m[1]] || [m[1]])[0]} cap (0 = forbidden)`, (m) => `Tope de ${(exato[m[1]] || [, m[1]])[1]} (0 = prohibida)`],
     [/^(\d+)% do ouro\/h × 24 h$/u, '$1% of gold/h × 24 h', '$1% del oro/h × 24 h'],

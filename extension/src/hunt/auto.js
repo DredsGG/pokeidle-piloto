@@ -78,9 +78,9 @@
   let rotina = null; // { destino, curar, compras, etapa, desde, tentativas, motivo }
   const ocupado = () => !!rotina;
 
-  function iniciarRotina({ destino, curar, compras = [], motivo }) {
+  function iniciarRotina({ destino, curar, compras = [], motivo, manual = false }) {
     if (rotina) return false;
-    rotina = { destino, curar, compras, motivo, etapa: 'esperar', desde: Date.now(), tentativas: 0, origem: eu?.huntSlug ?? null };
+    rotina = { destino, curar, compras, motivo, manual, etapa: 'esperar', desde: Date.now(), tentativas: 0, origem: eu?.huntSlug ?? null };
     anotar(`${motivo} — esperando sair de combate`);
     passo();
     return true;
@@ -106,7 +106,7 @@
     if (r.etapa === 'esperar') {
       if (!naHunt() && !eu.noCentro) { if (parado > 120_000) encerrar('cancelado: você não está numa hunt', 'aviso'); return; }
       if (eu.noCentro) { r.etapa = 'centro'; r.desde = agora; return passo(); }
-      if (!foraDeCombate()) { if (parado > 10 * 60_000) encerrar('cancelado: 10 min sem sair de combate', 'aviso'); return; }
+      if (!foraDeCombate()) { if (parado > (r.manual ? 30 : 10) * 60_000) encerrar(`cancelado: ${r.manual ? 30 : 10} min sem sair de combate`, 'aviso'); return; }
       if (!r.curar && !r.compras.length) {
         PIH.enviar({ t: 'hunt.select', slug: r.destino });
         r.etapa = 'voltar'; r.desde = agora; r.enviadoEm = agora;
@@ -150,6 +150,19 @@
         if (eu.noCentro && r.origem && r.origem !== r.destino) PIH.enviar({ t: 'hunt.select', slug: r.origem });
       }
     }
+  }
+  // 1.15: o botão ↩ ao lado do "Ir para o Centro Pokemon" do jogo: vai na primeira brecha, cura e
+  // volta para a mesma hunt — a mesma rotina da reposição, marcada como pedido seu.
+  function irAoCentroEVoltar() {
+    if (rotina) return { ok: false, motivo: rotina.manual ? 'já na fila' : 'o Piloto já está indo ao Centro' };
+    if (!eu || !naHunt()) return { ok: false, motivo: 'só numa hunt' };
+    if (!PIH.cofre?.ligado?.()) return { ok: false, motivo: 'com o Piloto em Off, use a fila simples' };
+    const ok = iniciarRotina({ destino: eu.huntSlug, curar: true, manual: true, motivo: 'você pediu: Centro, curar e voltar' });
+    return { ok, motivo: ok ? null : 'ocupado' };
+  }
+  function cancelarIdaManual() {
+    if (rotina && rotina.manual && rotina.etapa === 'esperar') { encerrar('fila do Centro cancelada por você'); return true; }
+    return false;
   }
   const nomeHunt = (slug) => (welcome?.hunts ?? []).find((h) => h.slug === slug)?.nome ?? slug;
 
@@ -496,5 +509,5 @@
     if (m?.repor) Object.assign(cfg.repor, { ligado: !!m.repor.ligado });
     gravar();
   }
-  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + cfg.hunt.intervaloMin * 60_000, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina } };
+  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, irAoCentroEVoltar, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + cfg.hunt.intervaloMin * 60_000, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina } };
 })(globalThis);

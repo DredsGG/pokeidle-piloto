@@ -585,3 +585,28 @@ html[data-piloto-tema="claro"] .plt-conteudo .plt-card-cab b { color: #3a1d22; t
 .plt-arte > .plt-mini-img { image-rendering: pixelated; image-rendering: crisp-edges; }
 .plt-arte > canvas.plt-sprite { image-rendering: pixelated; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .35)); }
 .plt-arte > img.plt-item-img { image-rendering: pixelated; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, .4)); }
+
+/* 1.15: fila do Centro — os botões do Piloto colados no "Ir para o Centro Pokemon" do jogo.
+   Ganham o visual do próprio botão (classe .ir-centro do jogo); aqui só a grade e os estados. */
+.hunt-saida-acoes.plt-com-fila { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px; }
+.hunt-saida-acoes.plt-com-fila > .desistir-combate { grid-column: 1 / -1; }
+.hunt-saida-acoes .plt-fila-centro { padding: 0 10px; gap: 5px; min-width: 34px; font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hunt-saida-acoes .plt-fila-voltar .plt-fila-txt:empty { display: none; }
+.plt-fila-centro .plt-fila-ico { width: 22px; height: 22px; flex: none; margin-left: -3px; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, .45)); }
+/* parado o botão é de madeira; o ícone fica um pouco apagado e acende quando está na fila */
+.plt-fila-centro:not(.on):not(.plt-fila-ok):not(.plt-fila-erro) .plt-fila-ico { opacity: .9; }
+.plt-fila-centro:not(.on):not(.plt-fila-ok):not(.plt-fila-erro) {
+  color: var(--sobre-mad-dim);
+  text-shadow: -1px -1px 0 var(--mad-base), 1px -1px 0 var(--mad-base), -1px 1px 0 var(--mad-base), 1px 1px 0 var(--mad-base);
+  background: linear-gradient(180deg, var(--mad-luz2) 0 6px, var(--mad-esc) 6px 13px, var(--mad) 13px calc(100% - 9px), var(--mad-quente) calc(100% - 9px) 100%);
+}
+.plt-fila-centro.on { animation: plt-fila-pulso 1.2s ease-in-out infinite; }
+/* estados com a cor no fundo (o ícone não muda de cor): laranja = sem brecha, verde = chegou, vermelho = não deu */
+.plt-fila-centro.plt-fila-alerta { animation: none; text-shadow: -1px -1px 0 #7a3b00, 1px -1px 0 #7a3b00, -1px 1px 0 #7a3b00, 1px 1px 0 #7a3b00;
+  background: linear-gradient(180deg, #ffd9a1 0 6px, #b8641a 6px 13px, #e68a2e 13px calc(100% - 13px), #f2a34b calc(100% - 13px) calc(100% - 7px), #ffc07a calc(100% - 7px) 100%); }
+.plt-fila-centro.plt-fila-ok { text-shadow: -1px -1px 0 #1d5a30, 1px -1px 0 #1d5a30, -1px 1px 0 #1d5a30, 1px 1px 0 #1d5a30;
+  background: linear-gradient(180deg, #c9f5cf 0 6px, #2f8a4f 6px 13px, #3fae63 13px calc(100% - 13px), #5cc77e calc(100% - 13px) calc(100% - 7px), #9ee6b1 calc(100% - 7px) 100%); }
+.plt-fila-centro.plt-fila-erro { text-shadow: -1px -1px 0 #6e1a14, 1px -1px 0 #6e1a14, -1px 1px 0 #6e1a14, 1px 1px 0 #6e1a14;
+  background: linear-gradient(180deg, #ffc2b8 0 6px, #a3302a 6px 13px, #d8574a 13px calc(100% - 13px), #e77b6c calc(100% - 13px) calc(100% - 7px), #ffa597 calc(100% - 7px) 100%); }
+@keyframes plt-fila-pulso { 50% { filter: brightness(1.25); } }
+@media (prefers-reduced-motion: reduce) { .plt-fila-centro.on { animation: none; } }
