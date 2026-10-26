@@ -438,6 +438,87 @@ chrome.notifications.onClicked.addListener(async (id) => {
 
 // ---- mensagens ----------------------------------------------------------------------------------
 
+// ---- atualização (1.25, o mesmo sistema do Midas) ----------------------------------------------
+// - Procura versão nova nos Releases do GitHub (DredsGG/pokeidle-piloto): ao abrir o Chrome, a cada
+//   6 h e no botão "Procurar atualização" do painel.
+// - Instalada pela loja: "Atualizar" pede a versão nova ao Chrome e recarrega.
+// - Instalada por pasta (modo desenvolvedor): o Chrome não deixa a extensão trocar os próprios
+//   arquivos. "Atualizar" baixa o zip do Release; quando os arquivos novos chegam na pasta (zip
+//   extraído por cima, ou gravados pela IA), a extensão percebe em até 1 min e se recarrega — sem ↻.
+// - Depois de recarregar, as abas do jogo recarregam (o Piloto volta sozinho no modo em que estava).
+const REPO = 'DredsGG/pokeidle-piloto';
+const CHAVE_UPD = 'piloto:update';
+const CHECAR_A_CADA_MIN = 360;
+const versaoAtual = () => chrome.runtime.getManifest().version;
+const cmpVer = (a, b) => {
+  const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = String(b).split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) { const d = (pa[i] || 0) - (pb[i] || 0); if (d) return d > 0 ? 1 : -1; }
+  return 0;
+};
+const tipoInstalacao = async () => { try { return (await chrome.management.getSelf()).installType; } catch { return 'development'; } };
+async function gravarUpd(patch) {
+  const { [CHAVE_UPD]: atual = {} } = await chrome.storage.local.get(CHAVE_UPD);
+  const novo = { ...atual, ...patch };
+  await chrome.storage.local.set({ [CHAVE_UPD]: novo });
+  return novo;
+}
+async function checarUpd() {
+  const cur = versaoAtual();
+  const base = { checadoEm: Date.now(), atual: cur, instalacao: await tipoInstalacao() };
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    const ultima = String(j.tag_name || '').replace(/^v/i, '');
+    const zip = (j.assets || []).find((a) => /\.zip$/i.test(a.name))?.browser_download_url || null;
+    return gravarUpd({ ...base, ultima, notas: String(j.body || '').slice(0, 4000), pagina: j.html_url || null, zip, disponivel: !!ultima && cmpVer(ultima, cur) > 0, erro: null });
+  } catch (e) {
+    return gravarUpd({ ...base, erro: String(e && e.message || e) });
+  }
+}
+async function aplicarUpd() {
+  const st = (await chrome.storage.local.get(CHAVE_UPD))[CHAVE_UPD] || {};
+  if (await tipoInstalacao() === 'normal') {
+    const res = await new Promise((ok) => chrome.runtime.requestUpdateCheck((status) => ok({ status })));
+    if (res.status === 'update_available') { setTimeout(() => chrome.runtime.reload(), 1500); return { modo: 'loja', status: 'aplicando' }; }
+    return { modo: 'loja', status: res.status };
+  }
+  const url = st.zip || st.pagina || `https://github.com/${REPO}/releases/latest`;
+  await chrome.tabs.create({ url, active: false });
+  await gravarUpd({ baixadoEm: Date.now() });
+  return { modo: 'download', status: 'baixado' };
+}
+// por pasta: arquivos novos na pasta → recarrega sozinho (o manifest é gravado por último; espera
+// 15 s para o zip terminar de ser extraído)
+let recargaPendente = null;
+async function vigiarDisco() {
+  if (await tipoInstalacao() !== 'development') return;
+  try {
+    const r = await fetch(chrome.runtime.getURL('manifest.json') + '?t=' + Date.now(), { cache: 'no-store' });
+    const noDisco = (await r.json()).version;
+    if (noDisco && noDisco !== versaoAtual() && recargaPendente !== noDisco) { recargaPendente = noDisco; setTimeout(() => chrome.runtime.reload(), 15000); }
+  } catch { /* manifest no meio da gravação: tenta no próximo minuto */ }
+}
+function agendarUpd() {
+  chrome.alarms.create('piloto-upd', { delayInMinutes: 1, periodInMinutes: CHECAR_A_CADA_MIN });
+  chrome.alarms.create('piloto-disco', { delayInMinutes: 1, periodInMinutes: 1 });
+}
+chrome.alarms.onAlarm.addListener((a) => {
+  if (a.name === 'piloto-upd') checarUpd().catch(erro);
+  if (a.name === 'piloto-disco') vigiarDisco().catch(erro);
+});
+chrome.runtime.onStartup.addListener(() => { agendarUpd(); checarUpd().catch(erro); });
+chrome.runtime.onInstalled.addListener(async (d) => {
+  agendarUpd();
+  if (d.reason === 'update') {
+    await gravarUpd({ acabouDe: { de: d.previousVersion || null, para: versaoAtual(), em: Date.now() }, disponivel: false, atual: versaoAtual() });
+    // as abas do jogo ainda rodam a versão antiga: recarregar põe a nova
+    try { for (const t of await chrome.tabs.query({ url: 'https://pokeidle.io/app*' })) chrome.tabs.reload(t.id); } catch (e) { erro(e); }
+  }
+  checarUpd().catch(erro);
+});
+
 const ACOES = {
   'historico:gravar': (m) => gravarAmostras(m.amostras || []),
   'historico:resumo': (m) => resumoHistorico(m.itemIds || [], m.agora || Date.now(), m.antesDe),
@@ -478,6 +559,9 @@ const ACOES = {
     }, 45_000);
     return aba.id;
   },
+  'upd:checar': () => checarUpd(),
+  'upd:aplicar': () => aplicarUpd(),
+  'upd:dispensar': async (m) => gravarUpd({ ...(m.limparAviso ? { acabouDe: null } : { dispensada: typeof m.versao === 'string' ? m.versao.slice(0, 20) : null }) }),
   'voto:fechar': async () => {
     const { 'voto:aba': id } = await chrome.storage.session.get('voto:aba');
     if (typeof id !== 'number') return null;

@@ -369,6 +369,7 @@
       if (!A.motivoDePausa(contextoDePausa())) await lerVendasDeFundo();
       // 1.12.3: a revenda corre à parte (antes, a volta dela parava as varreduras por até 45 s).
       if (!A.motivoDePausa(contextoDePausa())) revendaAutomatica().catch(erro);
+      if (!A.motivoDePausa(contextoDePausa())) revendaPkAutomatica().catch(erro);
     } catch (e) {
       erro(e);
     } finally {
@@ -1397,8 +1398,87 @@
     for (const id of ids) pedirCalculoPk(id);
   }
 
+  // ---- anúncio automático de pokémon (1.21) --------------------------------------------------
+  // Pedido do André: o pokémon que não serve para ele vai sozinho ao Mercado, como os itens. Quem
+  // pode ir quem diz é o Piloto (src/piloto/guarda.js): sem a lista fresca dele, nada é anunciado.
+  // Uma ação por volta (a cada 3 min), até 3 espécies calculadas por volta, só em ouro.
+  const REVENDA_PK_AUTO_MS = 3 * 60000;
+  const GUARDA_VALE_MS = 2 * 60000;
+  const MAX_CALCULOS_PK_AUTO = 3;
+  s.pkGuardados = null;
+  s.revenda.pkEspera = new Map(); // pokemonId -> não tenta antes de
+  document.addEventListener('piloto:pk-guardados', (ev) => {
+    try {
+      const d = JSON.parse(ev.detail);
+      s.pkGuardados = d && d.pronto === true && Array.isArray(d.ids) ? { ids: new Set(d.ids.map(Number)), em: Date.now() } : null;
+      s.pkGuardaMotivo = d && !d.pronto ? String(d.motivo || '') : '';
+    } catch (e) { erro(e); }
+  });
+  const emEsperaPk = (id) => (s.revenda.pkEspera.get(id) || 0) > Date.now();
+  const segurarPk = (id, ms) => s.revenda.pkEspera.set(id, Date.now() + ms);
+  function cartoesPk() {
+    const r = s.revenda.pk;
+    return RvPk.montarCartoes({
+      pokemons: r.lista, activeId: r.activeId, meus: (s.revenda.meus && s.revenda.meus.linhas) || [], meuId: s.conta.id,
+      calculos: r.calculos, registro: s.revenda.registro || [], compras: (s.revenda.historico && s.revenda.historico.linhas) || [],
+    }).cartoes;
+  }
+  async function revendaPkAutomatica() {
+    if (!s.config.revendaAutomatica || s.parado || !s.socketAberto || s.revenda.pkAutoRodando) return;
+    if (Date.now() - (s.ultimaRevendaPkAuto || 0) < REVENDA_PK_AUTO_MS) return;
+    const g = s.pkGuardados;
+    if (!g || Date.now() - g.em > GUARDA_VALE_MS) return;
+    if (!s.revenda.pk.recebidoEm) return;
+    s.ultimaRevendaPkAuto = Date.now();
+    s.revenda.pkAutoRodando = true;
+    try {
+      if (!s.revenda.meus || Date.now() - (s.revenda.meusEm || 0) > 5 * 60000) { await esperar(pausaEntrePedidos()); await lerMeus(); }
+      const abertos = ((s.revenda.meus && s.revenda.meus.linhas) || []).filter((l) => l && (!l.estado || l.estado === 'aberto')).length;
+      const vagas = abertos < Rv.MAX_ANUNCIOS - 2;
+      const pode = (c) => c.ficha && c.ficha.moeda === 'gold' && !c.ficha.shiny && !emEsperaPk(c.pokemonId)
+        && (c.grupo === 'mudar' || (vagas && !g.ids.has(c.pokemonId)));
+      // Mudar o preço primeiro (já está à venda); depois os comprados pelo radar e a maior nota.
+      const fila = cartoesPk().filter(pode).sort((x, y) => Number(y.grupo === 'mudar') - Number(x.grupo === 'mudar'));
+      let calculos = 0;
+      for (const c of fila) {
+        if (!s.config.revendaAutomatica || !s.socketAberto) break;
+        const r = s.revenda.pk;
+        const velho = !r.calculos.has(c.pokemonId) || Date.now() - r.calculos.get(c.pokemonId).em > CALCULO_PK_VALE_MS;
+        if (velho) {
+          if (calculos >= MAX_CALCULOS_PK_AUTO) break;
+          calculos++;
+          await calcularPk(c.pokemonId);
+          emitirRevendaPk();
+        }
+        // De novo, com o cálculo e a lista do Piloto de agora.
+        const alvo = cartoesPk().find((x) => x.chave === c.chave);
+        if (!alvo || (alvo.grupo === 'anunciar' && (!s.pkGuardados || s.pkGuardados.ids.has(alvo.pokemonId)))) continue;
+        const d = RvPk.decidirAutoPk(alvo, { diaria: s.taxaDiaria, minLiquido: s.config.lucroMinimoRevenda || 0 });
+        if (!d.ok) { segurarPk(alvo.pokemonId, (d.motivo === 'já é o mais barato' ? 15 : 60) * 60000); continue; }
+        const nome = `${alvo.ficha.nome || 'pokémon'} Nv ${alvo.ficha.nivel ?? '?'}`;
+        if (alvo.grupo === 'mudar') await mudarPrecoPk({ anuncioId: alvo.anuncioId, pokemonId: alvo.pokemonId, preco: d.preco });
+        else await anunciarPk({ pokemonId: alvo.pokemonId, preco: d.preco, dias: d.dias, auto: true });
+        await esperarVoo();
+        const res = r.acoes.get(alvo.pokemonId);
+        if (res && res.fase === 'ok') {
+          const texto = alvo.grupo === 'mudar' ? `baixei o preço para ${fmtN(d.preco)}` : `anunciei por ${fmtN(d.preco)} (1 dia)`;
+          diarioPiloto(`revenda: ${nome}: ${texto} · líquido ${fmtN(d.conta.liquido)}`, 'ok');
+          if (s.config.notificacoes) sw({ tipo: 'notificar', titulo: `Revenda: ${nome}`, mensagem: `${texto} · líquido estimado ${fmtN(d.conta.liquido)}` });
+          segurarPk(alvo.pokemonId, 30 * 60000);
+        } else {
+          diarioPiloto(`revenda: ${nome}: não anunciei — ${res ? res.texto : 'sem resposta'}`, 'aviso', `pk:${alvo.pokemonId}`);
+          segurarPk(alvo.pokemonId, 60 * 60000);
+        }
+        break; // uma ação por volta
+      }
+    } finally {
+      s.revenda.pkAutoRodando = false;
+      emitirRevendaPk();
+    }
+  }
+
   // Um clique no cartão: um único market.criar de pokémon, com os dias da diária.
-  async function anunciarPk({ pokemonId, preco, dias }) {
+  async function anunciarPk({ pokemonId, preco, dias, auto = false }) {
     const r = s.revenda.pk;
     const k = r.lista.find((x) => x.id === pokemonId);
     const ficha = k ? RvPk.fichaDe(k) : null;
@@ -1415,7 +1495,8 @@
     await esperarJanelaDeAnuncio();
     const voo = { pokemonId, nome: ficha.nome, tipo: 'criar-pk', em: Date.now(), preco: p, dias: d };
     s.revenda.emVoo = voo;
-    const resp = await ponte.enviar({ t: 'market.criar', tipo: 'pokemon', pokemonId, qtd: 1, preco: p, moeda: ficha.moeda, dias: d });
+    // `auto` (1.21): o anúncio sem clique paga a diária pelo cofre do Piloto (reserva e teto do dia).
+    const resp = await ponte.enviar({ t: 'market.criar', tipo: 'pokemon', pokemonId, qtd: 1, preco: p, moeda: ficha.moeda, dias: d, auto: auto === true });
     if (!resp.ok) { s.revenda.emVoo = null; marcarAcaoPk(pokemonId, 'erro', `Não enviado: ${resp.motivo}`); return; }
     voo.em = resp.em || Date.now();
     voo.timer = setTimeout(() => conferirAnuncio(voo).catch(erro), ESPERA_ANUNCIO_MS);

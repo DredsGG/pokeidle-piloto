@@ -165,5 +165,29 @@
 
   const comAcao = (c) => c.acao === 'anunciar' || c.acao === 'mudar-preco';
 
-  return { PRECO_MINIMO, DIAS, DIAS_PADRAO, DIARIA_PADRAO, NIVEL_MIN, NOTA_MIN, RAZAO_ABAIXO_DO_MERCADO, fichaDe, motivoNaoAnunciavel, custoDe, sugerir, contaDe, alertasDoPreco, montarCartoes, comAcao };
+  // 1.21 (pedido do André): o anúncio automático de pokémon. Só em ouro (shiny fica com você), só
+  // com 5+ vendas parecidas, pelo preço sugerido (1 abaixo do parecido mais barato, nunca abaixo do
+  // 25º percentil das vendas), nunca abaixo do que você pagou e só com líquido de pelo menos
+  // `minLiquido` depois da taxa e da diária de 1 dia. Quem pode ser vendido decide o Piloto (Guarda).
+  const MIN_PARECIDAS_AUTO = 5;
+  function decidirAutoPk(c, { diaria = DIARIA_PADRAO, minLiquido = 0 } = {}) {
+    const nao = (motivo) => ({ ok: false, motivo });
+    if (!c || !c.ficha) return nao('sumiu');
+    if (c.ficha.moeda !== 'gold' || c.ficha.shiny) return nao('shiny: só você decide');
+    if (c.acao === 'calcular') return nao('sem cálculo');
+    if (c.acao === 'primeiro') return nao('já é o mais barato');
+    if (c.acao !== 'anunciar' && c.acao !== 'mudar-preco') return nao('sem referência de preço');
+    const sg = c.sugestao;
+    if (!sg || !positivo(sg.preco)) return nao('sem referência de preço');
+    if (!(sg.n >= MIN_PARECIDAS_AUTO)) return nao(`menos de ${MIN_PARECIDAS_AUTO} vendas parecidas`);
+    if (positivo(sg.p25) && sg.preco < sg.p25) return nao('abaixo do 25º percentil das vendas');
+    const conta = contaDe({ preco: sg.preco, moeda: 'gold', dias: DIAS_PADRAO, diaria, custo: c.custo });
+    if (!conta) return nao('sem conta');
+    const alertas = alertasDoPreco({ preco: sg.preco, conta, sugestao: sg });
+    if (alertas.length) return nao(alertas.join(', '));
+    if (!(conta.liquido >= Math.max(1, minLiquido))) return nao('a diária come o preço');
+    return { ok: true, motivo: null, preco: sg.preco, dias: DIAS_PADRAO, conta };
+  }
+
+  return { PRECO_MINIMO, DIAS, DIAS_PADRAO, DIARIA_PADRAO, NIVEL_MIN, NOTA_MIN, RAZAO_ABAIXO_DO_MERCADO, fichaDe, motivoNaoAnunciavel, custoDe, sugerir, contaDe, alertasDoPreco, montarCartoes, comAcao, decidirAutoPk, MIN_PARECIDAS_AUTO };
 });

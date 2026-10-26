@@ -414,7 +414,7 @@
   }
   // O que vem do SERVIDOR (estado, welcome, campo, erro) só o hook publica: a página não pode
   // fingir um saldo maior para o cofre aprovar (auditoria de 2026-10-19, caso C2).
-  const TIPOS_DO_SERVIDOR = new Set(['welcome', 'estado', 'campo.init', 'campo', 'erro', 'pvp', 'piloto.enviado']);
+  const TIPOS_DO_SERVIDOR = new Set(['welcome', 'estado', 'campo.init', 'campo', 'erro', 'pvp', 'perfil', 'piloto.enviado']);
   PIH.emit = (tipo, dado) => { if (!TIPOS_DO_SERVIDOR.has(tipo)) emitirInterno(tipo, dado); };
 
   // O cofre se registra UMA vez (o primeiro script da extensão, em document_start, antes de
@@ -492,6 +492,7 @@
     else if (cab.includes('"t":"campo"')) tipo = 'campo';
     else if (cab.includes('"t":"erro"')) tipo = 'erro';
     else if (cab.includes('"t":"pvp"')) tipo = 'pvp';
+    else if (cab.includes('"t":"perfil"')) tipo = 'perfil'; // 1.23: o perfil público (ranking.perfil), para a aba Meta
     if (!tipo) return;
     let m;
     try { m = JSON.parse(texto); } catch { return; }
@@ -559,6 +560,29 @@
       return { t: 'chocadeira.colocar', slot: p.slot, ovo: p.ovo };
     },
     'oferenda.tudo': () => ({ t: 'oferenda.tudo' }),
+    // 1.18: as regras do Auto Coleção do jogo (o "Salvar" do painel Market → Vender). Só a forma que
+    // o jogo aceita: seis linhas com liga/desliga, P2–P5, qualidade 1,1/1,3/1,5/1,6, IV 1–32, nota 0–10.
+    'shop.autoColecao': (p) => {
+      const r = p.regra;
+      const obj = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
+      if (!obj(r)) return null;
+      const out = {};
+      for (const k of ['lendario', 'shiny', 'pot', 'qual', 'iv', 'nota']) {
+        if (!obj(r[k]) || typeof r[k].on !== 'boolean') return null;
+        out[k] = { on: r[k].on };
+      }
+      if (![2, 3, 4, 5].includes(r.pot.min)) return null;
+      out.pot.min = r.pot.min;
+      if (![1.1, 1.3, 1.5, 1.6].includes(r.qual.min)) return null;
+      out.qual.min = r.qual.min;
+      if (typeof r.nota.min !== 'number' || !(r.nota.min >= 0 && r.nota.min <= 10)) return null;
+      out.nota.min = r.nota.min;
+      if (!obj(r.iv.min)) return null;
+      const ivMin = {};
+      for (const [s, v] of Object.entries(r.iv.min)) { if (!/^(hp|atk|def|spAtk|spDef|speed)$/.test(s) || !int(v, 1, 32)) return null; ivMin[s] = v; }
+      out.iv.min = ivMin;
+      return { t: 'shop.autoColecao', regra: out };
+    },
     // 1.14: bola num corpo caído — a mesma mensagem do clique na lista "Proximidade para Capturar".
     // Só bola paga em OURO (Beast Ball é de diamante: nunca), que você tem, num corpo que ainda está
     // no chão, e nunca mais rápido que o lançamento automático do VIP (1 a cada 1,2 s).
@@ -576,12 +600,30 @@
     },
     'shop.sellAllPokemons': (p) => (int(p.ateId, 1, ID) ? { t: 'shop.sellAllPokemons', ateId: p.ateId } : null),
     // 1.12.4: guardar um pokémon SEU na Coleção (protege da venda do Depot). Só para dentro, nunca "depot".
+    // 1.16: montar o time de campo (janela Time). Entrar: um pokémon SEU, numa vaga livre (0 a 4),
+    // que o seu nível de treinador deixa usar (nível do pokémon ≤ treinador + 5, ou o inicial). Sair
+    // (slot null): nunca o que está em campo lutando.
+    'team.move': (p) => {
+      const e = pihUltimo.get('estado') || {};
+      const lista = e.pokemons || [];
+      const pk = lista.find((x) => x && x.id === p.pokemonId);
+      if (!int(p.pokemonId, 1, ID) || !pk) return null;
+      if (p.slot === null) {
+        if (pk.slot == null || pk.id === e.activeId) return null;
+        return { t: 'team.move', pokemonId: p.pokemonId, slot: null };
+      }
+      if (!int(p.slot, 0, 4) || pk.slot != null || lista.some((x) => x && x.slot === p.slot)) return null;
+      if (!pk.starter && (Number(pk.level) || 0) > (Number(e.level) || 0) + 5) return null;
+      return { t: 'team.move', pokemonId: p.pokemonId, slot: p.slot };
+    },
     'colecao.mover': (p) => {
       const meus = new Set(((pihUltimo.get('estado') || {}).pokemons || []).map((x) => x && x.id));
       return int(p.pokemonId, 1, ID) && meus.has(p.pokemonId) && p.para === 'colecao' ? { t: 'colecao.mover', pokemonId: p.pokemonId, para: 'colecao' } : null;
     },
     // PvP Ranqueado (1.2.1): ler, montar a equipe (1 a 5 pokémon seus, sem repetir) e entrar na fila.
     'pvp.info': () => ({ t: 'pvp.info' }),
+    // 1.23: o perfil público de um jogador (o mesmo clique no nick do placar), só leitura.
+    'ranking.perfil': (p) => (typeof p.nick === 'string' && /^[\p{L}\p{N}_.\-]{1,30}$/u.test(p.nick) ? { t: 'ranking.perfil', nick: p.nick } : null),
     'pvp.fila.entrar': () => ({ t: 'pvp.fila.entrar' }),
     'pvp.time.salvar': (p) => {
       const ids = Array.isArray(p.pokemonIds) ? p.pokemonIds : null;
@@ -627,7 +669,9 @@
   };
   // Compatível com o /hunt (que esperava true/false).
   PIH.enviar = (obj, origem = 'hunt') => PIH.pedir(obj, origem).ok;
-  for (const k of ['on', 'emit', 'pedir', 'enviar', 'registrarCofre', 'itensReservados', 'BLOQUEADOS', 'COMANDOS_DO_PILOTO', 'hookInstalado']) {
+  // 1.20: só leitura, para a Saúde conferir quais mensagens do jogo chegaram (uma cópia).
+  PIH.contagemDoJogo = () => ({ in: { ...st.contagem.in }, out: { ...st.contagem.out }, conectado: !!st.atual, ultimaEntrada: st.ultimaEntrada || 0 });
+  for (const k of ['on', 'emit', 'pedir', 'enviar', 'registrarCofre', 'itensReservados', 'BLOQUEADOS', 'COMANDOS_DO_PILOTO', 'hookInstalado', 'contagemDoJogo']) {
     Object.defineProperty(PIH, k, { value: PIH[k], writable: false, configurable: false, enumerable: true });
   }
 
@@ -658,6 +702,8 @@
     try {
       Reflect.apply(sendNativo, ws, [texto]);
       gastarFicha(proximo.pedido.t);
+      // 1.25: o perfil que o Piloto lê (aba Meta) não pode abrir a janela do perfil na tela do jogo
+      if (proximo.pedido.t === 'ranking.perfil') perfisDoPiloto.set(proximo.pedido.nick, agora() + 15000);
       const registro = { origem: proximo.origem, pedido: proximo.pedido, reserva: proximo.reserva, em: agora(), timer: null };
       registro.timer = agendar(() => {
         const i = enviosPih.indexOf(registro);
@@ -833,12 +879,29 @@
 
   // ---- ouvintes no socket ------------------------------------------------------------------
 
+  // 1.25: perfis pedidos pelo Piloto (nick -> até quando). A resposta vai só para o Piloto: o jogo
+  // abriria a janela do perfil na tela do André a cada leitura da aba Meta.
+  const perfisDoPiloto = new Map();
+  function ehPerfilDoPiloto(dado) {
+    if (!perfisDoPiloto.size || dado.slice(0, 40).indexOf('"t":"perfil"') < 0) return false;
+    const m = /"nick":"((?:[^"\\]|\\.){1,40})"/.exec(dado.slice(0, 400));
+    if (!m) return false;
+    let nick = m[1];
+    try { nick = JSON.parse(`"${m[1]}"`); } catch { /* fica o bruto */ }
+    const ate = perfisDoPiloto.get(nick);
+    for (const [n, t] of perfisDoPiloto) if (t < agora()) perfisDoPiloto.delete(n);
+    if (!ate || ate < agora()) return false;
+    perfisDoPiloto.delete(nick);
+    return true;
+  }
   function aoReceber(ev) {
     try {
       const dado = ev.data;
       if (typeof dado !== 'string') return;
       // O piloto (/hunt, rotina, cofre) recebe o estado primeiro, como o gancho dele fazia.
       try { pihReceber(dado); } catch (e) { erro(e); }
+      if (ehPerfilDoPiloto(dado)) { ev.stopImmediatePropagation(); return; }
+      if (tipoRapido(dado) !== 'pong') st.ultimaEntrada = agora(); // 1.20.1: a Volta sabe se o jogo está vivo
       if (st.rastroAte && agora() < st.rastroAte) anotarRastro(dado);
       // Pulso: o jogo está recebendo mensagens. Vai só a hora, no máximo a cada 3 s, numa tarefa à
       // parte. O pong não conta: o gateway responde ping mesmo com o servidor do jogo parado.
@@ -978,6 +1041,12 @@
       if (esperou >= 2600) return responder(ref, false, 'limite de leituras');
       agendar(() => enviar(cmd, esperou + 200), 200);
       return;
+    }
+    // 1.21: o anúncio automático de pokémon paga a diária (ouro) — também passa pelo cofre.
+    if (auto && pedido.t === 'market.criar' && pedido.tipo === 'pokemon') {
+      if (pedido.moeda !== 'gold') return responder(ref, false, 'anúncio automático só em ouro');
+      const r = cofreRef ? cofreRef.autorizar(pedido, 'mercado') : { ok: false, motivo: 'cofre não carregou' };
+      if (!r.ok) return responder(ref, false, `cofre: ${r.motivo}`);
     }
     if (compra && auto) {
       const r = cofreRef ? cofreRef.autorizar(pedido, 'mercado') : { ok: false, motivo: 'cofre não carregou' };

@@ -1,10 +1,10 @@
+import path from 'node:path';
 // Banco de testes do PokeIdle Piloto: roda os scripts do mundo MAIN num "navegador" falso.
 import vm from 'node:vm';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import path from 'node:path';
-
 const AQUI = path.dirname(new URL(import.meta.url).pathname);
+
 const RAIZ = path.resolve(AQUI, '../extension/src');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let falhas = 0;
@@ -38,6 +38,8 @@ PIH.carregarJogo = async () => ({
   mod: {}, precoItem: new Map(),
 });
 
+// O Auto Coleção no ponto tem teste próprio (no fim); nos outros fica desligado.
+PIH.rotina._interno.cfg().autoColecao.ligado = false;
 // O jogo abre o socket depois dos scripts.
 new WebSocket('wss://pokeidle.io/ws');
 const estados = [];
@@ -79,6 +81,20 @@ await caso('cofre: preço desconhecido não compra; abaixo da reserva não compr
   msg({ t: 'estado', estado: { gold: 5_000_500 } });
   assert.match(PIH.pedir({ t: 'shop.buy', kind: 'ball', id: 1, qty: 100 }, 'teste').motivo, /reserva/);
   msg({ t: 'estado', estado: { gold: 49_000_000 } });
+});
+
+await caso('cofre 1.20: teto do dia = o maior entre o ganho e 15% do saldo acima da reserva', async () => {
+  const st = PIH.cofre._interno.estado();
+  const guard = { ouroH: st.ouroH, ouroHDia: st.ouroHDia, saldoDia: st.saldoDia };
+  st.ouroH = 0; st.ouroHDia = 0; st.saldoDia = 146_600_000; // ganho sem medida: 10 mi
+  assert.equal(PIH.cofre.resumo().teto, Math.floor(0.15 * (146_600_000 - 5_000_000)));
+  st.saldoDia = 20_000_000; // 15% de 15 mi = 2,25 mi < 10 mi do ganho
+  assert.equal(PIH.cofre.resumo().teto, 10_000_000);
+  st.ouroH = 3_000_000; st.ouroHDia = 3_000_000; st.saldoDia = 146_600_000; // ganho 36 mi > 15% de (146,6 − 6) mi
+  assert.equal(PIH.cofre.resumo().teto, 36_000_000);
+  st.saldoDia = 0; // sem saldo conhecido: só o ganho
+  assert.equal(PIH.cofre.resumo().teto, 36_000_000);
+  Object.assign(st, guard);
 });
 
 await caso('piloto desligado: nada automático sai', async () => {
@@ -235,6 +251,28 @@ await caso('rotina: Depot vende igual ao botão do jogo (sem exigir nota), pula 
   localStorage.setItem('piloto:rotina:v1', JSON.stringify({ cfg, marcas: {} }));
 });
 
+await caso('rotina: Depot na hora — 1 pokémon já vende; a próxima venda só depois de 15 s', async () => {
+  const cfg = PIH.rotina._interno.cfg();
+  cfg.passe.ligado = cfg.xpshare.ligado = cfg.outland.ligado = cfg.chocadeira.ligado = cfg.evoluir.ligado = false;
+  cfg.pvp.time = cfg.pvp.fila = false;
+  cfg.depot.modo = 'vender';
+  localStorage.setItem('piloto:rotina:v1', JSON.stringify({ cfg, marcas: {} }));
+  PIH.rotina._interno.marcas().depot = 0; // a venda do teste anterior foi há segundos
+  msg({ t: 'estado', estado: { pokemons: [{ id: 300, slot: null, level: 5, nome: 'Um só', speciesId: 1 }, { id: 500, slot: 0, level: 50, nome: 'Na equipe', speciesId: 1 }], automation: {} } });
+  enviados.length = 0;
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  assert.equal(enviados.filter((m) => m.t === 'shop.sellAllPokemons').length, 1, 'um pokémon no Depot já vende');
+  enviados.length = 0;
+  msg({ t: 'estado', estado: { pokemons: [{ id: 301, slot: null, level: 5, nome: 'Outro', speciesId: 1 }, { id: 500, slot: 0, level: 50, nome: 'Na equipe', speciesId: 1 }] } });
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  assert.equal(enviados.filter((m) => m.t === 'shop.sellAllPokemons').length, 0, 'segura 15 s entre vendas');
+  PIH.rotina._interno.marcas().depot = Date.now() - 16_000;
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  assert.deepEqual(enviados.filter((m) => m.t === 'shop.sellAllPokemons').map((m) => m.ateId), [301]);
+  cfg.depot.modo = 'off';
+  localStorage.setItem('piloto:rotina:v1', JSON.stringify({ cfg, marcas: {} }));
+});
+
 await caso('rotina: o perfil Automático liga a venda do Depot', async () => {
   const cfg = PIH.rotina._interno.cfg();
   cfg.depot.modo = 'off'; cfg.depot.limiar = 100; cfg.depot.horas = 6;
@@ -377,6 +415,45 @@ await caso('captura: já vem ligada sem VIP; bola de ouro no corpo, shiny primei
   await sleep(1800);
   assert.equal(enviados.slice(meio).filter((m) => m.t === 'ball.throw').length, 0);
   PIH.captura.definir('ligado', false);
+});
+
+await caso('time: team.move só com pokémon seu, vaga livre, nível que o treinador usa; nunca tira quem luta', async () => {
+  msg({ t: 'estado', estado: { level: 30, activeId: 1, pokemons: [{ id: 1, slot: 0, level: 30, nome: 'A' }, { id: 2, slot: 1, level: 20, nome: 'B' }, { id: 5, slot: null, level: 35, nome: 'C' }, { id: 6, slot: null, level: 36, nome: 'D' }, { id: 7, slot: null, level: 99, nome: 'E', starter: true }] } });
+  assert.equal(PIH.pedir({ t: 'team.move', pokemonId: 5, slot: 2 }, 'time').ok, true, 'nível 35 = treinador + 5');
+  assert.equal(PIH.pedir({ t: 'team.move', pokemonId: 6, slot: 2 }, 'time').ok, false, 'nível 36 passa do limite');
+  assert.equal(PIH.pedir({ t: 'team.move', pokemonId: 7, slot: 3 }, 'time').ok, true, 'o inicial não tem limite');
+  assert.equal(PIH.pedir({ t: 'team.move', pokemonId: 5, slot: 1 }, 'time').ok, false, 'vaga ocupada');
+  assert.equal(PIH.pedir({ t: 'team.move', pokemonId: 5, slot: 7 }, 'time').ok, false, 'vaga fora de 0 a 4');
+  assert.equal(PIH.pedir({ t: 'team.move', pokemonId: 999, slot: 2 }, 'time').ok, false, 'pokémon que não é seu');
+  assert.equal(PIH.pedir({ t: 'team.move', pokemonId: 1, slot: null }, 'time').ok, false, 'quem está lutando não sai');
+  assert.equal(PIH.pedir({ t: 'team.move', pokemonId: 2, slot: null }, 'time').ok, true);
+});
+
+await caso('rotina: Auto Coleção no ponto — salva a regra do Mercado e só depois vende o Depot', async () => {
+  const cfg = PIH.rotina._interno.cfg();
+  cfg.passe.ligado = cfg.xpshare.ligado = cfg.outland.ligado = cfg.chocadeira.ligado = cfg.evoluir.ligado = false;
+  cfg.pvp.time = cfg.pvp.fila = false;
+  cfg.depot.modo = 'vender';
+  cfg.autoColecao.ligado = true;
+  PIH.rotina._interno.marcas().depot = 0;
+  PIH.rotina._interno.marcas().autoColecao = 0;
+  msg({ t: 'estado', estado: { pokemons: [{ id: 400, slot: null, level: 5, nome: 'Qualquer', speciesId: 1 }, { id: 500, slot: 0, level: 50, nome: 'Na equipe', speciesId: 1 }], automation: {} } });
+  enviados.length = 0;
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  const regra = enviados.find((m) => m.t === 'shop.autoColecao');
+  assert.ok(regra, `esperava a regra, veio: ${enviados.map((m) => m.t)}`);
+  assert.deepEqual({ l: regra.regra.lendario.on, s: regra.regra.shiny.on, p: [regra.regra.pot.on, regra.regra.pot.min], q: regra.regra.qual.on, n: [regra.regra.nota.on, regra.regra.nota.min] }, { l: true, s: true, p: [true, 5], q: false, n: [true, 3.5] });
+  assert.equal(enviados.filter((m) => m.t === 'shop.sellAllPokemons').length, 0, 'não vende antes de a regra estar salva');
+  // o jogo confirma a regra: agora vende
+  msg({ t: 'estado', estado: { automation: { autoColecao: regra.regra } } });
+  enviados.length = 0;
+  await PIH.rotina._interno.tique(); await sleep(1300);
+  assert.equal(enviados.filter((m) => m.t === 'shop.autoColecao').length, 0, 'regra igual: não manda de novo');
+  assert.equal(enviados.filter((m) => m.t === 'shop.sellAllPokemons').length, 1);
+  // o gancho só deixa passar a forma do jogo
+  assert.equal(PIH.pedir({ t: 'shop.autoColecao', regra: { ...regra.regra, pot: { on: true, min: 7 } } }, 'rotina').ok, false);
+  assert.equal(PIH.pedir({ t: 'shop.autoColecao', regra: { ...regra.regra, nota: { on: true, min: 'x' } } }, 'rotina').ok, false);
+  cfg.depot.modo = 'off'; cfg.autoColecao.ligado = false;
 });
 
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTUDO PASSOU');

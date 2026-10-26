@@ -24,6 +24,10 @@
     reservaMin: 5_000_000,
     horasReserva: 2,
     fracaoTeto: 0.5,
+    // 1.20: o teto também olha o dinheiro guardado — o maior entre o ganho (fração do ouro/h × 24 h)
+    // e esta fração do saldo acima da reserva, os dois congelados à 00:00. Quem tem muito ouro
+    // parado e ganha pouco por hora não fica travado num teto pequeno.
+    fracaoSaldo: 0.15,
     tetoFixoDia: 10_000_000,
     tetoSemMedida: 10_000_000, // 1.2.1: era 2 mi e travava a compra automática no primeiro dia
     // teto por categoria (0 = categoria proibida; null = só o teto do dia)
@@ -46,10 +50,11 @@
         ouroH: Number(s.ouroH) || 0,
         ouroHEm: Number(s.ouroHEm) || 0,
         ouroHDia: Number(s.ouroHDia) || 0,
+        saldoDia: Number(s.saldoDia) || 0,
         desligados: s.desligados || {},
       };
     } catch {
-      return { cfg: { ...PADRAO, tetoCategoria: { ...PADRAO.tetoCategoria } }, dia: diaBrasilia(), gasto: {}, ouroH: 0, ouroHEm: 0, ouroHDia: 0, desligados: {} };
+      return { cfg: { ...PADRAO, tetoCategoria: { ...PADRAO.tetoCategoria } }, dia: diaBrasilia(), gasto: {}, ouroH: 0, ouroHEm: 0, ouroHDia: 0, saldoDia: 0, desligados: {} };
     }
   }
   let s = ler();
@@ -61,7 +66,8 @@
     // não estoura o teto de hoje (auditoria, caso G).
     if (s.dia === hoje) return false;
     const ontem = Object.values(s.gasto).reduce((a, b) => a + (Number(b) || 0), 0);
-    s.dia = hoje; s.gasto = {}; s.ouroHDia = s.ouroH; gravar();
+    const ouroAgora = Number(eu && eu.gold);
+    s.dia = hoje; s.gasto = {}; s.ouroHDia = s.ouroH; s.saldoDia = Number.isFinite(ouroAgora) && ouroAgora > 0 ? ouroAgora : 0; gravar();
     diarioViradaPendente = `novo dia (00:00 de Brasília): gasto zerado${ontem ? `, ontem foram ${nf.format(Math.round(ontem))}` : ''}`;
     return true;
   }
@@ -94,6 +100,8 @@
         for (const r of pendentes) { if (caiu <= 0) break; const k = Math.min(caiu, r.custo); r.custo -= k; caiu -= k; }
       }
       ouroAnterior = ouro;
+      // Primeira vez no dia (ou versão nova): o saldo de agora mais o que já saiu hoje.
+      if (!s.saldoDia && ouro > 0) { s.saldoDia = Math.round(ouro + gastoHoje()); gravar(); }
     }
   });
   PIH.on('welcome', (m) => {
@@ -130,7 +138,14 @@
     virarDia();
     if (s.cfg.modo === 'fixo') return Number(s.cfg.tetoFixoDia) || 0;
     const base = s.ouroHDia || 0;
-    return base > 0 ? (Number(s.cfg.fracaoTeto) || 0) * base * 24 : Number(s.cfg.tetoSemMedida) || 0;
+    const peloGanho = base > 0 ? (Number(s.cfg.fracaoTeto) || 0) * base * 24 : Number(s.cfg.tetoSemMedida) || 0;
+    return Math.max(peloGanho, tetoPeloSaldo());
+  }
+  // A parte do teto que vem do saldo guardado (congelado à 00:00 de Brasília).
+  function tetoPeloSaldo() {
+    const f = Number(s.cfg.fracaoSaldo);
+    if (!(f > 0) || !(s.saldoDia > 0)) return 0;
+    return Math.floor(f * Math.max(0, s.saldoDia - reserva()));
   }
   const gastoHoje = () => { virarDia(); return Object.values(s.gasto).reduce((a, b) => a + (Number(b) || 0), 0); };
 
@@ -147,6 +162,11 @@
       return { custo: unit * pedido.qty, categoria: OVOS[pedido.id] ? 'ovos' : 'repor' };
     }
     if (pedido.t === 'market.comprar') return { custo: pedido.qtd * pedido.preco, categoria: 'mercado' };
+    // 1.21: anúncio automático de pokémon — o que sai do bolso é a diária (welcome.mercado.taxaDiaria × dias).
+    if (pedido.t === 'market.criar' && pedido.tipo === 'pokemon') {
+      const diaria = Number(welcome && welcome.mercado && welcome.mercado.taxaDiaria);
+      return { custo: diaria > 0 && Number.isInteger(pedido.dias) ? diaria * pedido.dias : null, categoria: 'mercado' };
+    }
     return { custo: 0, categoria: null };
   }
 
@@ -252,7 +272,7 @@
     const topo = `<div class="plt-ks">
         ${K.numeroGrande({ icone: 'ouro', rotulo: 'Ouro/h medido', valor: s.ouroH ? fmt(s.ouroH) : '…', classe: 'k-ouro' })}
         ${K.numeroGrande({ icone: 'escudo', rotulo: 'Reserva', valor: fmt(reserva()), sub: 'nunca gasta abaixo' })}
-        ${K.numeroGrande({ icone: 'cofre', rotulo: 'Teto de hoje', valor: fmt(teto), sub: c.modo === 'fixo' ? 'fixo' : `${Math.round((c.fracaoTeto || 0) * 100)}% do ouro/h × 24 h` })}
+        ${K.numeroGrande({ icone: 'cofre', rotulo: 'Teto de hoje', valor: fmt(teto), sub: c.modo === 'fixo' ? 'fixo' : tetoPeloSaldo() > 0 && tetoPeloSaldo() >= teto ? `${Math.round((c.fracaoSaldo || 0) * 100)}% do saldo acima da reserva` : `${Math.round((c.fracaoTeto || 0) * 100)}% do ouro/h × 24 h` })}
         ${K.numeroGrande({ icone: 'gasto', rotulo: 'Gasto hoje', valor: fmt(gasto), sub: teto > 0 ? `${Math.round((gasto / teto) * 100)}% do teto` : '', classe: 'k-gasto', pct: teto > 0 ? gasto / teto : 0 })}
       </div>`;
     const cats = Object.keys(CATEGORIAS).map((k) => {
@@ -266,7 +286,7 @@
     const disjuntor = desl.length ? K.linha({ id: 'disjuntor', icone: 'escudo', nome: 'Disjuntor', classe: 'plt-l-alerta', dica: 'Três recusas seguidas do servidor desligam o módulo. Ele religa sozinho em 30 min, ou agora no botão.',
       status: desl.map(([o, d]) => `${esc(o)}: ${esc(d.motivo)}`).join(' · '), direita: desl.map(([o]) => K.acao(`Religar ${esc(o)}`, `data-acao="religar:${esc(o)}"`, '', trava)).join('') }) : '';
     const regras = manual ? `${K.grupo('Regras')}
-      ${K.linha({ id: 'modo', icone: 'cofre', nome: 'Teto do dia', dica: 'Pelo ganho: uma fração do ouro/h medido × 24 h, congelada à 00:00 de Brasília. Fixo: o valor que você escolher.',
+      ${K.linha({ id: 'modo', icone: 'cofre', nome: 'Teto do dia', dica: 'Pelo ganho: o maior entre uma fração do ouro/h medido × 24 h e 15% do saldo acima da reserva, os dois congelados à 00:00 de Brasília. Fixo: o valor que você escolher.',
         ajustes: `${K.fcampo('Modo', K.escala('cofre:modo', c.modo, [['proporcional', 'Pelo ganho'], ['fixo', 'Fixo']], trava))}
           ${c.modo === 'fixo' ? K.fcampo('Teto fixo', K.numero('cofre:tetoFixoDia', c.tetoFixoDia, 0, null, 1000000, trava)) : K.fcampo('Fração', K.numero('cofre:fracaoTeto', c.fracaoTeto, 0, 1, 0.05, trava), 'Teto do dia = esta fração × ouro/h × 24 h')}` })}
       ${K.linha({ id: 'reserva', icone: 'escudo', nome: 'Reserva', dica: 'O ouro que nunca é gasto: o maior entre o mínimo e estas horas de ouro/h.',

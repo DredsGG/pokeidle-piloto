@@ -1,5 +1,13 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="estilo.css?v=1.325.0"><title>Pokeidle</title>
 <style>body{background:#1b1d2a;color:#eee;font-family:sans-serif} #p-ativo{width:320px;margin:120px 40px;padding:12px;border:1px solid #555}</style></head>
 <body><div id="p-ativo"><div id="ativo-card"><span class="ativo-nome">Charmander</span> Nv 20</div></div>
+<div class="painel" id="p-equipe" style="width:320px;margin:0 40px;padding:10px;border:1px solid #555"><div class="painel-cab painel-cab-equipe" style="display:flex;align-items:center;gap:8px"><h3 style="margin:0;flex:1">Equipe <span class="cnt" id="time-cnt"></span></h3><button type="button" id="btn-equipe-toggle" class="btn-painel-toggle" style="width:28px;height:28px">▾</button></div><div id="time-corpo"><div id="time" class="lista-poke"></div></div></div>
 <div id="modal" class="hidden"><div class="modal-caixa" data-modal="mapa"></div></div>
-<script>window.__jogoWs = new WebSocket('wss://pokeidle.io/ws');</script></body></html>
+<div class="hunt-saida" id="hunt-saida"><div class="hunt-saida-acoes"><button class="ir-centro" id="ir-centro" type="button"><span class="ir-centro-txt-longo">Ir para o Centro Pokemon</span><span class="ir-centro-conta" id="ir-centro-conta"></span></button><button class="desistir-combate" id="desistir-combate" type="button">Desistir do Combate</button></div></div>
+<script>window.__jogoWs = new WebSocket('wss://pokeidle.io/ws');
+// imitação do tiqueCentroSaida do jogo: o botão fica travado enquanto centroLivreEm não passou
+(() => { const e = { centroLivreEm: 0, servidorAgora: 0, em: 0 };
+  __jogoWs.addEventListener('message', (ev) => { try { const m = JSON.parse(ev.data); const x = m.t === 'welcome' ? m.estado : m.t === 'estado' ? m.estado : null; if (!x) return; if ('centroLivreEm' in x) e.centroLivreEm = x.centroLivreEm; if ('servidorAgora' in x) { e.servidorAgora = x.servidorAgora; e.em = Date.now(); } } catch {} });
+  setInterval(() => { const resta = e.centroLivreEm - (e.servidorAgora + (Date.now() - e.em)); const b = document.getElementById('ir-centro'); b.disabled = resta > 0; document.getElementById('ir-centro-conta').textContent = resta > 0 ? (resta / 1000).toFixed(1) + 's' : ''; }, 100);
+  document.getElementById('ir-centro').onclick = () => __jogoWs.send(JSON.stringify({ t: 'centro.ir' }));
+})();</script></body></html>

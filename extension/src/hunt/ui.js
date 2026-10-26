@@ -299,14 +299,20 @@
     const m = lerJson(CHAVE_MODO, null);
     return m === 'automatico' || m === 'manual' ? m : 'manual';
   }
+  // 1.19 (pedido do André): o Manual fica bloqueado por enquanto — só Off e Auto. Quem estava no
+  // Manual passa para o Off (o seguro: nada automático roda) até escolher o Auto.
+  // (os testes automáticos destravam com a chave de desenvolvimento 'piloto:dev:manual' = '1')
+  const MANUAL_BLOQUEADO = (() => { try { return localStorage.getItem('piloto:dev:manual') !== '1'; } catch { return true; } })();
   function definirModo(modo) {
     if (!['desligado', 'manual', 'automatico'].includes(modo)) return;
+    if (modo === 'manual' && MANUAL_BLOQUEADO) return;
     gravarJson(CHAVE_MODO, modo === 'desligado' ? (lerJson(CHAVE_MODO, 'manual') ?? 'manual') : modo);
     PIH.cofre?.definirLigado(modo !== 'desligado');
     if (modo === 'automatico') {
       PIH.cofre?.religarTudo?.();
       PIH.auto?.aplicar?.({ hunt: { ligado: true }, repor: { ligado: true } });
-      PIH.rotina?.aplicar?.({ passe: true, xpshare: true, outland: true, pvp: true, depotVender: true });
+      PIH.rotina?.aplicar?.({ passe: true, xpshare: true, outland: true, pvp: true, depotVender: true, autoColecao: true, rodizio: true });
+      PIH.time?.aplicar?.({ campoAuto: true });
     }
     // O Radar (outro mundo da extensão) muda o perfil dele: desligado, só avisar ou automático.
     document.dispatchEvent(new CustomEvent('piloto:modo', { detail: JSON.stringify({ modo }) }));
@@ -327,6 +333,11 @@
   }
   setInterval(publicarContexto, 5_000);
   setTimeout(() => {
+    if (MANUAL_BLOQUEADO && modoAtual() === 'manual') {
+      const veioDoManual = lerJson(CHAVE_MODO, null) === 'manual'; // instalação nova não tem modo salvo
+      definirModo('desligado');
+      if (veioDoManual) PIH.cofre?.diario?.('o modo Manual está bloqueado: o Piloto ficou em Off — escolha Auto para ligar', 'aviso');
+    }
     publicarContexto(true);
     // O modo é quem manda: no Automático, o Radar volta ao perfil automático a cada carga da página
     // (antes, 3 falhas desligavam a compra dele e ela ficava desligada com o Piloto em Automático).
@@ -339,6 +350,7 @@
   }, 3000);
   // Desligou a compra automática no Mercado: o Piloto passa a Manual (para não religar sozinho).
   document.addEventListener('piloto:radar-manual', () => {
+    if (MANUAL_BLOQUEADO) return; // no Auto, cada automação do Radar tem o seu interruptor
     if (modoAtual() === 'automatico') { gravarJson(CHAVE_MODO, 'manual'); pintarBarra(); }
   });
 
@@ -356,9 +368,10 @@
     ['cofre', 'Cofre', 'cofre', 'Quanto pode gastar, e onde gastou'],
   ];
   if (prefs.aba === 'auto') prefs.aba = 'hunts'; // a aba "Auto" virou parte de Caçar
+  const ICO_CADEADO = '<svg class="plt-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0zm3 4a1.6 1.6 0 0 0-.8 3V19h1.6v-2a1.6 1.6 0 0 0-.8-3z" fill="currentColor"/></svg>';
   const MODOS = [
     ['desligado', 'Off', 'fechar', 'Desligado: nada automático roda, nem a compra do Radar'],
-    ['manual', 'Manual', 'escudo', 'Manual: você liga e ajusta cada automação'],
+    ['manual', 'Manual', 'escudo', 'Manual: bloqueado por enquanto'],
     ['automatico', 'Auto', 'leme', 'Automático: o Piloto lê a conta e calcula tudo; você só liga e desliga'],
   ];
   let painel = null;
@@ -381,7 +394,7 @@
           <span class="plt-sub" data-sub></span>
         </div>
         <div class="cfg-escala plt-modos" role="radiogroup" aria-label="Modo do Piloto">
-          ${MODOS.map(([k, r, i, d]) => `<button type="button" class="cfg-escala-bt plt-modo-bt" role="radio" data-modo="${k}" title="${d}">${ico(i)}<span>${r}</span></button>`).join('')}
+          ${MODOS.map(([k, r, i, d]) => { const bloq = k === 'manual' && MANUAL_BLOQUEADO; return `<button type="button" class="cfg-escala-bt plt-modo-bt${bloq ? ' plt-modo-bloq' : ''}" role="radio" data-modo="${k}" title="${d}"${bloq ? ' disabled aria-disabled="true"' : ''}>${bloq ? ICO_CADEADO : ico(i)}<span>${r}</span></button>`; }).join('')}
         </div>
         <div class="modal-acoes">
           <button type="button" class="plt-tema" data-acao="tema"></button>
@@ -394,12 +407,14 @@
             <nav class="cfg-cats plt-cats" role="tablist" aria-label="Seções">
               ${ABAS.map(([k, r, i]) => `<button type="button" class="cfg-cat" role="tab" data-aba="${k}"><span class="cfg-cat-ico">${ico(i, 'dlg-svg')}</span><span class="cfg-cat-rot">${r}</span><b class="plt-cat-n" data-n="${k}" hidden></b></button>`).join('')}
               <span class="plt-cats-fim"></span>
+              <div class="plt-suporte-bts" data-suporte-bts></div>
               ${PIH.idioma ? PIH.idioma.bandeiras() : ''}
               <a class="plt-assinatura" href="https://github.com/DredsGG" target="_blank" rel="noopener noreferrer" title="Abrir o GitHub do Dreds" aria-label="Feito por Dreds: abrir o GitHub"><i class="plt-rebite" aria-hidden="true"></i><small>feito por</small><b>Dreds</b><em data-versao></em><i class="plt-rebite" aria-hidden="true"></i></a>
             </nav>
             <div class="cfg-paineis">
               <section class="cfg-painel plt-aba" role="tabpanel">
                 <header class="cfg-cab"><span class="cfg-cab-ico" data-cab-ico></span><h3 data-titulo></h3><span class="plt-cab-modo" data-cab-modo></span></header>
+                <div class="plt-suporte" data-suporte></div>
                 <div class="cfg-linhas plt-corpo-aba" data-conteudo></div>
               </section>
             </div>
@@ -453,6 +468,7 @@
     else if (mod === 'rotina') PIH.rotina?.definir?.(caminho, valor);
     else if (mod === 'cofre') PIH.cofre?.definir?.(caminho, valor);
     else if (mod === 'captura') PIH.captura?.definir?.(caminho, valor);
+    else if (mod === 'volta') PIH.volta?.definir?.(caminho, valor);
     ultimoHtml = '';
     desenhar();
   }
@@ -461,6 +477,13 @@
     if (!t || !painel.contains(t)) return;
     if (t.disabled) return;
     if (t.matches('.plt-modo-bt[data-modo]')) { definirModo(t.dataset.modo); ultimoHtml = ''; desenhar(); return; }
+    if (t.matches('[data-ir-hunt]')) {
+      const r = PIH.auto?.irParaHunt?.(t.dataset.irHunt) || { ok: false, motivo: 'a automação de hunt não carregou' };
+      t.classList.add(r.ok ? 'indo' : 'recusado');
+      t.title = r.ok ? 'Indo…' : `Não deu: ${r.motivo}`;
+      setTimeout(() => { ultimoHtml = ''; desenhar(); }, r.ok ? 1500 : 2500);
+      return;
+    }
     if (t.matches('.cfg-cat[data-aba]')) { prefs.aba = t.dataset.aba; gravarJson(CHAVE_PREFS, prefs); mostrando = POR_PAGINA; ultimoHtml = ''; desenhar(); return; }
     if (t.matches('[data-idioma]')) {
       PIH.idioma?.definir(t.dataset.idioma);
@@ -572,7 +595,7 @@
   }
 
   // ---- Off: um aviso no topo de cada aba ---------------------------------------------------------
-  const avisoOff = () => K.linha({ id: 'off', icone: 'fechar', nome: 'Piloto desligado', classe: 'plt-l-off', status: 'Nada automático roda. Escolha Manual ou Auto lá em cima para mexer.' });
+  const avisoOff = () => K.linha({ id: 'off', icone: 'fechar', nome: 'Piloto desligado', classe: 'plt-l-off', status: 'Nada automático roda. Escolha Auto lá em cima para ligar.' });
 
   // ---- Resumo: a conta inteira numa tela -----------------------------------------------------
   function blocoResumo() {
@@ -603,11 +626,13 @@
     const pvpLig = rot.includes('PvP');
     const fr = (estado, icone, nome, status) => K.linha({ id: `res:${nome}`, icone, nome, status, direita: K.pilula(estado), classe: estado === 'on' ? 'plt-l-on' : '' });
     const frentes = [
-      fr(f.hunt && a?.hunt.ligado ? f.hunt : '', 'cacar', 'Troca de hunt', a?.hunt.ligado ? `${a.hunt.criterio === 'ouro' ? 'Ouro/h' : 'XP/h'} · análise ${prox == null ? 'agora' : `em ${duracao(prox)}`}` : 'desligada'),
+      fr(f.hunt && a?.hunt.ligado ? f.hunt : '', 'cacar', 'Troca de hunt', a?.hunt.ligado ? `top 1 em ${prefs.ordem === 'ouro' ? 'Ouro/h' : 'XP/h'} · análise contínua${PIH.auto.ultimoResultado?.() ? ` · ${esc(PIH.auto.ultimoResultado())}` : ''}` : 'desligada'),
       fr(f.hunt && a?.repor.ligado ? (baixos.length ? 'pausa' : 'on') : '', 'repor', 'Reposição', a?.repor.ligado ? (itens.length ? (baixos.length ? `baixo: ${baixos.map((x) => x.nome).join(', ')}` : `${itens.length} itens em dia`) : 'marque bolas e poções no jogo') : 'desligada'),
       fr(f.rotina, 'rotina', 'Rotina', rot.filter((x) => x !== 'PvP').join(', ') || 'nada ligado'),
       ...(PIH.captura ? [(() => { const c = PIH.captura.resumo(); return fr(cof?.ligado && c.ligado && !c.vip ? 'on' : '', 'bola', 'Pokébola automática', PIH.captura.status()); })()] : []),
-      fr(f.rotina && pvpLig ? f.rotina : '', 'pvp', 'PvP', pvpLig ? 'equipe por Poder · fila' : 'desligado'),
+      ...(PIH.guarda ? [(() => { const g = PIH.guarda.resumo(); const on = cof?.ligado && radar?.revenda !== false; return fr(on ? (g.pronto ? 'on' : 'pausa') : '', 'mercado', 'Vender pokémon', g.pronto ? `${g.ids.length} guardados (time, PvP, treinar, shiny, lendário) · o resto vai ao Mercado` : esc(g.motivo || 'esperando')); })()] : []),
+      ...(PIH.volta ? [(() => { const v = PIH.volta.resumo(); return fr(cof?.ligado && v.ligado ? (v.vivo ? 'on' : 'pausa') : '', 'voltar', 'Voltar se cair', PIH.volta.status()); })()] : []),
+      fr(f.rotina && pvpLig ? f.rotina : '', 'pvp', 'PvP', pvpLig ? 'mesma equipe do time · fila' : 'desligado'),
       fr(f.radar, 'radar', 'Radar', radar ? `${radar.texto}${radar.avisos ? ` · ${radar.avisos} aviso${radar.avisos > 1 ? 's' : ''}` : ''}${radar.auto ? ` · comprou ${curto(radar.gastoAutoHoje ?? 0)} hoje` : ''}` : 'esperando'),
       fr(cof?.ligado ? (cof.desligados.length ? 'erro' : 'on') : '', 'cofre', 'Cofre', cof ? `reserva ${curto(cof.reserva)}${cof.pendente ? ` · ${curto(cof.pendente)} em uso` : ''}${cof.desligados.length ? ` · disjuntor: ${cof.desligados.join(', ')}` : ''}` : '—'),
     ].join('');
@@ -819,6 +844,21 @@
     return `<span class="pih-ok" title="${oque}">✓ ${pct}%</span>`;
   }
 
+  // 1.17: o retrato do pokémon da hunt numa moldura redonda; clicar leva para a hunt.
+  function retratoHunt(l) {
+    const h = (welcome?.hunts ?? []).find((x) => x.slug === l.slug);
+    const esp = h && Array.isArray(h.especies) && h.especies.length ? [...h.especies].sort((a, b) => (Number(b.pontos) || 0) - (Number(a.pontos) || 0))[0] : null;
+    const img = esp && PIH.arte?.retrato ? PIH.arte.retrato(esp.pokeId, 30) : '';
+    const aqui = l.slug === eu?.huntSlug && !eu?.noCentro;
+    const off = modoAtual() === 'desligado';
+    const pode = l.liberada && !aqui && !off;
+    const dica = aqui ? 'Você está aqui' : !l.liberada ? 'Hunt ainda bloqueada para o seu nível' : off ? 'Com o Piloto em Off, use o mapa do jogo' : cfgAuto()?.hunt?.ligado
+      ? `Ir para ${l.nome}. Com a Troca de hunt ligada, se esta não for a melhor, o Piloto volta para a melhor.`
+      : `Ir para ${l.nome} (espera sair de combate)`;
+    return `<button type="button" class="pih-retrato${aqui ? ' aqui' : ''}" data-ir-hunt="${esc(l.slug)}" title="${esc(dica)}" aria-label="${esc(dica)}"${pode ? '' : ' disabled'}>${img || `<span class="pih-retrato-ini">${esc(String(l.nome || '?').slice(0, 1))}</span>`}</button>`;
+  }
+  const cfgAuto = () => { try { return PIH.auto?._interno?.cfg?.(); } catch { return null; } };
+  let topSlug = null;
   function linhaHtml(l, i) {
     const medido = l.kphMedido != null ? ` · você fez ${num(l.kphMedido)} abates/h aqui com este pokémon (referência; não muda o ranking)` : '';
     const aprox = l.aoe
@@ -826,7 +866,7 @@
       : l.geoMedida
         ? (medido ? `<span class="pih-medido" title="Geometria medida em ondas cheias${medido}">●</span>` : '')
         : `<span class="pih-aprox" title="Geometria padrão (sem onda cheia medida nesta hunt)${medido}">≈</span>`;
-    const cls = [i === 0 && !l.inviavel ? 'pih-top' : '', l.liberada ? '' : 'pih-bloq'].filter(Boolean).join(' ');
+    const cls = [l.slug === topSlug && !l.inviavel ? 'pih-top' : '', l.liberada ? '' : 'pih-bloq'].filter(Boolean).join(' ');
     const golpe = l.melhorGolpe ? `${esc(l.melhorGolpe.nome)} ×${l.efetividade.toFixed(2).replace('.', ',')}` : '';
     if (l.inviavel) {
       return `<tr class="${cls}"><td class="pih-pos">${i + 1}</td>
@@ -835,7 +875,7 @@
     }
     return `<tr class="${cls}" title="${esc(golpe)}">
       <td class="pih-pos">${i + 1}</td>
-      <td class="pih-hunt"><b>${esc(l.nome)}</b><small>${regiao(l.regiao)} · Nv ${num(l.nivel)}${l.liberada ? '' : ' · 🔒'}</small></td>
+      <td class="pih-hunt">${retratoHunt(l)}<span class="pih-hunt-txt"><b>${esc(l.nome)}${l.slug === eu?.huntSlug && !eu?.noCentro ? ' <i class="pih-aqui">você está aqui</i>' : ''}</b><small>${regiao(l.regiao)} · Nv ${num(l.nivel)}${l.liberada ? '' : ' · 🔒'}</small></span></td>
       <td>${curto(prefs.ordem === 'ouro' ? l.ouroH : l.xpPokemonH)}</td>
       <td>${aprox}${num(l.kph)}</td>
       <td>${segundos(l.ttk)}</td>
@@ -847,7 +887,9 @@
   function corpo(r, jogo, manual) {
     const linhas = r.linhas;
     if (!linhas.length) return '<div class="pih-erro">Nenhuma hunt liberada para o seu nível de treinador.</div>';
-    const top = linhas.find((l) => !l.inviavel);
+    // 1.18: o 👑 é o mesmo destino da Troca de hunt (top 1 liberado, sem risco se "Evitar risco")
+    const top = (PIH.auto?.melhorDe ? PIH.auto.melhorDe(linhas, prefs.ordem === 'ouro' ? 'ouro' : 'xp') : null) || linhas.find((l) => !l.inviavel);
+    topSlug = top ? top.slug : null;
     const outro = prefs.ordem === 'ouro' ? 'XP/h' : 'Ouro/h';
     const limite = manual ? mostrando : 5;
     const melhor = top ? `<div class="plt-caixa pih-melhor">
@@ -904,7 +946,7 @@
     if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '')); return; }
     if (aba === 'cofre') { pintarSeMudou(alvo, aba, topo + (PIH.cofre ? PIH.cofre.html(layout) : '')); return; }
     const pk = pkAtivo();
-    const linhasCaca = aba === 'hunts' ? `${PIH.auto ? PIH.auto.linhas(layout) : ''}${PIH.captura ? PIH.captura.linha(layout) : ''}${K.grupo('Onde render mais')}` : '';
+    const linhasCaca = aba === 'hunts' ? `${PIH.auto ? PIH.auto.linhas(layout) : ''}${PIH.captura ? PIH.captura.linha(layout) : ''}${PIH.volta ? PIH.volta.linha(layout) : ''}${K.grupo('Onde render mais')}` : '';
     if (!welcome || !eu) { pintarSeMudou(alvo, aba, `${topo}${linhasCaca}<div class="pih-carga">Esperando o jogo conectar…</div>`); return; }
     if (!pk) { pintarSeMudou(alvo, aba, `${topo}${linhasCaca}<div class="pih-erro">Coloque um pokémon em campo para ver onde caçar.</div>`); return; }
     const vez = ++desenhando;

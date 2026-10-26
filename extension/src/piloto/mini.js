@@ -217,6 +217,30 @@
     t.innerHTML = K.ico(d.categoria === 'pokemon' ? 'pvp' : 'mercado', 'plt-mini-ico');
     return t.content.firstElementChild;
   }
+  // 1.16: a janela Time usa a mesma arte (cada lugar marcado diz de quem é pela chave).
+  PIH.arte = Object.freeze({
+    preparar: () => Promise.all([carregarIcones(), especies ? null : carregarEspecies()]),
+    chave: (d, px) => `${d.anuncioId ?? d.nome}:${px}`,
+    // retrato parado do pokémon (o atlas de marcadores do mapa do jogo), para molduras pequenas
+    retrato(pokeId, px) {
+      if (!atlas || !especies) { carregarIcones(); if (!especies) carregarEspecies(); return ''; }
+      const lt = especies.get(Number(pokeId))?.looktype;
+      const slot = lt != null && atlas.slots ? atlas.slots[String(lt)] : null;
+      if (!slot) return '';
+      const url = atlas.version ? `/assets/site/assets/maps/marker-atlas.png?v=${atlas.version}` : '/assets/site/assets/maps/marker-atlas.png';
+      return `<span class="plt-retrato-img" style="width:${px}px;height:${px}px;background-image:url('${url}');background-size:${(atlas.cols || 16) * px}px ${(atlas.rows || 1) * px}px;background-position:${-slot[0] * px}px ${-slot[1] * px}px"></span>`;
+    },
+    lugar: (d, px) => htmlIcone(d, px),
+    hidratar(raiz, deChave) {
+      for (const el of raiz.querySelectorAll('[data-arte]')) {
+        const d = deChave(el.dataset.arte);
+        if (!d) continue;
+        const px = parseInt(el.style.width, 10) || 32;
+        const no = noDaArte(d, px, el.dataset.arte);
+        if (no && no.parentNode !== el) el.replaceChildren(no);
+      }
+    },
+  });
   function hidratar(raiz, d) {
     for (const el of raiz.querySelectorAll('[data-arte]')) {
       const px = parseInt(el.style.width, 10) || 32;
@@ -307,7 +331,15 @@
     const el = document.createElement('div');
     el.className = `plt-toast ${d.auto || d.tipo === 'voto' ? 'auto' : ''}`;
     el.setAttribute('role', 'status');
-    el.innerHTML = d.tipo === 'voto' ? `
+    el.innerHTML = d.tipo === 'meta' ? `
+      <span class="plt-toast-ico">${htmlIcone(d, 46)}</span>
+      <span class="plt-toast-txt">
+        <b>${esc(d.titulo || 'O meta mudou')}</b>
+        <span><i class="plt-tag">${esc(d.recorte || 'Meta')}</i> ${esc(d.linha || '')}</span>
+        <small>Clique para ver na aba Meta</small>
+      </span>
+      <button type="button" class="plt-toast-x" aria-label="Fechar">${K.ico('fechar')}</button>
+      <span class="plt-toast-vida"></span>` : d.tipo === 'voto' ? `
       <span class="plt-toast-ico">${K.ico('xp', 'plt-mini-ico')}</span>
       <span class="plt-toast-txt">
         <b>Voto liberado</b>
@@ -325,7 +357,9 @@
     if (d.tipo !== 'voto') hidratar(el, d);
     el.addEventListener('click', (ev) => {
       if (ev.target.closest('.plt-toast-x')) { el.remove(); return; }
-      if (d.tipo === 'voto') document.getElementById('btn-votar')?.click(); else abrirMercado();
+      if (d.tipo === 'voto') document.getElementById('btn-votar')?.click();
+      else if (d.tipo === 'meta') PIH.time?.abrirAba?.('meta');
+      else abrirMercado();
       el.remove();
     });
     const alvo = d.tipo === 'voto' ? pilhaLado : pilha;
@@ -506,6 +540,13 @@
       abrirVotoSozinho();
     }
   }, 5_000);
+
+  // 1.25: aviso curto do meta (o mesmo cartãozinho das ofertas) — sem abrir janela nenhuma
+  PIH.on('piloto.meta-mudou', (d) => {
+    if (!d || typeof d !== 'object') return;
+    const x = { tipo: 'meta', categoria: 'pokemon', speciesId: Number(d.speciesId) || null, nome: String(d.nome || 'Meta'), anuncioId: `meta:${d.speciesId}:${Date.now()}`, titulo: d.titulo, linha: d.linha, recorte: d.recorte };
+    carregarEspecies().catch(() => {}).finally(() => notificar(x));
+  });
 
   // ---- o que chega do Radar ---------------------------------------------------------------------
   document.addEventListener('piloto:oferta', (ev) => {

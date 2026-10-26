@@ -3,9 +3,9 @@ import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
 const require = createRequire(import.meta.url);
+const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const { chromium } = require('playwright');
 
-const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const EXT = path.resolve(AQUI, '../extension');
 const FAKE = path.resolve(AQUI, 'fake');
 const SAIDA = path.resolve(AQUI, 'telas-bola');
@@ -24,7 +24,7 @@ await ctx.route('https://pokeidle.io/**', async (route) => {
   let arq = u.pathname === '/app' ? 'app.html' : u.pathname.slice(1);
   const p = path.join(FAKE, arq);
   if (fs.existsSync(p)) {
-    const tipo = p.endsWith('.webp') ? 'image/webp' : p.endsWith('.gif') ? 'image/gif' : p.endsWith('.png') ? 'image/png' : p.endsWith('.mjs') || p.endsWith('.js') ? 'text/javascript' : p.endsWith('.json') ? 'application/json' : p.endsWith('.css') ? 'text/css' : 'text/html';
+    const tipo = p.endsWith('.svg') ? 'image/svg+xml' : p.endsWith('.webp') ? 'image/webp' : p.endsWith('.gif') ? 'image/gif' : p.endsWith('.png') ? 'image/png' : p.endsWith('.mjs') || p.endsWith('.js') ? 'text/javascript' : p.endsWith('.json') ? 'application/json' : p.endsWith('.css') ? 'text/css' : 'text/html';
     return route.fulfill({ status: 200, contentType: tipo, body: fs.readFileSync(p) });
   }
   return route.fulfill({ status: 404, body: 'nao tem' });
@@ -81,6 +81,7 @@ await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
   setInterval(() => ws.send(JSON.stringify({ t: 'estado', estado: { servidorAgora: Date.now() } })), 1000);
 });
 
+await ctx.addInitScript(() => { try { localStorage.setItem('piloto:dev:manual', '1'); } catch {} });
 const page = await ctx.newPage();
 page.on('console', (m) => { if (m.type() === 'error' || /radar|piloto/i.test(m.text())) erros.push(m.type() + ': ' + m.text().slice(0, 300)); });
 page.on('pageerror', (e) => erros.push(String(e)));

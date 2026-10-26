@@ -23,11 +23,12 @@
     passe: { ligado: false },
     xpshare: { ligado: false, trocarAtivo: true },
     outland: { ligado: false },
-    rodizio: { ligado: false, modo: 'atrasado', intervaloMin: 20, difNivel: 5 },
+    rodizio: { ligado: false, modo: 'ciclo', intervaloMin: 60, difNivel: 5 }, // 1.22: um de cada vez, a cada hora
     evoluir: { ligado: false, escopo: 'equipe', ramificada: false },
     chocadeira: { ligado: false, comprarP2: false },
     depot: { modo: 'off', limiar: 50, horas: 1 },
     pvp: { fila: false, time: false },
+    autoColecao: { ligado: true }, // 1.18: todo mundo com a extensão (pedido do André)
   };
   const ler = () => {
     try {
@@ -156,6 +157,7 @@
     const c = cfg.rodizio;
     if (!c.ligado || !naHunt() || !PIH.engine || !venceu('rodizio', c.intervaloMin * 60_000)) return false;
     if (PIH.auto && PIH.auto._interno.rotina()) return false; // a troca de hunt está andando
+    if (PIH.metaCaca && PIH.metaCaca.ativo()) return false; // 1.24: caçando o meta, quem luta é o mais forte
     const h = huntAtual();
     const at = ativo();
     if (!h || !at || !welcome) return false;
@@ -166,6 +168,27 @@
       consts: { tabelaTipos: welcome.tabelaTipos, ampliacaoHunt: welcome.ampliacaoHunt, multHpSelvagem: welcome.multHpSelvagem, multDanoSelvagem: welcome.multDanoSelvagem, tiposBoost: welcome.tiposBoost },
       eu, geo: (slug) => (PIH.geo ? PIH.geo.daHunt(slug) : null), ritmoMedido: () => null,
     };
+    // 1.22 (pedido do André): 'ciclo' — o próximo do time (pela ordem das vagas) vira o ativo, um de
+    // cada vez. Com a Troca de hunt ligada ele vai para a melhor hunt dele; sem ela, só entra quem
+    // mata com segurança aqui.
+    const huntAuto = (() => { try { return !!PIH.auto._interno.cfg().hunt.ligado; } catch { return false; } })();
+    if (c.modo === 'ciclo') {
+      const ordem = equipe().filter((p) => p.stats && !(p.hp != null && Number(p.hp) <= 0) && (p.starter || (p.level || 0) <= (eu.level || 0) + 5)).sort((a, b) => a.slot - b.slot);
+      if (ordem.length < 2) return false;
+      const i = ordem.findIndex((p) => p.id === at.id);
+      for (let k = 1; k < ordem.length; k++) {
+        const prox = ordem[(Math.max(0, i) + k) % ordem.length];
+        if (!huntAuto) {
+          try {
+            const r = PIH.engine.analisar(prox, ctx, { soLiberadas: false, comPocao: true });
+            const l = r.linhas[0];
+            if (!l || l.inviavel || l.umHit || l.mortesH >= 0.2 || l.hitPct >= 0.5) continue;
+          } catch { continue; }
+        }
+        return pedir({ t: 'team.active', pokemonId: prox.id }, `rodízio: ${prox.nome} (Nv ${prox.level}) entra no lugar de ${at.nome} (Nv ${at.level})${huntAuto ? ' — a Troca de hunt leva para a melhor hunt dele' : ''}`);
+      }
+      return false;
+    }
     const linhas = [];
     for (const pk of equipe()) {
       if (!pk.stats || (pk.hp != null && Number(pk.hp) <= 0) || (pk.level || 0) > (eu.level || 0) + 5) continue;
@@ -268,15 +291,25 @@
   const POTENCIA_MAX = 5;
   function protegidosDoDepot(livres) {
     const ids = new Set(pvp.time || []);
+    // quem a janela Time está tirando do time de campo vai para a Coleção: nunca vende no meio
+    for (const id of (PIH.time && PIH.time.protegidos ? PIH.time.protegidos() : [])) ids.add(id);
+    // 1.24: os do meta (capturados) e, enquanto o Caçar o meta está ligado, toda a família dos alvos
+    for (const id of (PIH.metaCaca ? PIH.metaCaca.protegidos() : [])) ids.add(id);
+    const familiaMeta = new Set(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []);
+    for (const p of livres) if (familiaMeta.has(p.speciesId)) ids.add(p.id);
     if (cfg.pvp.time && Array.isArray(pvp.time)) for (const p of equipeAlvo(pvp.time)) ids.add(p.id);
     return livres.filter((p) => ids.has(p.id) || p.shiny || Number(p.potencia) >= POTENCIA_MAX);
   }
   async function tarefaDepot() {
     const c = cfg.depot;
-    if (c.modo === 'off' || !venceu('depot', c.horas * 3_600_000)) return false;
+    // 1.17 (pedido do André): na hora. Entrou no Depot e não foi para a Coleção → vende (no máximo
+    // uma venda a cada 15 s; um relógio próprio de 5 s olha o Depot).
+    if (c.modo === 'off' || !venceu('depot', DEPOT_ESPERA_MS)) return false;
     const travados = new Set(((eu.automation && eu.automation.pokemonTravado) || []).map(Number));
     const depot = (eu.pokemons || []).filter((p) => p.slot == null && p.id !== eu.activeId && !travados.has(Number(p.id)) && Number(p.heldItemId) !== ID_XP_SHARE_HELD);
-    if (depot.length < c.limiar) return false;
+    if (!depot.length) return false;
+    // com o Auto Coleção no ponto ligado, só vende depois que a regra estiver salva no jogo
+    if (cfg.autoColecao.ligado && !autoColecaoOk) { await tarefaAutoColecao(); if (!autoColecaoOk) return false; }
     // Sem a equipe do PvP lida ainda (com o PvP ligado): espera — não dá para saber quem proteger.
     if ((cfg.pvp.time || cfg.pvp.fila) && (eu.level || 0) >= PVP_NIVEL_MIN && pvp.time === null) return false;
     const guardar = protegidosDoDepot(depot);
@@ -310,7 +343,7 @@
       const ok = pedir({ t: 'shop.sellAllPokemons', ateId }, `Depot com ${depot.length}: vender tudo ao NPC${comNota ? ` (Auto Coleção guarda os de nota alta)` : ''}`);
       // Só conta como feito se saiu; recusado, tenta de novo no próximo tique de 20 s... no máximo a cada 5 min.
       if (ok) marcar('depot');
-      else { marcas.depot = Date.now() - c.horas * 3_600_000 + 5 * 60_000; gravar(); }
+      else { marcas.depot = Date.now() + 45_000; gravar(); } // recusado: tenta de novo em 1 min
       return ok;
     }
     return false;
@@ -329,14 +362,21 @@
       .sort((a, b) => poderDe(b) - poderDe(a));
   }
   function equipeAlvo(atualIds) {
+    // 1.22: um time só — o PvP recebe o time principal (as 5 vagas do campo), o mais forte abrindo.
+    if (PIH.time) return ((eu && eu.pokemons) || []).filter((p) => p && p.slot != null && poderDe(p) > 0).sort((a, b) => poderDe(b) - poderDe(a)).slice(0, PVP_TIME_MAX);
     const candidatos = candidatosDoPvp();
     const porId = new Map(candidatos.map((p) => [p.id, p]));
     const equipe = [];
+    // 1.16: os travados na janela Time entram sempre e nunca saem por troca
+    const travados = new Set((PIH.time && PIH.time.travados ? PIH.time.travados('pvp') : []).filter((id) => porId.has(id)).slice(0, PVP_TIME_MAX));
+    for (const id of travados) equipe.push(porId.get(id));
     for (const id of atualIds) { const p = porId.get(id); if (p && !equipe.includes(p) && equipe.length < PVP_TIME_MAX) equipe.push(p); }
     for (const c of candidatos) { if (equipe.length >= PVP_TIME_MAX) break; if (!equipe.includes(c)) equipe.push(c); }
     for (const c of candidatos) {
       if (equipe.includes(c)) continue;
-      const fraco = equipe.reduce((m, p) => (poderDe(p) < poderDe(m) ? p : m), equipe[0]);
+      const trocaveis = equipe.filter((p) => !travados.has(p.id));
+      if (!trocaveis.length) break;
+      const fraco = trocaveis.reduce((m, p) => (poderDe(p) < poderDe(m) ? p : m), trocaveis[0]);
       if (!fraco || poderDe(c) <= poderDe(fraco) * MARGEM_PVP) break; // os próximos são mais fracos ainda
       equipe[equipe.indexOf(fraco)] = c;
     }
@@ -387,7 +427,45 @@
     return pedir({ t: 'pvp.fila.entrar' }, 'PvP: entrando na fila do Ranqueado');
   }
 
-  const TAREFAS = [tarefaPasse, tarefaPvpTime, tarefaPvpFila, tarefaXpShare, tarefaOutland, tarefaRodizio, tarefaChocadeira, tarefaEvoluir, tarefaDepot];
+  // ---- Auto Coleção no ponto (1.18) --------------------------------------------------------------
+  // O Depot agora vende na hora, então o que vale dinheiro TEM de ir para a Coleção antes. A regra
+  // recomendada guarda tudo o que o Mercado da Comunidade aceita (vale mais lá que no NPC):
+  // lendário/mítico, shiny, P5 e nota ≥ o mínimo do Mercado (3,5 hoje, lido do próprio jogo).
+  // Simulado com o shared/nota-pokemon.mjs do jogo: nota ≥ 3,5 é 2–7% dos nascimentos e P5 é 5%.
+  // P4 e qualidade alta já entram na nota; sozinhos (nota < 3,5) o Mercado não aceita.
+  let notaMercado = null;
+  let autoColecaoOk = false;
+  async function regraRecomendada(atual) {
+    if (notaMercado === null) {
+      try { const N = await import(`${location.origin}/shared/nota-pokemon.mjs`); notaMercado = Number(N.MERCADO_POKEMON_MIN && N.MERCADO_POKEMON_MIN.nota) || 3.5; } catch { notaMercado = 3.5; }
+    }
+    return {
+      lendario: { on: true },
+      shiny: { on: true },
+      pot: { on: true, min: 5 },
+      qual: { on: false, min: (atual && atual.qual && atual.qual.min) || 1.5 },
+      iv: { on: false, min: (atual && atual.iv && atual.iv.min) || { hp: 1, atk: 1, def: 1, spAtk: 1, spDef: 1, speed: 1 } },
+      nota: { on: true, min: notaMercado },
+    };
+  }
+  const resumoRegra = (r) => (r ? [r.lendario.on && 'Lendário', r.shiny.on && 'Shiny', r.pot.on && `P${r.pot.min}+`, r.qual.on && `Qualidade ${String(r.qual.min).replace('.', ',')}+`, r.iv.on && 'IV mínimo', r.nota.on && `Nota ${String(r.nota.min).replace('.', ',')}+`].filter(Boolean).join(' · ') : '—');
+  let ultimaRegra = null;
+  async function tarefaAutoColecao() {
+    if (!cfg.autoColecao.ligado) { autoColecaoOk = true; return false; }
+    const m = await modulos();
+    if (!m.colecao || !m.colecao.autoColecaoEfetiva) { autoColecaoOk = true; return false; }
+    const atual = m.colecao.autoColecaoEfetiva((eu && eu.automation) || {});
+    const rec = await regraRecomendada(atual);
+    ultimaRegra = atual;
+    const igual = m.colecao.mesmaAutoColecao ? m.colecao.mesmaAutoColecao(atual, rec) : JSON.stringify(atual) === JSON.stringify(rec);
+    if (igual) { autoColecaoOk = true; return false; }
+    autoColecaoOk = false;
+    if (!venceu('autoColecao', 60_000)) return false;
+    marcar('autoColecao');
+    return pedir({ t: 'shop.autoColecao', regra: rec }, `Auto Coleção no ponto: ${resumoRegra(rec)}`);
+  }
+
+  const TAREFAS = [tarefaAutoColecao, tarefaPasse, tarefaPvpTime, tarefaPvpFila, tarefaXpShare, tarefaOutland, tarefaRodizio, tarefaChocadeira, tarefaEvoluir, tarefaDepot];
   let rodando = false;
   async function tique() {
     if (rodando || !eu || !welcome || !PIH.cofre || !PIH.cofre.liberado('rotina')) return;
@@ -399,6 +477,13 @@
     } finally { rodando = false; }
   }
   setInterval(tique, 20_000);
+  // o Depot tem relógio próprio (5 s): a venda sai logo depois que o pokémon entra
+  const DEPOT_ESPERA_MS = 15_000;
+  setInterval(async () => {
+    if (rodando || !eu || !welcome || cfg.depot.modo === 'off' || !PIH.cofre || !PIH.cofre.liberado('rotina')) return;
+    rodando = true;
+    try { await tarefaDepot(); } catch (e) { diario(`erro em tarefaDepot: ${e.message}`, 'erro'); } finally { rodando = false; }
+  }, 5_000);
 
   // ---- aba Rotina ------------------------------------------------------------------------------
   const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -428,11 +513,11 @@
       ${L({ icone: 'outland', nome: 'Tier da Outland', alvo: 'rotina:outland.ligado', on: cfg.outland.ligado, dica: 'Na Outland, sobe para o maior tier liberado: mesmo XP e ouro, drops raros ×1 a ×8.', status: eu && eu.outlandTier ? `tier ${eu.outlandTier}` : '' })}
       ${L({ icone: 'xpshare', nome: 'XP Share', alvo: 'rotina:xpshare.ligado', on: cfg.xpshare.ligado, dica: 'Põe nos postos vazios da casa quem está mais atrasado na equipe.',
         ajustes: K.mini('rotina:xpshare.trocarAtivo', cfg.xpshare.trocarAtivo, 'Tirar quem luta', 'O registrado que está lutando não ganha a fatia', trava) })}
-      ${L({ icone: 'nivel', nome: 'Rodízio da equipe', alvo: 'rotina:rodizio.ligado', on: r.ligado, dica: 'Troca o pokémon ativo por outro da equipe que mata com segurança na hunt atual.',
-        status: r.ligado ? `${r.modo === 'xp' ? 'quem rende mais XP/h' : 'o mais atrasado'} · a cada ${r.intervaloMin} min` : '',
-        ajustes: `${K.fcampo('Quem entra', K.escala('rotina:rodizio.modo', r.modo, [['atrasado', 'Mais atrasado'], ['xp', 'Mais XP/h']], trava))}${K.fcampo('A cada (min)', K.numero('rotina:rodizio.intervaloMin', r.intervaloMin, 10, 240, 5, trava))}` })}
+      ${L({ icone: 'nivel', nome: 'Rodízio da equipe', alvo: 'rotina:rodizio.ligado', on: r.ligado, dica: 'A cada hora o próximo do time vira o ativo, um de cada vez, para todos ganharem XP. Com a Troca de hunt ligada, ele vai na hora para a melhor hunt do pokémon que entrou; sem ela, só entra quem mata com segurança na hunt atual.',
+        status: r.ligado ? `${r.modo === 'ciclo' ? 'um de cada vez' : r.modo === 'xp' ? 'quem rende mais XP/h' : 'o mais atrasado'} · a cada ${r.intervaloMin} min` : '',
+        ajustes: `${K.fcampo('Quem entra', K.escala('rotina:rodizio.modo', r.modo, [['ciclo', 'Um de cada vez'], ['atrasado', 'Mais atrasado'], ['xp', 'Mais XP/h']], trava))}${K.fcampo('A cada (min)', K.numero('rotina:rodizio.intervaloMin', r.intervaloMin, 10, 240, 5, trava))}` })}
       ${K.grupo('PvP Ranqueado')}
-      ${L({ icone: 'pvp', nome: 'Equipe dos 5 mais fortes', alvo: 'rotina:pvp.time', on: cfg.pvp.time, dica: 'Os 5 de maior Poder, o mais forte abrindo. Só troca quando aparece um pokémon com 2% ou mais de Poder acima do mais fraco da equipe. Treinador Nv 150+.',
+      ${L({ icone: 'pvp', nome: 'Equipe = time principal', alvo: 'rotina:pvp.time', on: cfg.pvp.time, dica: 'Salva no PvP a mesma equipe do time principal (as 5 vagas do campo, montadas na janela Time), o mais forte abrindo. Treinador Nv 150+.',
         status: !nivelPvp ? 'treinador abaixo do Nv 150' : somaPvp ? `Poder somado ${nfR.format(Math.round(somaPvp))}${tier ? ` · ${tier}` : ''}` : tier })}
       ${L({ icone: 'radar', nome: 'Fila automática', alvo: 'rotina:pvp.fila', on: cfg.pvp.fila, dica: 'Com VIP liga a fila automática do jogo; sem VIP, entra na fila quando estiver fora (no máximo a cada 3 min).',
         status: pvp.fila ? (pvp.fila.na ? 'na fila agora' : 'fora da fila') : '' })}
@@ -442,9 +527,11 @@
         ajustes: `${K.fcampo('Quem', K.escala('rotina:evoluir.escopo', cfg.evoluir.escopo, [['equipe', 'Só a equipe'], ['tudo', 'Todos']], trava))}${K.mini('rotina:evoluir.ramificada', cfg.evoluir.ramificada, 'Cadeias com escolha', 'Eevee e outras: vai para o primeiro destino', trava)}` })}
       ${L({ icone: 'ovo', nome: 'Chocadeira', classe: 'plt-l-perigo', alvo: 'rotina:chocadeira.ligado', on: cfg.chocadeira.ligado, dica: 'Põe na chocadeira o ovo que você tem (Shiny, P4, P3, P2).',
         ajustes: K.mini('rotina:chocadeira.comprarP2', cfg.chocadeira.comprarP2, 'Comprar P2 (100 mi)', 'Só com teto da categoria "ovos" no Cofre (padrão 0 = proibido)', trava) })}
-      ${L({ icone: 'depot', nome: 'Limpar o Depot', classe: 'plt-l-perigo', alvo: 'rotina:depot.ligado', on: d.modo !== 'off', dica: 'Igual ao botão "Vender todo o Depot" do jogo. Antes de vender, guarda na Coleção a equipe do PvP, os shiny e os P5. A Coleção, o ativo e quem segura a Exp. Share nunca vão.',
-        status: `${nfR.format(noDepot)} no Depot${d.modo !== 'off' ? ` · ${d.modo === 'oferenda' ? 'oferenda' : 'vende'} a partir de ${nfR.format(d.limiar)}` : ''}`,
-        ajustes: `${K.fcampo('Como', K.escala('rotina:depot.modo', d.modo === 'off' ? (d.ultimoModo || 'vender') : d.modo, [['vender', 'Vender ao NPC'], ['oferenda', 'Oferenda']], trava))}${K.fcampo('A partir de', K.numero('rotina:depot.limiar', d.limiar, 20, 5000, 10, trava))}${K.fcampo('A cada (h)', K.numero('rotina:depot.horas', d.horas, 1, 72, 1, trava))}` })}`;
+      ${L({ icone: 'check', nome: 'Auto Coleção no ponto', alvo: 'rotina:autoColecao.ligado', on: cfg.autoColecao.ligado, status: !cfg.autoColecao.ligado ? (ultimaRegra ? `no jogo: ${resumoRegra(ultimaRegra)}` : '') : autoColecaoOk && ultimaRegra ? `no jogo: ${resumoRegra(ultimaRegra)}` : `vai salvar: Lendário · Shiny · P5+ · Nota ${String(notaMercado ?? 3.5).replace('.', ',')}+`,
+        dica: 'Deixa o Auto Coleção do jogo guardando tudo o que vale mais no Mercado que no NPC: lendário/mítico, shiny, P5 e nota a partir do mínimo que o Mercado aceita (3,5 hoje, lido do jogo). Assim a venda imediata do Depot nunca leva uma oportunidade. Se alguém mudar a regra, o Piloto põe de volta.' })}
+      ${L({ icone: 'depot', nome: 'Limpar o Depot', classe: 'plt-l-perigo', alvo: 'rotina:depot.ligado', on: d.modo !== 'off', dica: 'Na hora: pokémon que entrou no Depot e não foi para a Coleção (pelo Auto Coleção do jogo) é vendido em segundos — igual ao botão "Vender todo o Depot". Antes de vender, guarda na Coleção a equipe do PvP, os shiny, os P5 e quem a janela Time tirou do campo. A Coleção, o ativo e quem segura a Exp. Share nunca vão.',
+        status: `${nfR.format(noDepot)} no Depot${d.modo !== 'off' ? ` · ${d.modo === 'oferenda' ? 'oferenda' : 'vende'} assim que entra` : ''}`,
+        ajustes: `${K.fcampo('Como', K.escala('rotina:depot.modo', d.modo === 'off' ? (d.ultimoModo || 'vender') : d.modo, [['vender', 'Vender ao NPC'], ['oferenda', 'Oferenda']], trava))}` })}`;
   }
 
   function setCaminho(caminho, v) {
@@ -470,10 +557,27 @@
   // Perfil do botão único: só as tarefas sem custo e reversíveis (Passe, XP Share, Outland).
   // Evoluir, chocadeira e Depot são irreversíveis e ficam como você deixou.
   function aplicar(m) {
-    for (const k of ['passe', 'xpshare', 'outland']) if (m && k in m) cfg[k].ligado = !!m[k];
+    for (const k of ['passe', 'xpshare', 'outland', 'rodizio']) if (m && k in m) cfg[k].ligado = !!m[k];
     if (m && 'pvp' in m) { cfg.pvp.fila = !!m.pvp; cfg.pvp.time = !!m.pvp; }
+    if (m && 'autoColecao' in m) cfg.autoColecao.ligado = !!m.autoColecao;
     if (m && m.depotVender && cfg.depot.modo === 'off') { cfg.depot.modo = 'vender'; cfg.depot.limiar = Math.min(cfg.depot.limiar, 50); cfg.depot.horas = Math.min(cfg.depot.horas, 1); }
     gravar();
   }
-  PIH.rotina = { html, ligar, aplicar, definir, _interno: { cfg: () => cfg, tique, TAREFAS, marcas: () => marcas } };
+  // Para a janela Time: quanto falta para o próximo rodízio.
+  function proximoRodizio() {
+    const c = cfg.rodizio;
+    if (!c.ligado) return '';
+    const falta = (Number(marcas.rodizio) || 0) + c.intervaloMin * 60_000 - Date.now();
+    return falta > 0 ? `próximo em ${Math.ceil(falta / 60_000)} min` : 'troca na próxima chance';
+  }
+  // 1.22, uma vez: o rodízio vira o ciclo de 1 h (pedido do André); no Auto ele já liga.
+  try {
+    if (!localStorage.getItem('piloto:migr:rodizio122')) {
+      localStorage.setItem('piloto:migr:rodizio122', '1');
+      cfg.rodizio.modo = 'ciclo'; cfg.rodizio.intervaloMin = 60;
+      if (JSON.parse(localStorage.getItem('piloto:modo:v1') || 'null') === 'automatico') cfg.rodizio.ligado = true;
+      gravar();
+    }
+  } catch { /* sem armazenamento */ }
+  PIH.rotina = { html, ligar, aplicar, definir, proximoRodizio, resumoAutoColecao: () => resumoRegra(ultimaRegra), pvpTime: () => (Array.isArray(pvp.time) ? pvp.time.slice() : null), equipePvpAlvo: () => (eu ? equipeAlvo(Array.isArray(pvp.time) ? pvp.time : []).map((p) => p.id) : []), _interno: { cfg: () => cfg, tique, TAREFAS, marcas: () => marcas } };
 })(globalThis);

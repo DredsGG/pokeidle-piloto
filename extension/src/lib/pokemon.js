@@ -28,10 +28,12 @@
   const DIARIA_PADRAO = 100000; // welcome.mercado.taxaDiaria
   const MIN_PARECIDAS_AVISO = 5;
   const MIN_PARECIDAS_AUTO = 8;
-  // Com 5 a 7 vendas parecidas, a compra automática só compra o erro de preço escancarado: até 10%
-  // da venda parecida mais barata (decisão do Allan em 2026-10-18, depois do Charizard Nv 197 a
-  // 100 mil com a parecida mais barata a 30 mi).
-  const RAZAO_DA_MAIS_BARATA_AUTO = 0.1;
+  // Com 5 a 7 vendas parecidas, a compra automática compra quando dá lucro MESMO vendendo pelo
+  // preço da parecida mais barata dos 30 dias (o pior caso), depois da taxa e da diária.
+  // 1.20 (pedido do André, 2026-10-23, depois da Vespiquen a 3 mi com a mais barata a 5 mi): antes
+  // só comprava até 10% da mais barata (regra do Allan de 2026-10-18), e deixava passar quase tudo.
+  // O lucro mínimo continua sendo contado pela referência (o p25), como no aviso.
+  const RAZAO_DA_MAIS_BARATA_AUTO = 0.1; // só para compatibilidade (não decide mais nada)
   const NOTA_PERTO = 0.15;
   const DESCONTO_QUASE = 0.5;
   // Degraus da nota (limite de cima de cada faixa).
@@ -374,13 +376,13 @@
   }
 
   // A compra automática de pokémon: o aviso e mais as regras dela.
-  function decidirAuto({ avaliacao: av, anuncio: a, config, gastoHoje = 0, saldo }) {
+  function decidirAuto({ avaliacao: av, anuncio: a, config, gastoHoje = 0, saldo, diaria = DIARIA_PADRAO }) {
     const nao = (motivo) => ({ comprar: false, motivo });
     if (!config.compraAutomaticaPokemon) return nao('compra automática de pokémon desligada');
     if (!av || !av.aviso) return nao('não virou aviso');
     if (av.ref.n < MIN_PARECIDAS_AUTO) {
-      const escancarado = av.ref.n >= MIN_PARECIDAS_AVISO && positivo(av.ref.min) && a.preco <= av.ref.min * RAZAO_DA_MAIS_BARATA_AUTO;
-      if (!escancarado) return nao('menos de 8 vendas parecidas e acima de 10% da mais barata');
+      const seguro = av.ref.n >= MIN_PARECIDAS_AVISO && positivo(av.ref.min) && lucroDe(av.ref.min, a.preco, diaria) > 0;
+      if (!seguro) return nao('menos de 8 vendas parecidas e sem lucro vendendo pela mais barata');
     }
     if (positivo(config.gastoMaximoPokemon) && a.preco > config.gastoMaximoPokemon) return nao(config.calibrada ? 'acima do ouro livre do cofre (reserva ou teto do dia)' : 'acima do gasto máximo por pokémon');
     if (positivo(config.gastoMaximoDia) && config.gastoMaximoDia - gastoHoje < a.preco) return nao('teto do dia atingido');

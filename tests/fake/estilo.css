@@ -49,3 +49,11 @@ body { margin: 0; font: 13px / 1.45 "Segoe UI", system-ui, sans-serif; color: va
 .modal-acoes { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
 .modal-corpo { padding: 4px 20px 20px; overflow-y: auto; }
 
+
+.hunt-saida { position: absolute; top: 10px; right: 10px; z-index: 3; display: flex; align-items: flex-start; justify-content: flex-end; gap: 6px; max-width: min(calc(100% - 20px), 560px); }
+.hunt-saida-acoes { display: flex; flex-direction: column; align-items: stretch; gap: 4px; flex-shrink: 0; min-width: 0; }
+.ir-centro, .desistir-combate { border: 0; border-radius: 6px; cursor: pointer; font-family: Tahoma, Verdana, "Segoe UI", sans-serif; font-weight: 700; color: #fff; text-shadow: -1px -1px 0 var(--rx-esc), 1px -1px 0 var(--rx-esc), -1px 1px 0 var(--rx-esc), 1px 1px 0 var(--rx-esc); background: linear-gradient(180deg, var(--rx-luz) 0 6px, var(--rx-esc) 6px 13px, var(--rx) 13px calc(100% - 13px), var(--rx-clr) calc(100% - 13px) calc(100% - 7px), var(--rx-rosa) calc(100% - 7px) 100%); box-shadow: inset 0 0 0 2px var(--mad-linha), inset 0 0 0 4px var(--mad-luz2), inset 0 0 0 5px var(--mad), 0 2px 0 var(--mad-base); }
+.ir-centro { height: 34px; padding: 0 14px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 7px; flex-shrink: 0; min-width: 0; width: auto; }
+.desistir-combate { height: 34px; padding: 0 13px; font-size: 11px; flex-shrink: 0; white-space: nowrap; width: 100%; }
+.ir-centro:disabled { opacity: .5; cursor: default; }
+.ir-centro-conta { font-size: 10.5px; color: var(--rx-luz); text-align: right; }

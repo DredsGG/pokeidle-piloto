@@ -1,0 +1,13 @@
+const assert = require('assert');
+const R = require(process.argv[2] ? require('path').resolve(process.argv[2]) : require('path').join(__dirname, '../extension/src/lib/revendapk.js'));
+const card = (o = {}) => ({ acao: 'anunciar', ficha: { moeda: 'gold', shiny: false }, custo: null, sugestao: { n: 6, p25: 6e6, preco: 6e6 }, ...o });
+const c = (n, f) => { f(); console.log('ok', n); };
+c('anuncia pelo sugerido', () => { const d = R.decidirAutoPk(card(), { diaria: 1e5 }); assert.equal(d.ok, true); assert.equal(d.preco, 6e6); assert.equal(d.dias, 1); });
+c('shiny nunca', () => assert.equal(R.decidirAutoPk(card({ ficha: { moeda: 'orb', shiny: true } })).ok, false));
+c('4 vendas: não', () => assert.match(R.decidirAutoPk(card({ sugestao: { n: 4, p25: 6e6, preco: 6e6 } })).motivo, /5 vendas/));
+c('abaixo do custo: não', () => assert.match(R.decidirAutoPk(card({ custo: { valor: 9e6, moeda: 'gold' } }), { diaria: 1e5 }).motivo, /custo/));
+c('diária come o preço: não', () => assert.match(R.decidirAutoPk(card({ sugestao: { n: 6, p25: 1e5, preco: 1e5 } }), { diaria: 1e5 }).motivo, /diária/));
+c('líquido abaixo do mínimo: não', () => assert.equal(R.decidirAutoPk(card({ sugestao: { n: 6, p25: 3e5, preco: 3e5 } }), { diaria: 1e5, minLiquido: 2e5 }).ok, false));
+c('já o mais barato: não mexe', () => assert.equal(R.decidirAutoPk(card({ acao: 'primeiro' })).motivo, 'já é o mais barato'));
+c('mudar preço passa', () => assert.equal(R.decidirAutoPk(card({ acao: 'mudar-preco' }), { diaria: 1e5 }).ok, true));
+console.log('TUDO PASSOU');

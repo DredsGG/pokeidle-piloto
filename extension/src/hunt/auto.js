@@ -53,6 +53,31 @@
   const foraDeCombate = () => (Number(eu?.centroLivreEm) || 0) <= agoraServidor();
 
   // ---- o ranking (mesma conta do painel /hunt) -------------------------------------------
+  // 1.16: o farm de vários pokémon numa hunt só (a janela Time): a mesma conta do ranking, mas
+  // simulando apenas aquela hunt — rápido o bastante para passar pela coleção inteira.
+  async function farmDe(pks, slug) {
+    if (!welcome || !eu) return new Map();
+    const hunt = (welcome.hunts ?? []).find((h) => h.slug === slug);
+    if (!hunt) return new Map();
+    const jogo = await PIH.carregarJogo();
+    const precoItem = new Map(jogo.precoItem);
+    for (const i of welcome.itensNossos ?? []) if (i?.name && Number(i.npcPrice) > 0) precoItem.set(i.name, Number(i.npcPrice));
+    const consts = { tabelaTipos: welcome.tabelaTipos, ampliacaoHunt: welcome.ampliacaoHunt, multHpSelvagem: welcome.multHpSelvagem, multDanoSelvagem: welcome.multDanoSelvagem, tiposBoost: welcome.tiposBoost };
+    const bonusLootPct = PIH.lootPct ? PIH.lootPct(jogo, eu, welcome) : 0;
+    const out = new Map();
+    let n = 0;
+    for (const pk of pks) {
+      if (!pk || !pk.stats) continue;
+      const chave = PIH.geo?.chaveDoPokemon(pk);
+      const ctx = { mod: jogo.mod, especies: jogo.especies, precoItem, hunts: [hunt], consts, eu, bonusLootPct, geo: (s) => PIH.geo?.daHunt(s) ?? null, ritmoMedido: (s) => (chave ? PIH.geo?.ritmoMedido(s, chave) ?? null : null) };
+      try {
+        const l = PIH.engine.analisar(pk, ctx, { ordem: 'xp', soLiberadas: false }).linhas[0];
+        if (l) out.set(pk.id, { xpTreinadorH: l.inviavel ? 0 : l.xpTreinadorH, xpPokemonH: l.inviavel ? 0 : l.xpPokemonH, ouroH: l.inviavel ? 0 : l.ouroH, kph: l.kph ?? 0, inviavel: !!l.inviavel, risco: l.hitPct ?? null });
+      } catch { /* espécie fora do catálogo: fica de fora */ }
+      if (++n % 25 === 0) await new Promise((r) => setTimeout(r, 0)); // não trava a página
+    }
+    return out;
+  }
   async function ranking(criterio) {
     const pk = pkAtivo();
     if (!pk || !welcome || !eu) return null;
@@ -167,44 +192,104 @@
   const nomeHunt = (slug) => (welcome?.hunts ?? []).find((h) => h.slug === slug)?.nome ?? slug;
 
   // ---- 1. a melhor hunt ------------------------------------------------------------------
+  // 1.17: análise CONTÍNUA (pedido do André): a cada 20 s, e na hora quando o pokémon em campo ou a
+  // hunt mudam. Entrou numa hunt errada (ou trocou o pokémon), o Piloto já vai para a melhor. A
+  // margem, o castigo de 12 h e a conferência da troca seguram o vai e volta.
+  const CONTINUO_MS = 20_000;
   let ultimaAnalise = 0;
+  let analisando = false;
+  let ultimoTexto = { txt: '', em: 0 };
+  // a mesma conclusão só volta ao diário a cada 10 min (a análise roda o tempo todo)
+  const anotarAnalise = (txt, tipo) => {
+    if (txt === ultimoTexto.txt && Date.now() - ultimoTexto.em < 10 * 60_000) return;
+    ultimoTexto = { txt, em: Date.now() };
+    anotar(txt, tipo);
+  };
+  let vistoPk = null;
+  let vistaHunt = null;
+  function notarMudanca() {
+    const pk = eu?.activeId ?? null;
+    const hunt = eu?.huntSlug ?? null;
+    if (pk === vistoPk && hunt === vistaHunt) return;
+    const primeira = vistoPk === null && vistaHunt === null;
+    vistoPk = pk; vistaHunt = hunt;
+    // pokémon ou hunt mudou: analisa em ~3 s (o tempo de o estado da hunt nova chegar)
+    if (!primeira) ultimaAnalise = Math.min(ultimaAnalise, Date.now() - CONTINUO_MS + 3000);
+  }
   async function avaliarHunt(forcar = false) {
     const c = cfg.hunt;
+    if (analisando) return;
     if (!forcar && (!c.ligado || ocupado() || !naHunt() || !PIH.cofre?.liberado('hunt'))) return;
     if (forcar && (ocupado() || !naHunt())) return anotar('teste: só funciona caçando numa hunt e sem outra ação em andamento', 'aviso');
     ultimaAnalise = Date.now();
-    const r = await ranking(c.criterio);
+    analisando = true;
+    try { await avaliarHuntAgora(c, forcar); } finally { analisando = false; }
+  }
+  // 1.18 (pedido do André): vai SEMPRE para o 👑 da aba Caçar — o top 1 do ranking do pokémon em
+  // campo, no critério que a lista mostra (XP/h ou Ouro/h). Sem margem, sem castigo. Trocou de
+  // pokémon: vai para o top 1 dele na hora. Entrou numa hunt que não é o top 1, ou ligou a troca:
+  // vai na hora. Só quando você JÁ ESTAVA no top 1 e outra hunt passa à frente (o modelo mexe um
+  // pouco a cada nível) é que ela precisa ser top 1 em duas análises seguidas (≈20 s), para não
+  // ficar pulando entre duas hunts quase iguais.
+  const criterioDaLista = () => { try { return JSON.parse(localStorage.getItem('pokeidle-hunt:prefs:v1'))?.ordem === 'ouro' ? 'ouro' : 'xp'; } catch { return 'xp'; } };
+  function melhorDe(linhas, criterio = criterioDaLista()) {
+    const c = cfg.hunt;
+    const cands = (linhas || []).filter((l) => !l.inviavel && l.liberada && !(c.evitarRisco && arriscada(l)));
+    cands.sort((a, b) => valorDe(b, criterio) - valorDe(a, criterio));
+    return cands[0] || null;
+  }
+  let candidato = null;
+  let pkDaAnalise = null;
+  let topAnterior = null;
+  async function avaliarHuntAgora(c, forcar) {
+    const criterio = criterioDaLista();
+    const r = await ranking(criterio);
     if (!r) return anotar('sem dados do jogo para analisar', 'aviso');
-    const agora = Date.now();
-    for (const [slug, ate] of Object.entries(cfg.castigo)) if (ate < agora) delete cfg.castigo[slug];
-    const atual = r.linhas.find((l) => l.slug === eu.huntSlug) ?? null;
-    const cands = r.linhas.filter((l) => !l.inviavel && l.liberada && !(cfg.castigo[l.slug] > agora) && !(c.evitarRisco && arriscada(l)));
-    cands.sort((a, b) => valorDe(b, c.criterio) - valorDe(a, c.criterio));
-    const melhor = cands[0];
-    if (!melhor) return anotar('nenhuma hunt candidata', 'aviso');
-    const un = c.criterio === 'ouro' ? 'ouro/h' : 'XP/h';
+    const melhor = melhorDe(r.linhas, criterio);
+    if (!melhor) return anotarAnalise('nenhuma hunt candidata', 'aviso');
+    const pkId = pkAtivo()?.id ?? null;
+    const pkMudou = pkDaAnalise !== null && pkDaAnalise !== pkId;
+    pkDaAnalise = pkId;
+    const un = criterio === 'ouro' ? 'ouro/h' : 'XP/h';
     const fmt = (v) => new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 }).format(v);
-    if (melhor.slug === eu.huntSlug) return anotar(`análise: você já está na melhor (${melhor.nome}, ${fmt(valorDe(melhor, c.criterio))} ${un})`);
-    const vAtual = atual ? valorDe(atual, c.criterio) : 0;
-    const ganho = vAtual > 0 ? (valorDe(melhor, c.criterio) / vAtual - 1) * 100 : Infinity;
-    if (ganho < c.margemPct) {
-      return anotar(`análise: ${melhor.nome} rende ${fmt(valorDe(melhor, c.criterio))} ${un}, só ${ganho.toFixed(0)}% acima da atual — fica (margem ${c.margemPct}%)`);
+    const estavaNoTop = topAnterior !== null && topAnterior === eu.huntSlug;
+    topAnterior = melhor.slug;
+    if (melhor.slug === eu.huntSlug) {
+      candidato = null;
+      ultimoResultado = `no top 1: ${melhor.nome}`;
+      return forcar ? anotar(`análise: você já está no top 1 (${melhor.nome}, ${fmt(valorDe(melhor, criterio))} ${un})`) : anotarAnalise(`análise: você já está no top 1 (${melhor.nome})`);
     }
     if (!c.ligado) {
-      return anotar(`análise: ${melhor.nome} rende ${fmt(valorDe(melhor, c.criterio))} ${un} (+${Number.isFinite(ganho) ? ganho.toFixed(0) : '∞'}%) — ligue a troca automática para ir`, 'aviso');
+      return anotarAnalise(`análise: o top 1 é ${melhor.nome} (${fmt(valorDe(melhor, criterio))} ${un}) — ligue a Troca de hunt para ir`, 'aviso');
     }
-    // guarda o que você fazia antes, para conferir a troca depois
-    // se você chegou aqui por uma troca, mede só desde a chegada
-    const desde = cfg.troca?.para === eu.huntSlug && cfg.troca.em ? cfg.troca.em : 0;
-    const medido = PIH.nivel?.ritmoMedido(pkAtivo()?.id, Date.now(), desde);
-    const antes = medidaDe(medido, c.criterio);
-    cfg.troca = c.conferir
-      ? { de: eu.huntSlug, para: melhor.slug, criterio: c.criterio, antes, em: null, pkId: pkAtivo()?.id, etapa: 0 }
-      : null;
+    const atual = r.linhas.find((l) => l.slug === eu.huntSlug) ?? null;
+    const atualRuim = !atual || atual.inviavel || !atual.liberada;
+    if (!forcar && !pkMudou && !atualRuim && estavaNoTop && candidato !== melhor.slug) {
+      candidato = melhor.slug;
+      ultimoResultado = `top 1 agora: ${melhor.nome} — confirmando`;
+      return;
+    }
+    candidato = null;
+    cfg.troca = null;
     gravar();
-    iniciarRotina({ destino: melhor.slug, curar: c.curar, compras: comprasPendentes(), motivo: `trocando para ${melhor.nome} (+${Number.isFinite(ganho) ? ganho.toFixed(0) : '∞'}% de ${un} no modelo)` });
+    const vAtual = atual ? valorDe(atual, criterio) : 0;
+    const ganho = vAtual > 0 ? (valorDe(melhor, criterio) / vAtual - 1) * 100 : Infinity;
+    iniciarRotina({ destino: melhor.slug, curar: c.curar, compras: comprasPendentes(), motivo: `indo para o top 1: ${melhor.nome}${pkMudou ? ' (pokémon trocado)' : ''} (+${Number.isFinite(ganho) ? ganho.toFixed(0) : '∞'}% de ${un})` });
   }
 
+  let ultimoResultado = '';
+  // 1.17: clicar no retrato de uma hunt no ranking leva para ela (espera sair de combate). Com a
+  // Troca de hunt ligada, se não for a melhor, a análise contínua traz de volta para a melhor.
+  function irParaHunt(slug) {
+    const h = (welcome?.hunts ?? []).find((x) => x.slug === slug);
+    if (!h) return { ok: false, motivo: 'hunt desconhecida' };
+    if (eu?.huntSlug === slug && !eu.noCentro) return { ok: false, motivo: 'você já está nela' };
+    if (!PIH.cofre?.ligado?.()) return { ok: false, motivo: 'com o Piloto em Off, use o mapa do jogo' };
+    if (rotina) { if (rotina.manual && rotina.etapa === 'esperar') encerrar('troca de destino'); else return { ok: false, motivo: 'o Piloto já está indo para outro lugar' }; }
+    cfg.troca = null; gravar();
+    const ok = iniciarRotina({ destino: slug, curar: false, compras: [], manual: true, motivo: `você escolheu ${h.nome}` });
+    return { ok, motivo: ok ? null : 'ocupado' };
+  }
   const medidaDe = (m, criterio) => (!m ? null : criterio === 'ouro' ? m.ouro : m.pokemon);
 
   /**
@@ -215,6 +300,10 @@
    * Se piorou, volta para a hunt anterior e põe a nova de castigo por 12 h.
    */
   async function conferirTroca() {
+    // 1.18: desligada — a troca agora segue sempre o top 1 (pedido do André)
+    if (cfg.troca) { cfg.troca = null; gravar(); }
+    return;
+    // eslint-disable-next-line no-unreachable
     const t = cfg.troca;
     if (!t || ocupado() || !cfg.hunt.ligado) return;
     if (pkAtivo()?.id !== t.pkId) { cfg.troca = null; gravar(); return; }
@@ -337,12 +426,12 @@
   async function carregarCatalogo() { if (!jogoCache) jogoCache = await PIH.carregarJogo().catch(() => null); return jogoCache; }
 
   // ---- relógio ---------------------------------------------------------------------------
-  PIH.on('estado', (e) => { eu = e; passo(); });
+  PIH.on('estado', (e) => { eu = e; notarMudanca(); passo(); });
   setInterval(() => {
     try {
       passo();
       const agora = Date.now();
-      if (cfg.hunt.ligado && agora - ultimaAnalise > cfg.hunt.intervaloMin * 60_000) avaliarHunt().catch((err) => anotar(`erro na análise: ${err.message}`, 'erro'));
+      if (cfg.hunt.ligado && agora - ultimaAnalise > CONTINUO_MS) avaliarHunt().catch((err) => anotar(`erro na análise: ${err.message}`, 'erro'));
       if (cfg.repor.ligado && agora - ultimaReposicao > cfg.repor.intervaloMin * 60_000) avaliarReposicao().catch((err) => anotar(`erro na reposição: ${err.message}`, 'erro'));
       conferirTroca().catch((err) => anotar(`erro na conferência: ${err.message}`, 'erro'));
     } catch (err) { console.error('[pokeidle-hunt/auto]', err); }
@@ -375,7 +464,7 @@
     const num = (k, v, min, max, step) => `<input type="number" min="${min}" ${max != null ? `max="${max}"` : ''} step="${step}" value="${v}" data-cfg="${k}">`;
     const cx = (k, v) => `<input type="checkbox" data-cfg="${k}" ${v ? 'checked' : ''}>`;
     const extra = [
-      h.ligado ? `próxima análise em ${quanto(ultimaAnalise + h.intervaloMin * 60_000 - agora)}` : '',
+      h.ligado ? 'análise contínua' : '',
       castigos.length ? `de castigo: ${castigos.map(([sl, ate]) => `${esc(nomeHunt(sl))} (${quanto(ate - agora)})`).join(', ')}` : '',
     ].filter(Boolean).join(' · ');
     const hunt = K.cartao({
@@ -385,7 +474,6 @@
       acoes: K.botao('Analisar', 'data-acao="testar-hunt"'),
       corpo: `<div class="plt-linha">
           ${K.campo('Critério', sel('hunt.criterio', h.criterio, [['xp', 'XP/h'], ['ouro', 'Ouro/h']]))}
-          ${K.campo('A cada (min)', num('hunt.intervaloMin', h.intervaloMin, 10, 240, 5))}
           ${K.campo('Margem %', num('hunt.margemPct', h.margemPct, 0, 200, 1), 'Só troca se a outra render pelo menos isso a mais')}
         </div>
         <div class="plt-linha">
@@ -424,7 +512,7 @@
     const itens = eu ? itensVigiados() : [];
     const baixos = itens.filter((it) => it.tem < alvoDe(it).min);
     const castigos = Object.entries(cfg.castigo).filter(([, ate]) => ate > agora);
-    const stHunt = h.ligado ? [`${h.criterio === 'ouro' ? 'Ouro/h' : 'XP/h'} · análise ${quanto(ultimaAnalise + h.intervaloMin * 60_000 - agora) === 'agora' ? 'agora' : `em ${quanto(ultimaAnalise + h.intervaloMin * 60_000 - agora)}`}`,
+    const stHunt = h.ligado ? [`top 1 em ${criterioDaLista() === 'ouro' ? 'Ouro/h' : 'XP/h'} · análise contínua`, ultimoResultado ? esc(ultimoResultado) : '',
       castigos.length ? `de castigo: ${castigos.map(([sl]) => esc(nomeHunt(sl))).join(', ')}` : '', rotina ? esc(rotina.motivo) : ''].filter(Boolean).join(' · ') : '';
     const stRepor = p.ligado ? (itens.length ? (baixos.length ? `baixo: ${baixos.map((x) => esc(x.nome)).join(', ')}` : `${itens.length} itens em dia`) : 'marque bolas e poções nas Automações do jogo') : '';
     const tabela = itens.length
@@ -435,14 +523,11 @@
       }).join('')}</tbody></table>`
       : '<p class="plt-nota">Marque bolas, poções e revives nas Automações do jogo.</p>';
     return K.linha({ icone: 'cacar', nome: 'Troca de hunt', alvo: 'auto:hunt.ligado', on: h.ligado, trava, status: stHunt,
-      dica: 'Vai sozinho para a hunt que mais rende. Espera sair de combate (trava de 3 s do jogo) antes de mudar.',
-      ajustes: manual ? `${K.fcampo('Critério', K.escala('auto:hunt.criterio', h.criterio, [['xp', 'XP/h'], ['ouro', 'Ouro/h']], trava))}
-        ${K.fcampo('A cada (min)', K.numero('auto:hunt.intervaloMin', h.intervaloMin, 10, 240, 5, trava))}
-        ${K.fcampo('Margem %', K.numero('auto:hunt.margemPct', h.margemPct, 0, 200, 1, trava), 'Só troca se a outra render pelo menos isso a mais')}
+      dica: 'Vai sempre para o 👑 do ranking lá embaixo — o top 1 do pokémon em campo. Analisa o tempo todo (a cada 20 s, e na hora em que o pokémon em campo ou a hunt mudam); trocou de pokémon, vai para o top 1 dele. Espera sair de combate (trava de 3 s do jogo) antes de mudar. Para caçar uma hunt específica (capturar um pokémon), desligue: ao religar, ele volta para a melhor na hora.',
+      ajustes: manual ? `${K.fcampo('Top 1 por', K.escala('ui:ordem', criterioDaLista(), [['xp', 'XP/h'], ['ouro', 'Ouro/h']], trava), 'O mesmo "Ordenar por" do ranking lá embaixo: o 👑 é o destino')}
         <span class="plt-f-quebra"></span>
         ${K.mini('auto:hunt.curar', h.curar, 'Curar antes', 'Passa no Centro e cura antes de ir', trava)}
         ${K.mini('auto:hunt.evitarRisco', h.evitarRisco, 'Evitar risco', 'Fora hunts com 1 hit, mortes estimadas ou golpe que tira 50%+ do HP', trava)}
-        ${K.mini('auto:hunt.conferir', h.conferir, 'Conferir a troca', 'Aos 5 e aos 30 min refaz a conta com o medido e volta se piorou', trava)}
         ${K.acao('Analisar agora', 'data-acao="testar-hunt"', 'cacar', trava)}` : '' })
       + K.linha({ icone: 'repor', nome: 'Reposição', alvo: 'auto:repor.ligado', on: p.ligado, trava, status: stRepor,
         dica: 'Repõe as bolas, poções e revives marcados nas Automações do jogo, sempre dentro do cofre.',
@@ -465,7 +550,7 @@
     const [grupo, campo] = partes;
     if (!cfg[grupo] || !(campo in cfg[grupo])) return;
     cfg[grupo][campo] = v;
-    if (grupo === 'hunt' && campo === 'ligado' && v) { ultimaAnalise = 0; anotar('troca automática de hunt ligada'); }
+    if (grupo === 'hunt' && campo === 'ligado' && v) { ultimaAnalise = 0; topAnterior = null; candidato = null; anotar('troca automática de hunt ligada'); PIH.metaCaca?.desligar?.('a Troca de hunt foi ligada'); }
     if (grupo === 'repor' && campo === 'ligado' && v) { ultimaReposicao = 0; anotar('reposição ligada'); }
     gravar();
   }
@@ -485,7 +570,7 @@
           v = Math.max(Number(el.min) || 0, el.max !== '' ? Math.min(Number(el.max), v) : v);
         }
         cfg[grupo][campo] = v;
-        if (grupo === 'hunt' && campo === 'ligado' && v) { ultimaAnalise = 0; anotar('troca automática de hunt ligada'); }
+        if (grupo === 'hunt' && campo === 'ligado' && v) { ultimaAnalise = 0; topAnterior = null; candidato = null; anotar('troca automática de hunt ligada'); PIH.metaCaca?.desligar?.('a Troca de hunt foi ligada'); }
         if (grupo === 'repor' && campo === 'ligado' && v) { ultimaReposicao = 0; anotar('reposição ligada'); }
         gravar();
         redesenhar();
@@ -505,9 +590,9 @@
 
   // Perfil do botão único (Automático): liga as frentes sem mexer no resto da configuração.
   function aplicar(m) {
-    if (m?.hunt) Object.assign(cfg.hunt, { ligado: !!m.hunt.ligado });
+    if (m?.hunt) { Object.assign(cfg.hunt, { ligado: !!m.hunt.ligado }); if (m.hunt.ligado) PIH.metaCaca?.desligar?.('a Troca de hunt foi ligada'); }
     if (m?.repor) Object.assign(cfg.repor, { ligado: !!m.repor.ligado });
     gravar();
   }
-  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, irAoCentroEVoltar, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + cfg.hunt.intervaloMin * 60_000, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina } };
+  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina } };
 })(globalThis);

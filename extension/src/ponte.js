@@ -281,6 +281,21 @@
     });
     setInterval(() => { if (temJogo && storage()) agendarEscrita(true); }, PULSO_STATUS_MS);
     iniciar();
+    // 1.25: atualização (o service worker procura no GitHub; aqui só leva e traz para o painel)
+    const CHAVE_UPD = 'piloto:update';
+    const mandarUpd = (st) => { try { document.dispatchEvent(new CustomEvent('piloto:upd', { detail: JSON.stringify(st || {}) })); } catch (e) { erro(e); } };
+    const lerUpd = () => { const s2 = storage(); if (s2) s2.get(CHAVE_UPD).then((r) => mandarUpd(r[CHAVE_UPD])).catch(() => {}); };
+    chrome.storage.onChanged.addListener((m, area) => { if (area === 'local' && m[CHAVE_UPD]) mandarUpd(m[CHAVE_UPD].newValue); });
+    document.addEventListener('piloto:upd-pedir', (ev) => {
+      let d = {};
+      try { d = JSON.parse(ev.detail) || {}; } catch { return; }
+      const tipo = { checar: 'upd:checar', aplicar: 'upd:aplicar', dispensar: 'upd:dispensar' }[d.acao];
+      if (!tipo || !storage()) return;
+      chrome.runtime.sendMessage({ tipo, versao: typeof d.versao === 'string' ? d.versao : null, limparAviso: d.limparAviso === true })
+        .then((r) => { document.dispatchEvent(new CustomEvent('piloto:upd-resposta', { detail: JSON.stringify({ acao: d.acao, r: r && r.dados }) })); lerUpd(); })
+        .catch((e) => { document.dispatchEvent(new CustomEvent('piloto:upd-resposta', { detail: JSON.stringify({ acao: d.acao, erro: String(e && e.message || e) }) })); });
+    });
+    setTimeout(lerUpd, 1500);
   } catch (e) {
     erro(e);
   }
