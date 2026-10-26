@@ -8,7 +8,7 @@
 Market radar, hunt optimizer and daily routine in one Chrome extension, built so it can't touch premium currency.
 
 ![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.25.0-e53935)
+![Version](https://img.shields.io/badge/version-1.26.1-e53935)
 ![Tests](https://img.shields.io/badge/tests-26%2F26%20passing-2e7d32)
 
 </div>
@@ -37,14 +37,14 @@ The panel is built from the game's own window pieces (the same frame, menu, rows
 </p>
 
 - **Market radar.** Scans the community market, flags items and Pokémon priced well below their recent sales, and can buy them automatically in gold. Bought items can be **resold automatically**: one action every 10 min (list or lower the price), never below cost + 15%.
-- **Hunt optimizer.** Ranks hunting spots by real gold/hour, switches hunts, restocks potions and revives at the buy price, within the budget.
+- **Hunt optimizer.** Ranks hunting spots by real gold/hour, switches hunts, restocks potions and revives at the buy price, within the budget. With little gold, restocking buys revives and potions up to their minimum before any Poké Ball, then splits the rest by what each item is missing. Every trip to the Center heals, and a Center watchdog brings you back to your last hunt if the character is left standing there.
 - **Pokémon Center queue.** Two buttons right next to the game's own "Go to Pokémon Center", which stays locked while your Pokémon is fighting. **Queue** (clock): press once and the Piloto clicks the game's own button at the first gap, in any mode, even Off. **Return** (U-turn): at the first gap it goes to the Center, heals and comes back to the same hunt. It never presses "Give up the fight", and if a hunt has no gap for over 2 minutes the button turns orange to tell you.
 - **Auto Poké Ball for accounts without VIP.** Throws one ball at each fainted wild Pokémon, the same message the game sends when you click it in the "Nearby to catch" list. It never goes faster than the VIP auto-throw (one ball every 1.3 s or more), shinies come first, and it only uses balls bought with gold (never Beast Ball). It is on by default without VIP, and locked while VIP is active, because then the game throws by itself. Note that the game treats auto-throwing as a VIP benefit.
 - **Deal alerts with the game's own art:** the Pokémon's animated sprite (same atlas and frame timing as the game) and the item icon at a crisp integer scale.
 - **Daily routine (free actions):** battle pass claims, XP Share (puts the furthest-behind team members in empty slots), highest unlocked Outland tier and an hourly rotation of who trains in front.
-- **One team for the field and PvP.** The Team tab lists your 5 locked Pokémon with sprites; the strongest by Power fights on the field and in Ranked, and the rest rotate every hour.
+- **One team for the field and PvP.** The Team tab lists your 5 locked Pokémon with sprites. *Build the main team by itself* fills it with your locked Pokémon first, then **the meta species you already own** (your best of each family, Megas counted as their base form), then the strongest by Power; the same team goes to Ranked, and the rest rotate every hour.
 - **Meta tab.** Reads the Ranked ladder and the players' public profiles to show which species the top 20, or the players in your own bracket, are actually using, with daily ▲▼ changes. When the meta shifts you get a small toast, never a pop-up.
-- **Hunt the meta (opt-in, off by default).** Freezes the current meta comp, sends your strongest Pokémon to the hunt where those species spawn most, keeps the first catch of each (and swaps it for a better one later), protects them from any sale, and puts them on your team when all 5 are in.
+- **Hunt the meta (opt-in, off by default).** Freezes the current meta comp, sends your strongest Pokémon to the hunt where those species spawn most, keeps the first catch of each (and swaps it for a better one later), protects them from any sale, and puts them on your team when all 5 are in. While it runs it keeps checking every 10 s that your best Pokémon of each meta family holds the slot, including ones you already had; when the comp is complete it hands the team to the auto-builder and turns the hunt switch back on, so you go straight back to farming.
 - **Automatic Pokémon listing.** Lists Pokémon you don't use at a price backed by 5+ similar sales, paying the market fee through the vault. Your team, locked and training Pokémon, held-item carriers, **shinies and legendaries are never listed**.
 - **Comes back by itself.** If the game stops in the tab (another device took the session, the server restarted) for 5 minutes, the Piloto reloads the page, waiting while another tab of the same Chrome is playing.
 - **Health check after every game update.** Checks that the game modules and functions the Piloto relies on still exist, and reports what broke instead of failing silently.

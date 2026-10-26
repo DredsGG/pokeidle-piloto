@@ -36,8 +36,9 @@
       // 1.22: os cadeados de campo e PvP viram um só (no máximo 5)
       const t = c.travados || {};
       const uniao = [...new Set([...ids(t.time), ...ids(t.campo), ...ids(t.pvp)])].slice(0, MAX_EQUIPE);
-      return { campoAuto: typeof c.campoAuto === 'boolean' ? c.campoAuto : null, travados: { time: uniao }, aba: ['time', 'meta', 'analisar'].includes(c.aba) ? c.aba : 'time' };
-    } catch { return { campoAuto: null, travados: { time: [] }, aba: 'time' }; }
+      // 1.26: a aba Analisar saiu da janela (a análise continua por dentro, para a venda automática)
+      return { campoAuto: typeof c.campoAuto === 'boolean' ? c.campoAuto : null, doMeta: c.doMeta !== false, travados: { time: uniao }, aba: ['time', 'meta'].includes(c.aba) ? c.aba : 'time' };
+    } catch { return { campoAuto: null, doMeta: true, travados: { time: [] }, aba: 'time' }; }
   };
   const cfg = lerCfg();
   const gravar = () => { try { localStorage.setItem(CHAVE, JSON.stringify(cfg)); } catch { /* sem armazenamento */ } };
@@ -126,19 +127,41 @@
     andarTroca();
     return true;
   }
-  // O time principal: os travados, depois quem já está no time, e quem de fora tiver 2% mais Poder
-  // que o mais fraco entra no lugar dele. Só quem o treinador pode usar (Nv ≤ treinador + 5).
+  // 1.26 (pedido do André): os do meta que você tem. Para cada pokémon da comp do meta (o recorte
+  // do Caçar o meta: Topo 20 ou Sua faixa), o seu melhor da mesma família (Mega X conta como X),
+  // que o treinador pode usar. Conferido a cada volta: pegou um melhor da família, ele entra.
+  function doMetaAgora() {
+    if (!cfg.doMeta || !PIH.meta || !PIH.meta.familia || !PIH.meta.familia.raizDePk) return [];
+    let recorte = 'topo';
+    try { recorte = JSON.parse(localStorage.getItem('piloto:metacaca:v1') || 'null')?.recorte === 'faixa' ? 'faixa' : 'topo'; } catch { /* topo */ }
+    const comp = (PIH.meta.agregar(recorte) || {}).comp || [];
+    const F = PIH.meta.familia;
+    const cand = meus().filter((p) => p.stats && podeUsar(p) && poderDe(p) > 0);
+    const out = [];
+    for (const a of comp) {
+      const raizA = F.raizDoMeta(a);
+      if (raizA == null) continue;
+      const p = cand.filter((x) => !out.some((o) => o.p.id === x.id) && F.raizDePk(x) === raizA).sort((x, y) => poderDe(y) - poderDe(x))[0];
+      if (p) out.push({ p, meta: a.nome });
+    }
+    return out.slice(0, MAX_EQUIPE);
+  }
+  // O time principal: os travados, depois os do meta que você tem, depois quem já está no time, e
+  // quem de fora tiver 2% mais Poder que o mais fraco entra no lugar dele. Só quem o treinador pode
+  // usar (Nv ≤ treinador + 5).
   function alvoPrincipal() {
     if (!eu) return [];
     const cand = meus().filter((p) => p.stats && podeUsar(p) && poderDe(p) > 0).sort((a, b) => poderDe(b) - poderDe(a));
     const porIdC = new Map(cand.map((p) => [p.id, p]));
     const time = [];
     for (const id of cfg.travados.time) { const p = porIdC.get(id); if (p && time.length < MAX_EQUIPE) time.push(p); }
+    const fixos = new Set(time.map((p) => p.id));
+    for (const { p } of doMetaAgora()) { if (time.length < MAX_EQUIPE && !fixos.has(p.id)) { time.push(p); fixos.add(p.id); } }
     for (const p of timeCampo()) { const c = porIdC.get(p.id); if (c && !time.includes(c) && time.length < MAX_EQUIPE) time.push(c); }
     for (const c of cand) { if (time.length >= MAX_EQUIPE) break; if (!time.includes(c)) time.push(c); }
     for (const c of cand) {
       if (time.includes(c)) continue;
-      const trocaveis = time.filter((p) => !travado('time', p.id) && p.id !== eu.activeId);
+      const trocaveis = time.filter((p) => !fixos.has(p.id) && p.id !== eu.activeId);
       if (!trocaveis.length) break;
       const fraco = trocaveis.reduce((m, p) => (poderDe(p) < poderDe(m) ? p : m), trocaveis[0]);
       if (poderDe(c) <= poderDe(fraco) * MARGEM_PODER) break;
@@ -162,7 +185,8 @@
       if (time.length < MAX_EQUIPE) { trocar(entra, null, 'vaga livre no time'); return; }
       const sai = time.filter((p) => !noAlvo.has(p.id) && !travado('time', p.id) && p.id !== eu.activeId).sort((a, b) => poderDe(a) - poderDe(b))[0];
       if (!sai) { st.motivo = 'quem sai é o que está lutando: espera o rodízio'; return; }
-      trocar(entra, sai, `mais Poder (${curto(poderDe(entra))} contra ${curto(poderDe(sai))})`);
+      const meta = doMetaAgora().find((x) => x.p.id === entra.id);
+      trocar(entra, sai, meta ? `do meta (${meta.meta})` : `mais Poder (${curto(poderDe(entra))} contra ${curto(poderDe(sai))})`);
     } catch (e) { st.motivo = 'não consegui calcular'; console.warn('[piloto] time:', e); } finally { calculando = false; }
   }
   setInterval(() => { try { andarTroca(); } catch (e) { console.warn('[piloto] time:', e); } }, 1000);
@@ -226,7 +250,7 @@
   }
 
   // ---- a janela -------------------------------------------------------------------------------------
-  const ABAS = [['time', 'Time', 'pvp'], ['meta', 'Meta', 'radar'], ['analisar', 'Analisar', 'raio']];
+  const ABAS = [['time', 'Time', 'pvp'], ['meta', 'Meta', 'radar']];
   let janela = null;
   let botao = null;
   let ultimoHtml = '';
@@ -274,17 +298,20 @@
     const nv = Number(eu && eu.level) || 0;
     const noCampo = new Set(time.map((p) => p.id));
     const pvpIgual = Array.isArray(pvpIds) && pvpIds.length === time.length && pvpIds.every((id) => noCampo.has(id));
-    const pvpTxt = nv < 150 ? 'PvP: treinador abaixo do Nv 150' : !(rc && rc.pvp && rc.pvp.time) ? 'PvP: salvar a equipe está desligado' : pvpIds === null ? 'PvP: lendo a equipe…' : pvpIgual ? 'PvP: a mesma equipe ✓' : 'PvP: atualizando para a mesma equipe';
-    const status = !on ? 'desligado' : st.troca ? `trocando: entra ${esc(st.troca.nomeEntra)}` : `${st.motivo ? esc(st.motivo) : 'os 5 de maior Poder'} · ${pvpTxt}`;
+    const pvpTxt = nv < 150 ? `PvP: abre no treinador Nv 150 (você: Nv ${nv})` : !(rc && rc.pvp && rc.pvp.time) ? 'PvP: salvar a equipe está desligado' : pvpIds === null ? 'PvP: lendo a equipe…' : pvpIgual ? 'PvP: a mesma equipe ✓' : 'PvP: atualizando para a mesma equipe';
+    const nMeta = doMetaAgora().length;
+    const base = cfg.doMeta ? `${nMeta} do meta + os de maior Poder` : 'os 5 de maior Poder';
+    const status = !on ? 'desligado' : st.troca ? `trocando: entra ${esc(st.troca.nomeEntra)}` : `${st.motivo ? esc(st.motivo) : base} · ${pvpTxt}`;
     const linha = K.linha({ id: 'principal', icone: 'pvp', nome: 'Montar o time principal sozinho', alvo: 'time:principalAuto', on, trava, status,
-      dica: 'Um time só para o campo e para o PvP: os 5 de maior Poder que você já pode usar (treinador + 5). Entra quem tiver 2% mais Poder que o mais fraco; quem sai vai para a Coleção (a venda nunca leva). O cadeado fixa no time; o que está lutando só sai depois do rodízio. O PvP recebe a mesma equipe (treinador Nv 150+). No máximo uma troca a cada 2 min.' });
+      dica: 'Um time só para o campo e para o PvP. Primeiro os do meta que você tem (para cada pokémon da comp da aba Meta, o seu melhor da mesma família; Mega X conta como X), depois os de maior Poder que você já pode usar (treinador + 5). Entra quem tiver 2% mais Poder que o mais fraco; quem sai vai para a Coleção (a venda nunca leva). O cadeado fixa no time; o que está lutando só sai depois do rodízio. O PvP recebe a mesma equipe (treinador Nv 150+). No máximo uma troca a cada 2 min.',
+      ajustes: modo === 'manual' ? K.mini('time:doMeta', cfg.doMeta, 'Usar os do meta', 'Põe no time, primeiro, os pokémon do meta que você tem', trava) : '' });
     const r = rc && rc.rodizio;
     const rod = K.linha({ id: 'rodizio', icone: 'nivel', nome: 'Rodízio do time', alvo: 'rotina:rodizio.ligado', on: !!(r && r.ligado), trava,
       status: r && r.ligado ? `troca o ativo a cada ${r.intervaloMin} min${PIH.rotina && PIH.rotina.proximoRodizio ? ` · ${esc(PIH.rotina.proximoRodizio())}` : ''}` : 'desligado',
       dica: 'A cada hora o próximo do time vira o ativo, um de cada vez, para todos ganharem XP. Com a Troca de hunt ligada, ele vai na hora para a melhor hunt do pokémon que entrou.' });
     const max = maxDe(time);
     const vazias = Math.max(0, MAX_EQUIPE - time.length);
-    return `${linha}${rod}${K.grupo(`Time principal · campo e PvP · ${time.length}/${MAX_EQUIPE}${slug ? ` · farm em ${esc(nomeHunt(slug))}` : ''}`)}${time.map((p) => cartao(p, { lista: 'time', slug, maxStats: max, trava })).join('')}${'<div class="plt-pk-vazio">vaga livre</div>'.repeat(vazias)}`;
+    return `${linha}${rod}${K.grupo(`Time principal · campo e PvP · ${time.length}/${MAX_EQUIPE}${slug ? ` · farm em ${esc(nomeHunt(slug))}` : ''}`)}${time.map((p) => { const m = cfg.doMeta ? doMetaAgora().find((x) => x.p.id === p.id) : null; return cartao(p, { lista: 'time', slug, maxStats: max, trava, extra: m ? `<span class="plt-meta-tem on" title="Do meta: ${esc(m.meta)}">meta · ${esc(m.meta)}</span>` : '' }); }).join('')}${'<div class="plt-pk-vazio">vaga livre</div>'.repeat(vazias)}`;
   }
   function linhaAnalise(l, tipo, a, modo) {
     const p = l.p;
@@ -399,7 +426,7 @@
     const off = modo === 'desligado' ? K.linha({ id: 'off', icone: 'fechar', nome: 'Piloto desligado', classe: 'plt-l-off', status: 'Nada automático roda. O cadeado e a análise continuam.' }) : '';
     const arteMeta = (d, px, chave) => arte({ ...d, id: chave }, px, 'meta');
     const corpoMeta = () => (PIH.meta ? `${PIH.metaCaca ? PIH.metaCaca.html({ modo, arte: arteMeta }) : ''}${PIH.meta.html({ modo, arte: arteMeta })}` : '<div class="pih-erro">O módulo do meta não carregou.</div>');
-    const html = !eu ? '<div class="pih-carga">Esperando o jogo conectar…</div>' : off + (aba === 'time' ? corpoTime(modo) : aba === 'meta' ? corpoMeta() : corpoAnalisar(modo));
+    const html = !eu ? '<div class="pih-carga">Esperando o jogo conectar…</div>' : off + (aba === 'meta' ? corpoMeta() : corpoTime(modo));
     if (forcar || html !== ultimoHtml) {
       ultimoHtml = html;
       alvo.innerHTML = html;
@@ -421,7 +448,8 @@
         cfg.campoAuto = v; gravar();
         PIH.rotina?.definir?.('pvp.time', v); // o PvP recebe a mesma equipe
         diario(`montar o time principal sozinho ${v ? 'ligado' : 'desligado'}`); if (v) st.ultimaTroca = 0;
-      } else if (alvo === 'rotina:rodizio.ligado') PIH.rotina?.definir?.('rodizio.ligado', v);
+      } else if (alvo === 'time:doMeta') { cfg.doMeta = v; gravar(); st.ultimaTroca = 0; diario(`usar os do meta ${v ? 'ligado' : 'desligado'}`); }
+      else if (alvo === 'rotina:rodizio.ligado') PIH.rotina?.definir?.('rodizio.ligado', v);
       else if (alvo === 'metacaca:ligado') { Promise.resolve(PIH.metaCaca?.definir?.('ligado', v)).then(() => pintar(true)); }
       pintar(true);
       return;
@@ -461,6 +489,17 @@
   function aplicar(o) {
     if (o && typeof o.campoAuto === 'boolean') { cfg.campoAuto = o.campoAuto; gravar(); }
   }
+  // 1.26: o Caçar o meta completou → o time segue os do meta (sem cadeado), no campo e no PvP.
+  // `soltar`: os cadeados que o 1.24/1.25 pôs (só sai o cadeado se a lista for exatamente aquela).
+  function usarMeta(motivo, soltar) {
+    if (Array.isArray(soltar) && soltar.length && cfg.travados.time.length === soltar.length && cfg.travados.time.every((id) => soltar.includes(id))) cfg.travados.time = [];
+    cfg.doMeta = true;
+    cfg.campoAuto = true;
+    gravar();
+    PIH.rotina?.definir?.('pvp.time', true);
+    st.ultimaTroca = 0;
+    diario(`${motivo}: montar sozinho ligado, usando os do meta`, 'ok');
+  }
   // 1.24: o Caçar o meta fechou os 5 → viram o time principal (com cadeado) e montar sozinho liga.
   function fixarTime(ids) {
     const ok = (ids || []).filter((id) => Number.isInteger(id)).slice(0, MAX_EQUIPE);
@@ -479,5 +518,5 @@
     cfg.aba = aba; gravar();
     if (!janela) alternar(); else pintar(true);
   }
-  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), campoAuto, _interno: { cfg: () => cfg, st, tarefaCampo, andarTroca, farm, medirFarm } };
+  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), campoAuto, _interno: { cfg: () => cfg, st, tarefaCampo, andarTroca, farm, medirFarm } };
 })(globalThis);

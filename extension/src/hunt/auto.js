@@ -51,6 +51,8 @@
   const agoraServidor = () => Number(eu?.servidorAgora) || Date.now();
   // Fora de combate: a trava de 3 s do Centro já passou. (O carimbo vem do servidor no snapshot.)
   const foraDeCombate = () => (Number(eu?.centroLivreEm) || 0) <= agoraServidor();
+  // Alguém do time de campo desmaiado (hp 0): o Centro ainda não curou.
+  const desmaiados = () => (eu?.pokemons ?? []).some((p) => p && p.slot != null && p.hp != null && Number(p.hp) <= 0);
 
   // ---- o ranking (mesma conta do painel /hunt) -------------------------------------------
   // 1.16: o farm de vários pokémon numa hunt só (a janela Time): a mesma conta do ranking, mas
@@ -149,13 +151,19 @@
       return;
     }
     if (r.etapa === 'centro') {
-      if (r.curar) PIH.enviar({ t: 'centro.curar' });
+      // 1.25.1 (relato #1 no GitHub): no Centro, cura sempre — estava indo só comprar e voltando
+      // com o time desmaiado (ou ficando parado lá, porque o jogo não deixa entrar na hunt assim).
+      PIH.enviar({ t: 'centro.curar' });
       if (r.compras.length) comprar(r.compras);
-      r.etapa = 'sair'; r.desde = agora;
+      r.etapa = 'sair'; r.desde = agora; r.curas = 1;
       return;
     }
     if (r.etapa === 'sair') {
       if (parado < 1500) return; // deixa a cura e a compra chegarem antes de sair
+      if (desmaiados() && (r.curas || 0) < 3 && parado < 20_000) {
+        if (parado >= 3000 * (r.curas || 1)) { r.curas = (r.curas || 0) + 1; PIH.enviar({ t: 'centro.curar' }); }
+        return;
+      }
       PIH.enviar({ t: 'hunt.select', slug: r.destino });
       r.etapa = 'voltar'; r.desde = agora; r.enviadoEm = agora; r.tentativas = 0;
       return;
@@ -171,8 +179,9 @@
       if (parado > 6000) {
         const erro = erroDepoisDe(r.enviadoEm);
         encerrar(`não consegui entrar em ${nomeHunt(r.destino)}${erro ? ` (${erro})` : ''}`, 'erro');
-        // nunca deixar você parado no Centro
+        // nunca deixar você parado no Centro (a vigia do Centro, no relógio, tenta de novo depois)
         if (eu.noCentro && r.origem && r.origem !== r.destino) PIH.enviar({ t: 'hunt.select', slug: r.origem });
+        centroFalhou++;
       }
     }
   }
@@ -365,23 +374,37 @@
   const PADRAO_ALVO = { bola: { min: 1000, alvo: 10000 }, pocao: { min: 200, alvo: 1000 }, revive: { min: 20, alvo: 100 } };
   const alvoDe = (it) => ({ ...PADRAO_ALVO[it.cat], ...cfg.repor.alvos[it.chave] });
 
-  /** O que está abaixo do mínimo, com a quantidade que cabe no ouro acima da reserva. */
+  /**
+   * O que está abaixo do mínimo, com a quantidade que cabe no ouro acima da reserva.
+   * 1.25.1 (relato #1 no GitHub): antes as bolas vinham primeiro e, com pouco ouro (conta nova ou
+   * teto do dia baixo), levavam tudo — sem poção nem revive o pokémon morria e a caça parava. Agora:
+   * 1º cada item até o mínimo, revive e poção antes de bola; 2º o que sobra é repartido na
+   * proporção do que falta para o alvo de cada um.
+   */
+  const ORDEM_CAT = { revive: 0, pocao: 1, bola: 2 };
   function comprasPendentes() {
     if (!cfg.repor.ligado || !eu) return [];
     // O cofre manda: piso de ouro, teto do dia e teto da categoria. A reserva daqui é um piso a mais.
     const doCofre = PIH.cofre ? PIH.cofre.livre('repor') : 0;
     let livre = Math.min((Number(eu.gold) || 0) - (Number(cfg.repor.reservaOuro) || 0), doCofre);
-    const out = [];
-    for (const it of itensVigiados()) {
-      const { min, alvo } = alvoDe(it);
-      if (it.tem >= min) continue;
-      let qty = Math.min(9999, Math.max(0, alvo - it.tem)); // o Market vende até 9.999 por compra
-      qty = Math.min(qty, Math.floor(livre / it.preco));
-      if (qty < 1) continue;
-      livre -= qty * it.preco;
-      out.push({ ...it, qty });
+    const baixos = itensVigiados().map((it) => ({ it, ...alvoDe(it) })).filter((x) => x.it.tem < x.min)
+      .sort((a, b) => (ORDEM_CAT[a.it.cat] ?? 9) - (ORDEM_CAT[b.it.cat] ?? 9));
+    const qtd = new Map();
+    const teto = (x) => Math.min(9999, Math.max(0, x.alvo - x.it.tem)); // o Market vende até 9.999 por compra
+    for (const x of baixos) {
+      const q = Math.min(teto(x), Math.max(0, x.min - x.it.tem), Math.floor(Math.max(0, livre) / x.it.preco));
+      if (q > 0) { qtd.set(x.it.chave, q); livre -= q * x.it.preco; }
     }
-    return out;
+    const falta = baixos.map((x) => ({ x, q: teto(x) - (qtd.get(x.it.chave) || 0) })).filter((f) => f.q > 0);
+    const custo = falta.reduce((s, f) => s + f.q * f.x.it.preco, 0);
+    if (custo > 0 && livre > 0) {
+      const fr = Math.min(1, livre / custo);
+      for (const f of falta) {
+        const q = Math.min(f.q, Math.floor(f.q * fr), Math.floor(livre / f.x.it.preco));
+        if (q > 0) { qtd.set(f.x.it.chave, (qtd.get(f.x.it.chave) || 0) + q); livre -= q * f.x.it.preco; }
+      }
+    }
+    return baixos.filter((x) => qtd.get(x.it.chave) > 0).map((x) => ({ ...x.it, qty: qtd.get(x.it.chave) }));
   }
 
   let precisaCentro = false;
@@ -394,7 +417,11 @@
     const lista = comprasPendentes();
     if (!lista.length) { if (forcar) anotar('reposição: nada abaixo do mínimo (ou ouro só até a reserva)'); return; }
     if (precisaCentro || eu?.noCentro) {
-      if (eu?.noCentro) return comprar(lista);
+      // 1.25.1 (relatos #1 e #2): comprava e ficava parado no Centro. Agora compra, cura e volta.
+      if (eu?.noCentro) {
+        if (ultimaHunt && !ocupado()) return iniciarRotina({ destino: ultimaHunt, curar: true, compras: lista, motivo: `reposição: comprando no Centro e voltando para ${nomeHunt(ultimaHunt)}` });
+        return comprar(lista);
+      }
       if (c.irAoCentro && naHunt()) return iniciarRotina({ destino: eu.huntSlug, curar: cfg.hunt.curar, compras: lista, motivo: 'reposição: indo ao Centro comprar' });
       return anotar('reposição: o jogo só vende no Centro — ligue "ir ao Centro para comprar"', 'aviso');
     }
@@ -426,10 +453,30 @@
   async function carregarCatalogo() { if (!jogoCache) jogoCache = await PIH.carregarJogo().catch(() => null); return jogoCache; }
 
   // ---- relógio ---------------------------------------------------------------------------
-  PIH.on('estado', (e) => { eu = e; notarMudanca(); passo(); });
+  // 1.25.1 (relatos #1 e #2 no GitHub): a vigia do Centro. Parado no Centro sem nada do Piloto em
+  // andamento (o jogo mandou para lá, a compra terminou, a volta falhou) — com a Troca de hunt ou a
+  // Reposição ligada e você sem mexer na página — o Piloto cura e volta para a última hunt. Se a
+  // volta falhar de novo, a espera seguinte cresce (1,5 → 3 → 5 → 10 min), sem desistir.
+  let ultimaHunt = null;
+  let centroDesde = null;
+  let centroFalhou = 0;
+  let mexeuEm = 0;
+  for (const t of ['pointerdown', 'keydown']) { try { root.addEventListener(t, () => { mexeuEm = Date.now(); }, { capture: true, passive: true }); } catch { /* sem janela */ } }
+  const ESPERA_CENTRO_S = [90, 180, 300, 600];
+  function vigiaCentro(agora) {
+    if (!eu?.noCentro) { centroDesde = null; if (naHunt()) centroFalhou = 0; return; }
+    centroDesde ??= agora;
+    if (ocupado() || !ultimaHunt || !(cfg.hunt.ligado || cfg.repor.ligado) || !PIH.cofre?.liberado('hunt')) return;
+    const espera = ESPERA_CENTRO_S[Math.min(centroFalhou, ESPERA_CENTRO_S.length - 1)] * 1000;
+    if (agora - centroDesde < espera || agora - mexeuEm < 60_000) return;
+    centroDesde = agora;
+    iniciarRotina({ destino: ultimaHunt, curar: true, compras: comprasPendentes(), motivo: `parado no Centro: curando e voltando para ${nomeHunt(ultimaHunt)}` });
+  }
+  PIH.on('estado', (e) => { eu = e; if (naHunt()) ultimaHunt = e.huntSlug; notarMudanca(); passo(); });
   setInterval(() => {
     try {
       passo();
+      vigiaCentro(Date.now());
       const agora = Date.now();
       if (cfg.hunt.ligado && agora - ultimaAnalise > CONTINUO_MS) avaliarHunt().catch((err) => anotar(`erro na análise: ${err.message}`, 'erro'));
       if (cfg.repor.ligado && agora - ultimaReposicao > cfg.repor.intervaloMin * 60_000) avaliarReposicao().catch((err) => anotar(`erro na reposição: ${err.message}`, 'erro'));
@@ -594,5 +641,5 @@
     if (m?.repor) Object.assign(cfg.repor, { ligado: !!m.repor.ligado });
     gravar();
   }
-  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina } };
+  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina, vigiaCentro, centro: () => ({ ultimaHunt, centroDesde, centroFalhou }), forcarCentro: (o) => { if ('centroDesde' in o) centroDesde = o.centroDesde; if ('mexeuEm' in o) mexeuEm = o.mexeuEm; } } };
 })(globalThis);

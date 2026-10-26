@@ -129,14 +129,11 @@ await sleep(2500);
 r.rodizio = recebidos.slice(antesR).filter((m) => m.t === 'team.active').map((m) => m.pokemonId);
 r.proximo = await page.evaluate(() => window.__pokeidleHunt.rotina.proximoRodizio());
 await page.locator('.plt-janela-time').screenshot({ path: `${SAIDA}/3-time.png` });
-// Analisar
-await page.locator('.plt-janela-time .cfg-cat[data-aba="analisar"]').click(); await sleep(800);
-await page.locator('.plt-janela-time [data-acao="analisar"]').click();
+// Analisar: desde a 1.26 a aba saiu da janela, mas a análise continua por dentro (a venda automática usa)
+r.semAbaAnalisar = (await page.locator('.plt-janela-time .cfg-cat[data-aba="analisar"]').count()) === 0;
+await page.evaluate(() => window.__pokeidleHunt.time.analisar());
 await sleep(4000);
 r.analise = await page.evaluate(() => { const a = window.__pokeidleHunt.time._interno.st.analise; return a && { n: a.n, farm: a.farmTop.map((l) => l.p.nome + ':' + Math.round(l.farm)), pvp: a.pvpTop.map((l) => l.p.nome), treinar: a.treinar.map((l) => `${l.p.nome}:${l.poder}->${Math.round(l.pot.v)}:${l.pot.como}`), erro: a.erro }; });
-await page.locator('.plt-janela-time').screenshot({ path: `${SAIDA}/4-analisar.png` });
-await page.evaluate(() => { const c = document.querySelector('.plt-janela-time .cfg-linhas'); c.scrollTop = c.scrollHeight; }); await sleep(500);
-await page.locator('.plt-janela-time').screenshot({ path: `${SAIDA}/5-analisar-fim.png` });
 r.erros = erros.filter((e) => /error|Error/.test(e) && !/404/.test(e));
 console.log(JSON.stringify(r));
 setTimeout(() => process.exit(0), 500); await ctx.close();

@@ -172,7 +172,9 @@
       const pai = new Map();
       for (const e of j.especies.values()) {
         porNome.set(String(e.name || '').toLowerCase(), e.pokeId);
-        if (e.evolvesToId) pai.set(e.evolvesToId, e.pokeId);
+        // 1.26: mais de um pai para a mesma evolução (Pupitar e Ancient Pupitar → Tyranitar): fica a
+        // linhagem normal (id menor), senão a raiz do Tyranitar virava o Ancient Pupitar.
+        if (e.evolvesToId && !(pai.has(e.evolvesToId) && pai.get(e.evolvesToId) < e.pokeId)) pai.set(e.evolvesToId, e.pokeId);
       }
       const raizDe = (id) => { let x = id; for (let i = 0; i < 6 && pai.has(x); i++) x = pai.get(x); return x; };
       familias = { porNome, raizDe, especies: j.especies };
@@ -180,13 +182,18 @@
     return familias;
   }
   carregarFamilias();
+  // A raiz da família de um pokémon (seu ou do meta). 1.26: Mega X conta como da família do X
+  // (pelo nome, ou pelo id 3000 + base quando a espécie Mega nem está no catálogo) — antes um Mega
+  // Venusaur seu não contava como "já tem" o Venusaur do meta.
   function familiaDe(a) {
     const F = familias;
-    if (!F) return null;
-    let id = a.speciesId;
-    if (!F.especies.has(id) || /^mega /i.test(a.nome)) {
-      const base = a.nome.replace(/^mega\s+/i, '').replace(/\s+[xy]$/i, '').toLowerCase();
-      id = F.porNome.get(base) || id;
+    if (!F || !a) return null;
+    let id = Number(a.speciesId);
+    const nomeEsp = (F.especies.get(id) || {}).name || '';
+    const nome = /^mega /i.test(String(a.nome || '')) ? String(a.nome) : nomeEsp;
+    if (!F.especies.has(id) || /^mega /i.test(nome)) {
+      const base = String(nome || '').replace(/^mega\s+/i, '').replace(/\s+[xy]$/i, '').toLowerCase();
+      id = F.porNome.get(base) ?? (id > 3000 && F.especies.has(id - 3000) ? id - 3000 : id);
     }
     return F.raizDe(id);
   }
@@ -196,7 +203,7 @@
     if (mesmo) return { p: mesmo, como: 'mesma' };
     const fam = familiaDe(a);
     if (fam == null || !familias) return null;
-    const daFamilia = meus.filter((p) => familias.raizDe(p.speciesId) === fam).sort((x, y) => (y.poder || 0) - (x.poder || 0))[0];
+    const daFamilia = meus.filter((p) => familiaDe(p) === fam).sort((x, y) => (y.poder || 0) - (x.poder || 0))[0];
     return daFamilia ? { p: daFamilia, como: 'familia' } : null;
   }
   function mudou(recorte, speciesId, pos) {
@@ -237,7 +244,7 @@
       </div>`;
     };
     const resto = a.lista.slice(5, 15);
-    return `${topo}${K.grupo(`A comp do meta · ${ui.recorte === 'topo' ? 'Topo 20' : 'sua faixa'} · ${a.n} times`)}${a.comp.map((x, i) => cartao(x, i, true)).join('')}${resto.length ? `${K.grupo('Também muito usados')}${resto.map((x, i) => cartao(x, i + 5, false)).join('')}` : ''}<div class="plt-meta-pe">Placar lido às ${quando(placarEm)}. O Piloto não troca o seu time pelo meta sozinho nesta versão — isso vem com o "Caçar o meta".</div>`;
+    return `${topo}${K.grupo(`A comp do meta · ${ui.recorte === 'topo' ? 'Topo 20' : 'sua faixa'} · ${a.n} times`)}${a.comp.map((x, i) => cartao(x, i, true)).join('')}${resto.length ? `${K.grupo('Também muito usados')}${resto.map((x, i) => cartao(x, i + 5, false)).join('')}` : ''}<div class="plt-meta-pe">Placar lido às ${quando(placarEm)}. O "Montar o time principal sozinho" (aba Time) põe no time os do meta que você tem.</div>`;
   }
   function definir(caminho, v) { if (caminho === 'recorte' && (v === 'topo' || v === 'faixa')) ui.recorte = v; }
   // Para o "Caçar o meta" (1.24): a família de cada espécie (a raiz da linhagem e os membros, na
@@ -246,6 +253,7 @@
     pronta: async () => !!(await carregarFamilias()),
     raizDe: (id) => (familias ? familias.raizDe(id) : null),
     raizDoMeta: (a) => familiaDe(a),
+    raizDePk: (p) => familiaDe(p),
     membros(raizId) {
       if (!familias) return [];
       const out = [];

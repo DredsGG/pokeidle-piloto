@@ -518,7 +518,7 @@
         ajustes: `${K.fcampo('Quem entra', K.escala('rotina:rodizio.modo', r.modo, [['ciclo', 'Um de cada vez'], ['atrasado', 'Mais atrasado'], ['xp', 'Mais XP/h']], trava))}${K.fcampo('A cada (min)', K.numero('rotina:rodizio.intervaloMin', r.intervaloMin, 10, 240, 5, trava))}` })}
       ${K.grupo('PvP Ranqueado')}
       ${L({ icone: 'pvp', nome: 'Equipe = time principal', alvo: 'rotina:pvp.time', on: cfg.pvp.time, dica: 'Salva no PvP a mesma equipe do time principal (as 5 vagas do campo, montadas na janela Time), o mais forte abrindo. Treinador Nv 150+.',
-        status: !nivelPvp ? 'treinador abaixo do Nv 150' : somaPvp ? `Poder somado ${nfR.format(Math.round(somaPvp))}${tier ? ` · ${tier}` : ''}` : tier })}
+        status: !nivelPvp ? `o PvP abre no treinador Nv 150 (você: Nv ${eu?.level ?? '?'})` : somaPvp ? `Poder somado ${nfR.format(Math.round(somaPvp))}${tier ? ` · ${tier}` : ''}` : tier })}
       ${L({ icone: 'radar', nome: 'Fila automática', alvo: 'rotina:pvp.fila', on: cfg.pvp.fila, dica: 'Com VIP liga a fila automática do jogo; sem VIP, entra na fila quando estiver fora (no máximo a cada 3 min).',
         status: pvp.fila ? (pvp.fila.na ? 'na fila agora' : 'fora da fila') : '' })}
       ${K.grupo('Sem volta')}

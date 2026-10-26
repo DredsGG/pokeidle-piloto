@@ -68,10 +68,9 @@
     for (const a of comp) {
       const raizId = PIH.meta.familia.raizDoMeta(a);
       const membros = raizId != null ? PIH.meta.familia.membros(raizId) : [];
-      const ids = membros.map((m) => m.id);
       // a mesma família pode aparecer duas vezes na comp (ex.: Charizard e Mega Charizard): cada vaga precisa do seu
       const usados = new Set(alvos.map((x) => x.capturadoId).filter(Boolean));
-      const tenho = meus().filter((p) => ids.includes(p.speciesId) && !usados.has(p.id)).sort((x, y) => poderDe(y) - poderDe(x))[0] || null;
+      const tenho = meus().filter((p) => raizId != null && PIH.meta.familia.raizDePk(p) === raizId && !usados.has(p.id)).sort((x, y) => poderDe(y) - poderDe(x))[0] || null;
       alvos.push({ meta: a.nome, metaId: a.speciesId, raiz: raizId, membros, capturadoId: tenho ? tenho.id : null, tinhaId: tenho ? tenho.id : null, tinha: !!tenho, semHunt: false });
     }
     cfg = { ...cfg, ligado: true, alvos, vistos: meus().map((p) => p.id), desde: Date.now(), fim: null };
@@ -90,16 +89,17 @@
   }
 
   // ---- capturas -------------------------------------------------------------------------------
-  const daFamilia = (a, speciesId) => a.membros.some((m) => m.id === speciesId);
+  // 1.26: a família pela raiz (Mega X e as linhagens alternativas contam), não pela lista de ids.
+  const daFamilia = (a, p) => a.raiz != null && !!PIH.meta?.familia?.raizDePk && PIH.meta.familia.raizDePk(p) === a.raiz;
   // a primeira vaga ainda sem pokémon dessa família; se todas têm, a do mais fraco (para melhorar)
-  const alvoDaEspecie = (speciesId) => cfg.alvos.find((a) => daFamilia(a, speciesId) && !(a.capturadoId && porId(a.capturadoId))) || cfg.alvos.find((a) => daFamilia(a, speciesId));
+  const alvoDaEspecie = (p) => cfg.alvos.find((a) => daFamilia(a, p) && !(a.capturadoId && porId(a.capturadoId))) || cfg.alvos.find((a) => daFamilia(a, p));
   async function conferirCapturas() {
     const vistos = new Set(cfg.vistos);
     const novos = meus().filter((p) => !vistos.has(p.id));
     if (!novos.length) return;
     for (const p of novos) {
       vistos.add(p.id);
-      const a = alvoDaEspecie(p.speciesId);
+      const a = alvoDaEspecie(p);
       if (!a) continue;
       const atual = a.capturadoId ? porId(a.capturadoId) : null;
       if (!atual) {
@@ -114,6 +114,28 @@
     }
     cfg.vistos = [...vistos].slice(-3000);
     gravar();
+  }
+  // 1.26 (pedido do André: "sempre verificar para deixar 100% alinhado"): a cada volta, cada vaga
+  // fica com o MELHOR pokémon seu daquela família — inclusive o que você já tinha antes de ligar
+  // (o Venusaur que ele tinha no time e o 1.24 não viu). Ninguém ocupa duas vagas.
+  async function alinhar() {
+    if (!PIH.meta?.familia?.raizDePk) return;
+    const usados = new Set();
+    let mexeu = false;
+    for (const a of cfg.alvos) {
+      const cand = meus().filter((p) => !usados.has(p.id) && daFamilia(a, p));
+      let melhor = null;
+      let mv = -1;
+      for (const p of cand) { const v = await potencial(p); if (v > mv) { mv = v; melhor = p; } }
+      const atual = a.capturadoId ? porId(a.capturadoId) : null;
+      if (melhor && (!atual || usados.has(atual.id) || (melhor.id !== atual.id && mv > (await potencial(atual)) * 1.02))) {
+        if (atual && !usados.has(atual.id)) diario(`${a.meta}: você já tem um ${melhor.nome} melhor (Nv ${melhor.level}) — ele fica no lugar do ${atual.nome} Nv ${atual.level}`, 'ok');
+        else if (!atual) diario(`${a.meta}: você já tem ${melhor.nome} (Nv ${melhor.level}) — não precisa caçar`, 'ok');
+        a.capturadoId = melhor.id; a.tinhaId = melhor.id; a.tinha = true; mexeu = true;
+      }
+      if (a.capturadoId) usados.add(a.capturadoId);
+    }
+    if (mexeu) gravar();
   }
   function guardarNaColecao(p) {
     const colecao = (eu && eu.automation && Array.isArray(eu.automation.pokemonTravado)) ? eu.automation.pokemonTravado : [];
@@ -164,6 +186,7 @@
     andando = true;
     try {
       await conferirCapturas();
+      await alinhar();
       const falta = cfg.alvos.filter((a) => !(a.capturadoId && porId(a.capturadoId)) && !a.semHunt);
       if (!falta.length) return concluir();
       const pk = cacador();
@@ -196,13 +219,32 @@
       st.motivo = `caçando ${e.especie.nome} em ${e.nome} · ~${e.porHora >= 1 ? nf.format(e.porHora) : '<1'} por hora${semBola ? ' · ligue a Pokébola automática!' : ''}`;
     } catch (err) { st.motivo = 'não consegui calcular'; console.warn('[piloto] metacaca:', err); } finally { andando = false; }
   }
+  // 1.26 (pedido do André): completou → o "Montar o time principal sozinho" passa a usar os do meta
+  // que você tem (sem cadeado: se aparecer um melhor da família, ele entra), no campo e no PvP, e a
+  // Troca de hunt volta a ligar para farmar com esse time.
   function concluir() {
     const ids = cfg.alvos.map((a) => a.capturadoId).filter((id) => id && porId(id)).slice(0, 5);
     cfg.fim = { em: Date.now(), ids };
     desligar('o time do meta está completo');
-    if (PIH.time && PIH.time.fixarTime) PIH.time.fixarTime(ids);
-    diario(`time do meta completo: ${ids.map((id) => porId(id)?.nome).join(', ')} — virou o time principal (campo e PvP). Ligue a Troca de hunt quando quiser.`, 'ok');
+    if (PIH.time && PIH.time.usarMeta) PIH.time.usarMeta('o Caçar o meta completou o time');
+    religarHunt();
+    diario(`time do meta completo: ${ids.map((id) => porId(id)?.nome).join(', ')} — o time principal (campo e PvP) usa os do meta e a Troca de hunt voltou a ligar.`, 'ok');
   }
+  function religarHunt() {
+    try { if (PIH.auto && PIH.auto._interno && !PIH.auto._interno.cfg().hunt.ligado) { PIH.auto.definir('hunt.ligado', true); diario('Troca de hunt ligada de novo (farm com o time do meta)'); } } catch { /* sem auto */ }
+  }
+  // 1.26: quem completou na 1.24/1.25 ficou com os 5 no cadeado e a Troca de hunt desligada. Uma vez:
+  // solta o cadeado (o time segue os do meta), liga a Troca de hunt.
+  try {
+    // só na página do jogo: a extensão também carrega em /terms (a vigia), e lá não há time para soltar
+    if (/^\/app\/?$/.test(location.pathname) && !cfg.ligado && cfg.fim && !localStorage.getItem('piloto:migr:meta126')) {
+      localStorage.setItem('piloto:migr:meta126', '1');
+      setTimeout(() => {
+        if (PIH.time && PIH.time.usarMeta) PIH.time.usarMeta('1.26: o time segue os do meta que você tem', cfg.fim.ids);
+        religarHunt();
+      }, 20_000);
+    }
+  } catch { /* sem armazenamento */ }
   setInterval(() => { tique(); }, 10_000);
 
   // Os guardados: o capturado de cada família e, enquanto caça, toda a família dos alvos no Depot.
