@@ -371,3 +371,7 @@ html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { backgrou
 .plt-sup-ok { display: flex; align-items: center; gap: 10px; box-shadow: inset 0 0 0 2px var(--mad-linha), inset 6px 0 0 #6fd38a; font-weight: 700; }
 .plt-sup-ok span { flex: 1; }
 .plt-sup-ok button { border: 0; background: none; color: var(--vao-dim); font-size: 16px; cursor: pointer; }
+
+/* 1.26.3: no time / fora do time na comp do meta */
+.plt-meta-chips { display: flex; flex-wrap: wrap; gap: 6px; align-self: flex-start; }
+.plt-meta-tem.plt-meta-fora { color: #f5c26b; border-color: rgba(245, 194, 107, .45); }

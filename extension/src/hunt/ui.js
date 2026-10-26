@@ -361,9 +361,9 @@
   // Manual (os interruptores e todos os ajustes de cada um).
   const ABAS = [
     ['resumo', 'Resumo', 'resumo', 'Como está a conta agora'],
-    ['hunts', 'Caçar', 'cacar', 'Troca de hunt, reposição e onde render mais'],
+    ['hunts', 'Caçar', 'cacar', 'Troca de hunt, rodízio, reposição e onde render mais'],
     ['meta', 'Nível', 'nivel', 'Quanto falta e quando chega'],
-    ['rotina', 'Rotina', 'rotina', 'Passe, PvP, XP Share, Depot e o resto'],
+    ['rotina', 'Rotina', 'rotina', 'Passe, XP Share, PvP, Depot e o resto'],
     ['mercado', 'Mercado', 'mercado', 'O Radar: compra, sorteios e revenda'],
     ['cofre', 'Cofre', 'cofre', 'Quanto pode gastar, e onde gastou'],
   ];
@@ -844,6 +844,8 @@
     return `<span class="pih-ok" title="${oque}">✓ ${pct}%</span>`;
   }
 
+  // 1.26.3: retrato que acabou de ficar pronto (sprite de verdade) → redesenha a aba Caçar
+  PIH.on?.('arte.retrato-pronto', () => { if (painel && prefs.aba === 'hunts' && !digitando()) desenhar(); });
   // 1.17: o retrato do pokémon da hunt numa moldura redonda; clicar leva para a hunt.
   function retratoHunt(l) {
     const h = (welcome?.hunts ?? []).find((x) => x.slug === l.slug);
@@ -946,7 +948,7 @@
     if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '')); return; }
     if (aba === 'cofre') { pintarSeMudou(alvo, aba, topo + (PIH.cofre ? PIH.cofre.html(layout) : '')); return; }
     const pk = pkAtivo();
-    const linhasCaca = aba === 'hunts' ? `${PIH.auto ? PIH.auto.linhas(layout) : ''}${PIH.captura ? PIH.captura.linha(layout) : ''}${PIH.volta ? PIH.volta.linha(layout) : ''}${K.grupo('Onde render mais')}` : '';
+    const linhasCaca = aba === 'hunts' ? `${PIH.auto ? PIH.auto.linhas(layout) : ''}${PIH.rotina && PIH.rotina.linhasCaca ? PIH.rotina.linhasCaca(layout) : ''}${PIH.captura ? PIH.captura.linha(layout) : ''}${PIH.volta ? PIH.volta.linha(layout) : ''}${K.grupo('Onde render mais')}` : '';
     if (!welcome || !eu) { pintarSeMudou(alvo, aba, `${topo}${linhasCaca}<div class="pih-carga">Esperando o jogo conectar…</div>`); return; }
     if (!pk) { pintarSeMudou(alvo, aba, `${topo}${linhasCaca}<div class="pih-erro">Coloque um pokémon em campo para ver onde caçar.</div>`); return; }
     const vez = ++desenhando;

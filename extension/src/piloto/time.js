@@ -93,24 +93,50 @@
     for (let i = 0; i < MAX_EQUIPE; i++) if (!usadas.has(i)) return i;
     return null;
   }
-  // Uma troca em passos: tira (vai para o Depot) → guarda na Coleção → põe o novo na vaga.
+  // Uma troca em passos, na ordem do próprio jogo (1.26.2): marca quem sai na Coleção → tira do
+  // time → põe o novo na vaga. Antes tirava primeiro: sem a marca, quem saía ia para o Depot e a
+  // troca podia travar (o André viu "trocando: entra X" sem nunca trocar). Recusa do servidor vai
+  // para o diário e para a linha, e a próxima tentativa espera 2 min.
+  let ultimoErro = null;
+  PIH.on('erro', (m) => { ultimoErro = { t: Date.now(), msg: String((m && (m.msg || m.chave)) || 'recusado').slice(0, 140) }; });
+  const erroDesde = (t0) => (ultimoErro && ultimoErro.t >= t0 ? ultimoErro.msg : null);
+  const colecaoDoJogo = () => (eu && eu.automation && Array.isArray(eu.automation.pokemonTravado) ? eu.automation.pokemonTravado : null);
   function andarTroca() {
     const t = st.troca;
     if (!t || !eu) return;
     const agora = Date.now();
-    if (agora - t.desde > 45_000) { diario(`troca cancelada: o jogo não respondeu (${t.nomeEntra})`, 'aviso'); st.troca = null; return; }
+    if (agora - t.desde > 45_000) {
+      const erro = erroDesde(t.desde);
+      diario(`a troca não entrou (${t.nomeEntra})${erro ? `: o jogo disse "${erro}"` : ': o jogo não respondeu'} — tento de novo em 2 min`, 'aviso');
+      st.motivo = `a troca não entrou${erro ? `: ${erro}` : ''} — tento de novo em 2 min`;
+      st.troca = null; st.ultimaTroca = agora;
+      if (st.sessao) st.sessao.falhas++;
+      return;
+    }
     const sai = t.sai ? porId(t.sai) : null;
     const entra = porId(t.entra);
     if (!entra) { st.troca = null; return; }
+    if (t.etapa === 'marcar') {
+      const col = colecaoDoJogo();
+      if (!sai || sai.slot == null) { t.etapa = 'entrar'; t.em = 0; return; }
+      if (!col || col.includes(sai.id) || (t.marcouEm && agora - t.marcouEm > 8000)) {
+        pedir({ t: 'team.move', pokemonId: sai.id, slot: null });
+        t.etapa = 'sair'; t.em = agora;
+        return;
+      }
+      if (!t.marcouEm) { t.marcouEm = agora; pedir({ t: 'colecao.mover', pokemonId: sai.id, para: 'colecao' }); }
+      return;
+    }
     if (t.etapa === 'sair') {
-      if (sai && sai.slot != null) return; // ainda saindo
-      const colecao = (eu.automation && Array.isArray(eu.automation.pokemonTravado)) ? eu.automation.pokemonTravado : [];
-      if (sai && !colecao.includes(sai.id)) pedir({ t: 'colecao.mover', pokemonId: sai.id, para: 'colecao' }, `${sai.nome} guardado na Coleção`);
+      if (sai && sai.slot != null) {
+        if (agora - t.em > 8000 && (t.repetiu || 0) < 2) { t.repetiu = (t.repetiu || 0) + 1; t.em = agora; pedir({ t: 'team.move', pokemonId: sai.id, slot: null }); }
+        return; // ainda saindo
+      }
       t.etapa = 'entrar'; t.em = agora;
       return;
     }
     if (t.etapa === 'entrar') {
-      if (entra.slot != null) { diario(`${entra.nome} entrou no time de campo`, 'ok'); st.troca = null; st.ultimaTroca = agora; return; }
+      if (entra.slot != null) { diario(`${entra.nome} entrou no time de campo`, 'ok'); st.troca = null; st.ultimaTroca = agora; st.motivo = ''; return; }
       if (agora - t.em < 800) return;
       const vaga = vagaLivre();
       if (vaga == null) return;
@@ -120,10 +146,9 @@
   }
   function trocar(entra, sai, motivo) {
     if (st.troca) return false;
-    st.troca = { entra: entra.id, nomeEntra: entra.nome, sai: sai ? sai.id : null, etapa: sai ? 'sair' : 'entrar', desde: Date.now(), em: 0 };
+    st.troca = { entra: entra.id, nomeEntra: entra.nome, sai: sai ? sai.id : null, etapa: sai ? 'marcar' : 'entrar', desde: Date.now(), em: 0 };
     if (sai) protegerAte.set(sai.id, Date.now() + 3 * 60_000); // a venda imediata do Depot não leva no meio da troca
-    if (sai) { if (!pedir({ t: 'team.move', pokemonId: sai.id, slot: null }, `${motivo}: sai ${sai.nome}, entra ${entra.nome}`)) { st.troca = null; return false; } }
-    else diario(`${motivo}: entra ${entra.nome}`);
+    diario(sai ? `${motivo}: sai ${sai.nome}, entra ${entra.nome}` : `${motivo}: entra ${entra.nome}`);
     andarTroca();
     return true;
   }
@@ -138,10 +163,11 @@
     const F = PIH.meta.familia;
     const cand = meus().filter((p) => p.stats && podeUsar(p) && poderDe(p) > 0);
     const out = [];
+    // 1.26.3: serve quem é o do meta (ou o Mega) ou evolui até ele, por qualquer linhagem (o Pupitar
+    // que o André pegou vira Tyranitar)
+    const serve = F.serve ? (x, a) => F.serve(x, a) : (x, a) => { const r = F.raizDoMeta(a); return r != null && F.raizDePk(x) === r; };
     for (const a of comp) {
-      const raizA = F.raizDoMeta(a);
-      if (raizA == null) continue;
-      const p = cand.filter((x) => !out.some((o) => o.p.id === x.id) && F.raizDePk(x) === raizA).sort((x, y) => poderDe(y) - poderDe(x))[0];
+      const p = cand.filter((x) => !out.some((o) => o.p.id === x.id) && serve(x, a)).sort((x, y) => poderDe(y) - poderDe(x))[0];
       if (p) out.push({ p, meta: a.nome });
     }
     return out.slice(0, MAX_EQUIPE);
@@ -170,11 +196,94 @@
     return time.sort((a, b) => poderDe(b) - poderDe(a));
   }
   let calculando = false;
+  // ---- 1.26.3: a troca do time inteiro no Centro (pedido do André) ------------------------------
+  // Quando o time principal muda (o meta completou, ou o time está errado), o Piloto:
+  // 1. desliga a Troca de hunt (e o rodízio espera);
+  // 2. vai ao Centro na primeira brecha de combate (a fila do botão do Centro), cura e FICA lá;
+  // 3. faz todas as trocas, uma atrás da outra, até o time ser o principal;
+  // 4. volta para a hunt e religa a Troca de hunt (sempre, se veio do Caçar o meta).
+  // Não chegou ao Centro ou o jogo recusou: desfaz e tenta de novo em 10 min.
+  const SESSAO_MAX_MS = 12 * 60_000;
+  const huntLigada = () => { try { return !!PIH.auto._interno.cfg().hunt.ligado; } catch { return false; } };
+  const ligarHunt = (v) => { try { if (huntLigada() !== v) PIH.auto.definir('hunt.ligado', v); } catch { /* sem auto */ } };
+  function iniciarSessao(motivo) {
+    if (st.sessao || !PIH.auto || !PIH.auto.irAoCentroEFicar) return false;
+    const huntAntes = huntLigada();
+    const huntDepois = huntAntes || !!st.huntDepois;
+    ligarHunt(false);
+    const r = PIH.auto.irAoCentroEFicar({ motivo: `time: ${motivo} — indo ao Centro trocar o time` });
+    if (!r.ok) {
+      if (huntAntes) ligarHunt(true);
+      st.sessaoFalhouEm = Date.now();
+      st.motivo = `não deu para ir ao Centro: ${r.motivo}`;
+      return false;
+    }
+    st.sessao = { etapa: 'indo', desde: Date.now(), motivo, huntDepois, trocas: 0, falhas: 0 };
+    diario(`${motivo}: indo ao Centro trocar o time (Troca de hunt desligada até acabar)`);
+    return true;
+  }
+  function fimSessao(txt, tipo = 'info', falhou = false) {
+    const s = st.sessao;
+    if (!s) return;
+    st.sessao = null;
+    st.ultimaTroca = Date.now();
+    if (falhou) st.sessaoFalhouEm = Date.now();
+    try { PIH.auto && PIH.auto.liberarCentro && PIH.auto.liberarCentro(); } catch { /* sem auto */ }
+    if (s.huntDepois) { ligarHunt(true); if (!falhou) st.huntDepois = false; }
+    st.motivo = txt;
+    diario(`${txt}${s.huntDepois ? ' — voltando à hunt, Troca de hunt ligada' : ' — voltando à hunt'}`, tipo);
+  }
+  function andarSessao() {
+    const s = st.sessao;
+    if (!s || !eu) return;
+    const agora = Date.now();
+    if (agora - s.desde > SESSAO_MAX_MS) return fimSessao('a troca no Centro passou de 12 min', 'aviso', true);
+    if (s.etapa === 'indo') {
+      if (eu.noCentro) { s.etapa = 'trocando'; s.em = agora; st.motivo = 'no Centro: trocando o time'; return; }
+      const rot = PIH.auto.rotinaAtual ? PIH.auto.rotinaAtual() : null;
+      if (!rot) return fimSessao('não consegui chegar ao Centro', 'aviso', true);
+      st.motivo = rot.etapa === 'esperar' ? 'na fila do Centro (esperando sair de combate)' : 'indo ao Centro trocar o time';
+      return;
+    }
+    if (s.etapa !== 'trocando' || st.troca) return;
+    if (!eu.noCentro) return fimSessao('saiu do Centro antes de acabar a troca', 'aviso', true);
+    if (s.falhas >= 3) return fimSessao('o jogo recusou as trocas', 'aviso', true);
+    const alvo = alvoPrincipal();
+    const noAlvo = new Set(alvo.map((p) => p.id));
+    const time = timeCampo();
+    const entra = alvo.find((p) => p.slot == null);
+    if (!entra) return fimSessao(`time trocado no Centro (${s.trocas} troca${s.trocas === 1 ? '' : 's'})`, 'ok');
+    if (time.length < MAX_EQUIPE) { s.trocas++; trocar(entra, null, 'no Centro'); return; }
+    let sai = time.filter((p) => !noAlvo.has(p.id) && !travado('time', p.id) && p.id !== eu.activeId).sort((a, b) => poderDe(a) - poderDe(b))[0];
+    if (!sai) {
+      // só sobrou o ativo fora do time principal: outro do time principal (já no campo) vira o ativo antes
+      const at = time.find((p) => p.id === eu.activeId);
+      const novo = time.find((p) => noAlvo.has(p.id) && p.id !== eu.activeId);
+      if (at && !noAlvo.has(at.id) && novo && agora - (s.ativoEm || 0) > 5000) { s.ativoEm = agora; pedir({ t: 'team.active', pokemonId: novo.id }, `${novo.nome} vira o ativo para ${at.nome} poder sair`); return; }
+      if (agora - (s.ativoEm || 0) > 20_000) return fimSessao('não dá para tirar quem está lutando', 'aviso', true);
+      return;
+    }
+    const meta = doMetaAgora().find((x) => x.p.id === entra.id);
+    s.trocas++;
+    trocar(entra, sai, meta ? `no Centro, do meta (${meta.meta})` : 'no Centro');
+  }
+  setInterval(() => { try { andarSessao(); } catch (e) { console.warn('[piloto] time:', e); } }, 1000);
+
   async function tarefaCampo() {
-    if (calculando || st.troca || !eu || !campoAuto()) return;
+    if (calculando || st.troca || st.sessao || !eu || !campoAuto()) return;
     if (!PIH.cofre || !PIH.cofre.liberado || !PIH.cofre.liberado('time')) { st.motivo = 'Piloto desligado (ou disjuntor)'; return; }
+    // 1.26.3: time diferente do principal → a troca inteira no Centro (no máximo uma tentativa a cada 10 min)
+    try {
+      const alvoS = alvoPrincipal();
+      const falta = alvoS.some((p) => p.slot == null);
+      if (!falta && st.huntDepois) { st.huntDepois = false; ligarHunt(true); diario('o time já é o do meta — Troca de hunt ligada'); }
+      if (falta && PIH.auto && PIH.auto.irAoCentroEFicar && Date.now() - (st.sessaoFalhouEm || 0) > 10 * 60_000 && Date.now() - st.ultimaTroca > 60_000) {
+        if (iniciarSessao(st.huntDepois ? 'o time do meta está pronto' : 'o time principal mudou')) return;
+      }
+      if (falta && st.sessaoFalhouEm && Date.now() - st.sessaoFalhouEm <= 10 * 60_000) return; // espera a próxima ida ao Centro
+    } catch (e) { console.warn('[piloto] time:', e); }
     const temVaga = timeCampo().length < MAX_EQUIPE;
-    if (!temVaga && Date.now() - st.ultimaTroca < ESPERA_TROCA_MS) return; // vaga livre enche logo; troca, no máximo 1 a cada 2 min
+    if ((!temVaga || /não entrou/.test(st.motivo)) && Date.now() - st.ultimaTroca < ESPERA_TROCA_MS) return; // vaga livre enche logo; troca, no máximo 1 a cada 2 min
     calculando = true;
     try {
       const alvo = alvoPrincipal();
@@ -301,7 +410,7 @@
     const pvpTxt = nv < 150 ? `PvP: abre no treinador Nv 150 (você: Nv ${nv})` : !(rc && rc.pvp && rc.pvp.time) ? 'PvP: salvar a equipe está desligado' : pvpIds === null ? 'PvP: lendo a equipe…' : pvpIgual ? 'PvP: a mesma equipe ✓' : 'PvP: atualizando para a mesma equipe';
     const nMeta = doMetaAgora().length;
     const base = cfg.doMeta ? `${nMeta} do meta + os de maior Poder` : 'os 5 de maior Poder';
-    const status = !on ? 'desligado' : st.troca ? `trocando: entra ${esc(st.troca.nomeEntra)}` : `${st.motivo ? esc(st.motivo) : base} · ${pvpTxt}`;
+    const status = !on ? 'desligado' : st.sessao && !st.troca ? `${esc(st.motivo || 'trocando o time no Centro')} · ${pvpTxt}` : st.troca ? `trocando: entra ${esc(st.troca.nomeEntra)}` : `${st.motivo ? esc(st.motivo) : base} · ${pvpTxt}`;
     const linha = K.linha({ id: 'principal', icone: 'pvp', nome: 'Montar o time principal sozinho', alvo: 'time:principalAuto', on, trava, status,
       dica: 'Um time só para o campo e para o PvP. Primeiro os do meta que você tem (para cada pokémon da comp da aba Meta, o seu melhor da mesma família; Mega X conta como X), depois os de maior Poder que você já pode usar (treinador + 5). Entra quem tiver 2% mais Poder que o mais fraco; quem sai vai para a Coleção (a venda nunca leva). O cadeado fixa no time; o que está lutando só sai depois do rodízio. O PvP recebe a mesma equipe (treinador Nv 150+). No máximo uma troca a cada 2 min.',
       ajustes: modo === 'manual' ? K.mini('time:doMeta', cfg.doMeta, 'Usar os do meta', 'Põe no time, primeiro, os pokémon do meta que você tem', trava) : '' });
@@ -311,7 +420,19 @@
       dica: 'A cada hora o próximo do time vira o ativo, um de cada vez, para todos ganharem XP. Com a Troca de hunt ligada, ele vai na hora para a melhor hunt do pokémon que entrou.' });
     const max = maxDe(time);
     const vazias = Math.max(0, MAX_EQUIPE - time.length);
-    return `${linha}${rod}${K.grupo(`Time principal · campo e PvP · ${time.length}/${MAX_EQUIPE}${slug ? ` · farm em ${esc(nomeHunt(slug))}` : ''}`)}${time.map((p) => { const m = cfg.doMeta ? doMetaAgora().find((x) => x.p.id === p.id) : null; return cartao(p, { lista: 'time', slug, maxStats: max, trava, extra: m ? `<span class="plt-meta-tem on" title="Do meta: ${esc(m.meta)}">meta · ${esc(m.meta)}</span>` : '' }); }).join('')}${'<div class="plt-pk-vazio">vaga livre</div>'.repeat(vazias)}`;
+    return `${linha}${rod}${K.grupo(`Time principal · campo e PvP · ${time.length}/${MAX_EQUIPE}${slug ? ` · farm em ${esc(nomeHunt(slug))}` : ''}`)}${(() => {
+      // 1.27: na ordem da escalação do PvP (quem abre primeiro), com a posição
+      let ordem = [];
+      try { ordem = (PIH.rotina && PIH.rotina.equipePvpAlvo && PIH.rotina.equipePvpAlvo()) || []; } catch { ordem = []; }
+      const idx = (p) => { const i = ordem.indexOf(p.id); return i < 0 ? 99 + (p.slot || 0) : i; };
+      return time.slice().sort((a, b) => idx(a) - idx(b)).map((p) => {
+        const m = cfg.doMeta ? doMetaAgora().find((x) => x.p.id === p.id) : null;
+        const i = ordem.indexOf(p.id);
+        const pos = i >= 0 ? `<span class="plt-meta-tem" title="Posição na escalação do PvP (o 1º abre a luta)">${i + 1}º no PvP</span>` : '';
+        const meta = m ? `<span class="plt-meta-tem on" title="Do meta: ${esc(m.meta)}">meta · ${esc(m.meta)}</span>` : '';
+        return cartao(p, { lista: 'time', slug, maxStats: max, trava, extra: pos || meta ? `<span class="plt-meta-chips">${pos}${meta}</span>` : '' });
+      }).join('');
+    })()}${'<div class="plt-pk-vazio">vaga livre</div>'.repeat(vazias)}`;
   }
   function linhaAnalise(l, tipo, a, modo) {
     const p = l.p;
@@ -491,7 +612,8 @@
   }
   // 1.26: o Caçar o meta completou → o time segue os do meta (sem cadeado), no campo e no PvP.
   // `soltar`: os cadeados que o 1.24/1.25 pôs (só sai o cadeado se a lista for exatamente aquela).
-  function usarMeta(motivo, soltar) {
+  function usarMeta(motivo, soltar, opcoes = {}) {
+    if (opcoes.huntDepois) st.huntDepois = true;
     if (Array.isArray(soltar) && soltar.length && cfg.travados.time.length === soltar.length && cfg.travados.time.every((id) => soltar.includes(id))) cfg.travados.time = [];
     cfg.doMeta = true;
     cfg.campoAuto = true;
@@ -518,5 +640,5 @@
     cfg.aba = aba; gravar();
     if (!janela) alternar(); else pintar(true);
   }
-  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), campoAuto, _interno: { cfg: () => cfg, st, tarefaCampo, andarTroca, farm, medirFarm } };
+  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), campoAuto, _interno: { cfg: () => cfg, st, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
 })(globalThis);

@@ -67,10 +67,11 @@
     const alvos = [];
     for (const a of comp) {
       const raizId = PIH.meta.familia.raizDoMeta(a);
-      const membros = raizId != null ? PIH.meta.familia.membros(raizId) : [];
+      // 1.26.3: quem evolui até o do meta (todas as linhagens), não só a linhagem da raiz
+      const membros = PIH.meta.familia.membrosDoMeta ? PIH.meta.familia.membrosDoMeta({ speciesId: a.speciesId, nome: a.nome }) : (raizId != null ? PIH.meta.familia.membros(raizId) : []);
       // a mesma família pode aparecer duas vezes na comp (ex.: Charizard e Mega Charizard): cada vaga precisa do seu
       const usados = new Set(alvos.map((x) => x.capturadoId).filter(Boolean));
-      const tenho = meus().filter((p) => raizId != null && PIH.meta.familia.raizDePk(p) === raizId && !usados.has(p.id)).sort((x, y) => poderDe(y) - poderDe(x))[0] || null;
+      const tenho = meus().filter((p) => PIH.meta.familia.serve(p, { speciesId: a.speciesId, nome: a.nome }) && !usados.has(p.id)).sort((x, y) => poderDe(y) - poderDe(x))[0] || null;
       alvos.push({ meta: a.nome, metaId: a.speciesId, raiz: raizId, membros, capturadoId: tenho ? tenho.id : null, tinhaId: tenho ? tenho.id : null, tinha: !!tenho, semHunt: false });
     }
     cfg = { ...cfg, ligado: true, alvos, vistos: meus().map((p) => p.id), desde: Date.now(), fim: null };
@@ -90,7 +91,8 @@
 
   // ---- capturas -------------------------------------------------------------------------------
   // 1.26: a família pela raiz (Mega X e as linhagens alternativas contam), não pela lista de ids.
-  const daFamilia = (a, p) => a.raiz != null && !!PIH.meta?.familia?.raizDePk && PIH.meta.familia.raizDePk(p) === a.raiz;
+  // 1.26.3: serve para a vaga quem é o do meta (ou o Mega) ou evolui até ele, por qualquer linhagem.
+  const daFamilia = (a, p) => (PIH.meta?.familia?.serve ? PIH.meta.familia.serve(p, { speciesId: a.metaId, nome: a.meta }) : (a.raiz != null && PIH.meta?.familia?.raizDePk?.(p) === a.raiz));
   // a primeira vaga ainda sem pokémon dessa família; se todas têm, a do mais fraco (para melhorar)
   const alvoDaEspecie = (p) => cfg.alvos.find((a) => daFamilia(a, p) && !(a.capturadoId && porId(a.capturadoId))) || cfg.alvos.find((a) => daFamilia(a, p));
   async function conferirCapturas() {
@@ -119,7 +121,7 @@
   // fica com o MELHOR pokémon seu daquela família — inclusive o que você já tinha antes de ligar
   // (o Venusaur que ele tinha no time e o 1.24 não viu). Ninguém ocupa duas vagas.
   async function alinhar() {
-    if (!PIH.meta?.familia?.raizDePk) return;
+    if (!PIH.meta?.familia?.serve) return;
     const usados = new Set();
     let mexeu = false;
     for (const a of cfg.alvos) {
@@ -226,9 +228,11 @@
     const ids = cfg.alvos.map((a) => a.capturadoId).filter((id) => id && porId(id)).slice(0, 5);
     cfg.fim = { em: Date.now(), ids };
     desligar('o time do meta está completo');
-    if (PIH.time && PIH.time.usarMeta) PIH.time.usarMeta('o Caçar o meta completou o time');
-    religarHunt();
-    diario(`time do meta completo: ${ids.map((id) => porId(id)?.nome).join(', ')} — o time principal (campo e PvP) usa os do meta e a Troca de hunt voltou a ligar.`, 'ok');
+    // 1.26.3 (pedido do André): a Troca de hunt só religa DEPOIS que a janela Time trocar o time
+    // inteiro no Centro (ela religa no fim da troca).
+    if (PIH.time && PIH.time.usarMeta) PIH.time.usarMeta('o Caçar o meta completou o time', null, { huntDepois: true });
+    else religarHunt();
+    diario(`time do meta completo: ${ids.map((id) => porId(id)?.nome).join(', ')} — agora o Piloto vai ao Centro trocar o time (campo e PvP) e depois religa a Troca de hunt.`, 'ok');
   }
   function religarHunt() {
     try { if (PIH.auto && PIH.auto._interno && !PIH.auto._interno.cfg().hunt.ligado) { PIH.auto.definir('hunt.ligado', true); diario('Troca de hunt ligada de novo (farm com o time do meta)'); } } catch { /* sem auto */ }

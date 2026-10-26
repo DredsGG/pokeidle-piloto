@@ -1135,13 +1135,18 @@
   // As sugestões da aba Revenda, com o que o radar já tem: inventário (estado.items), livros dos
   // itens, meus anúncios, compras do registro e de "Suas compras". Nada é anunciado sem clique.
   let revendaAgendada = null;
+  // 1.27: as pedras pedidas para o time evoluir (ver 'piloto:pedra-precisa' mais abaixo)
+  const pedrasDoTime = new Map(); // itemId -> { em, nome, para }
+  const PEDRA_FORA_DA_REVENDA_MS = 2 * 3_600_000;
+  const pedraGuardada = (itemId) => { const p = pedrasDoTime.get(Number(itemId)); return !!p && Date.now() - p.em < PEDRA_FORA_DA_REVENDA_MS; };
   function calcularSugestoes() {
     const v = s.ultimaVitrine;
     const resumo = {};
     for (const a of (v && v.amostras) || []) resumo[a.itemId] = { media7d: a.mediaGold, volume7d: a.volume7d };
     const meus = Pessoal.normalizarMeus((s.revenda.meus && s.revenda.meus.linhas) || [], agoraServidor());
     const compras = Rv.juntarCompras(s.revenda.registro || [], (s.revenda.historico && s.revenda.historico.linhas) || []);
-    const sugestoes = Rv.montarSugestoes({ inventario: s.conta.itens || {}, catalogo: s.catalogo, config: s.config, livros: s.livros, meus, compras, resumo, meuId: s.conta.id, ocultos: s.revenda.ocultos, agora: agoraServidor() });
+    // 1.27: a pedra comprada para o time evoluir não entra na revenda
+    const sugestoes = Rv.montarSugestoes({ inventario: s.conta.itens || {}, catalogo: s.catalogo, config: s.config, livros: s.livros, meus, compras, resumo, meuId: s.conta.id, ocultos: s.revenda.ocultos, agora: agoraServidor() }).filter((sg) => !pedraGuardada(sg.itemId));
     return { meus, sugestoes };
   }
 
@@ -1407,6 +1412,37 @@
   const MAX_CALCULOS_PK_AUTO = 3;
   s.pkGuardados = null;
   s.revenda.pkEspera = new Map(); // pokemonId -> não tenta antes de
+  // ---- 1.27: a pedra que falta para um pokémon do time evoluir (pedido do André) ---------------
+  // A Rotina (mundo MAIN) avisa 'piloto:pedra-precisa'. Aqui: lê o livro do item em ouro, pega o
+  // anúncio mais barato que não é seu e compra UMA, pela fila de compras de sempre, como compra
+  // automática — o gancho passa pelo cofre (reserva, teto do dia) e só aceita ouro. A pedra pedida
+  // fica fora da revenda automática por 2 h (para não ser anunciada antes de evoluir).
+  document.addEventListener('piloto:pedra-precisa', (ev) => {
+    let d;
+    try { d = JSON.parse(ev.detail); } catch { return; }
+    const itemId = Number(d && d.itemId);
+    if (!Number.isInteger(itemId) || itemId < 1) return;
+    const ant = pedrasDoTime.get(itemId);
+    if (ant && Date.now() - ant.em < 25 * 60_000) return;
+    const nome = String(d.nome || 'pedra').slice(0, 40);
+    const para = String(d.para || '').slice(0, 80);
+    pedrasDoTime.set(itemId, { em: Date.now(), nome, para });
+    comprarPedraDoTime(itemId, nome, para).catch(erro);
+  });
+  async function comprarPedraDoTime(itemId, nome, para) {
+    if (!s.socketAberto) { diarioPiloto(`pedra: sem conexão com o jogo para comprar ${nome}`, 'aviso'); return; }
+    const dados = await pedir({ t: 'market.item', itemId, moeda: 'gold' }, casaItem(itemId));
+    if (!dados) { diarioPiloto(`pedra: o Mercado não respondeu (${nome})`, 'aviso'); return; }
+    s.livros.set(itemId, { linhas: dados.linhas || [], em: Date.now() });
+    const l = P.escolherCandidato(dados.linhas || [], s.conta.id);
+    if (!l || !Number.isInteger(l.id)) { diarioPiloto(`pedra: ninguém vende ${nome} em ouro agora — tento de novo em 30 min`, 'aviso'); return; }
+    if (s.compras.has(l.id)) return;
+    const alerta = { anuncioId: l.id, itemId, nome, preco: l.preco, qtdAnuncio: l.qtd ?? 1, qtd: 1, compravelEm: typeof l.compravelEm === 'number' ? l.compravelEm : 0, criadoEm: l.criadoEm ?? null, lucroTotal: 0, pedraDoTime: true, em: Date.now(), resultado: null };
+    s.alertas.set(l.id, alerta);
+    const ok = iniciarCompra({ anuncioId: l.id, qtd: 1, auto: true });
+    diarioPiloto(ok ? `pedra: comprando 1× ${nome} por ${fmtN(l.preco)} de ouro${para ? ` para ${para}` : ''}` : `pedra: a compra de ${nome} não entrou na fila`, ok ? 'ok' : 'aviso');
+  }
+
   document.addEventListener('piloto:pk-guardados', (ev) => {
     try {
       const d = JSON.parse(ev.detail);

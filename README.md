@@ -8,7 +8,7 @@
 Market radar, hunt optimizer and daily routine in one Chrome extension, built so it can't touch premium currency.
 
 ![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.26.1-e53935)
+![Version](https://img.shields.io/badge/version-1.27.0-e53935)
 ![Tests](https://img.shields.io/badge/tests-26%2F26%20passing-2e7d32)
 
 </div>
@@ -42,13 +42,14 @@ The panel is built from the game's own window pieces (the same frame, menu, rows
 - **Auto Poké Ball for accounts without VIP.** Throws one ball at each fainted wild Pokémon, the same message the game sends when you click it in the "Nearby to catch" list. It never goes faster than the VIP auto-throw (one ball every 1.3 s or more), shinies come first, and it only uses balls bought with gold (never Beast Ball). It is on by default without VIP, and locked while VIP is active, because then the game throws by itself. Note that the game treats auto-throwing as a VIP benefit.
 - **Deal alerts with the game's own art:** the Pokémon's animated sprite (same atlas and frame timing as the game) and the item icon at a crisp integer scale.
 - **Daily routine (free actions):** battle pass claims, XP Share (puts the furthest-behind team members in empty slots), highest unlocked Outland tier and an hourly rotation of who trains in front.
-- **One team for the field and PvP.** The Team tab lists your 5 locked Pokémon with sprites. *Build the main team by itself* fills it with your locked Pokémon first, then **the meta species you already own** (your best of each family, Megas counted as their base form), then the strongest by Power; the same team goes to Ranked, and the rest rotate every hour.
+- **One team for the field and PvP.** The Team tab lists your 5 locked Pokémon with sprites. *Build the main team by itself* fills it with your locked Pokémon first, then **the meta species you already own** (your best of each family, Megas counted as their base form), then the strongest by Power; the same team goes to Ranked, in the **order the top players use** (the Meta tab records where each species sits in their line-ups; the opener goes first), and the rest rotate every hour in that same order. Team changes are made at the Pokémon Center: it pauses the hunt switch, heals, swaps everyone, and goes back to the hunt.
 - **Meta tab.** Reads the Ranked ladder and the players' public profiles to show which species the top 20, or the players in your own bracket, are actually using, with daily ▲▼ changes. When the meta shifts you get a small toast, never a pop-up.
 - **Hunt the meta (opt-in, off by default).** Freezes the current meta comp, sends your strongest Pokémon to the hunt where those species spawn most, keeps the first catch of each (and swaps it for a better one later), protects them from any sale, and puts them on your team when all 5 are in. While it runs it keeps checking every 10 s that your best Pokémon of each meta family holds the slot, including ones you already had; when the comp is complete it hands the team to the auto-builder and turns the hunt switch back on, so you go straight back to farming.
 - **Automatic Pokémon listing.** Lists Pokémon you don't use at a price backed by 5+ similar sales, paying the market fee through the vault. Your team, locked and training Pokémon, held-item carriers, **shinies and legendaries are never listed**.
 - **Comes back by itself.** If the game stops in the tab (another device took the session, the server restarted) for 5 minutes, the Piloto reloads the page, waiting while another tab of the same Chrome is playing.
 - **Health check after every game update.** Checks that the game modules and functions the Piloto relies on still exist, and reports what broke instead of failing silently.
 - **Report a bug / Check for updates.** One click opens a GitHub issue pre-filled with a privacy-safe report (versions, modes, health check, recent journal; no nick, no balance). The update check reads the latest GitHub release.
+- **Evolution stones for the team.** When a team member is ready to evolve by stone and you don't have it, the Radar buys **one** from the market (cheapest listing that isn't yours), in gold and through the vault, and the opt-in evolve step uses it. The same stone isn't bought again for 30 minutes.
 - **Irreversible actions are opt-in:** evolving (never shiny, Outland or Mega), hatching eggs you own, and clearing the Depot. Before selling the Depot it first moves your PvP team, shinies and top-potential Pokémon into the Collection.
 
 ## The vault (`cofre`): the part I'm proudest of

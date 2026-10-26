@@ -217,16 +217,46 @@
     t.innerHTML = K.ico(d.categoria === 'pokemon' ? 'pvp' : 'mercado', 'plt-mini-ico');
     return t.content.firstElementChild;
   }
+  // Retrato parado tirado do sprite (o primeiro quadro), para quem não está no atlas de marcadores.
+  const retratosSprite = new Map(); // looktype -> dataURL | null | 0 (carregando)
+  let avisoRetrato = 0;
+  function avisarRetrato() { clearTimeout(avisoRetrato); avisoRetrato = setTimeout(() => PIH.emit?.('arte.retrato-pronto', {}), 300); }
+  function retratoDeSprite(lt) {
+    if (retratosSprite.has(lt)) return retratosSprite.get(lt) || null;
+    retratosSprite.set(lt, 0);
+    carregarSprite(lt).then((sp) => {
+      let url = null;
+      if (sp && sp.quadros.length) {
+        const { quadros, imgs, jan } = sp;
+        const q = quadros[0];
+        const cv = document.createElement('canvas');
+        cv.width = jan.sw; cv.height = jan.sh;
+        const ctx = cv.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        if (imgs[q.pagina]) ctx.drawImage(imgs[q.pagina], q.x + jan.sx, q.y + jan.sy, jan.sw, jan.sh, 0, 0, jan.sw, jan.sh);
+        try { url = cv.toDataURL('image/png'); } catch { url = null; }
+      }
+      retratosSprite.set(lt, url);
+      if (url) avisarRetrato();
+    }).catch(() => retratosSprite.set(lt, null));
+    return null;
+  }
   // 1.16: a janela Time usa a mesma arte (cada lugar marcado diz de quem é pela chave).
   PIH.arte = Object.freeze({
     preparar: () => Promise.all([carregarIcones(), especies ? null : carregarEspecies()]),
     chave: (d, px) => `${d.anuncioId ?? d.nome}:${px}`,
     // retrato parado do pokémon (o atlas de marcadores do mapa do jogo), para molduras pequenas
     retrato(pokeId, px) {
-      if (!atlas || !especies) { carregarIcones(); if (!especies) carregarEspecies(); return ''; }
+      if (!atlas || !especies) { carregarIcones().then(avisarRetrato); if (!especies) carregarEspecies().then(avisarRetrato); return ''; }
       const lt = especies.get(Number(pokeId))?.looktype;
       const slot = lt != null && atlas.slots ? atlas.slots[String(lt)] : null;
-      if (!slot) return '';
+      if (!slot) {
+        // 1.26.3 (o André viu só letras na aba Caçar): o jogo encolheu o atlas de marcadores (de
+        // ~1.300 para 736 retratos; Bulbasaur, Charmander e cia. saíram). Como o próprio jogo faz,
+        // cai para o sprite de verdade: o primeiro quadro, guardado como imagem.
+        const u = lt != null ? retratoDeSprite(lt) : null;
+        return u ? `<img class="plt-retrato-img" src="${u}" alt="" style="width:${px}px;height:${px}px;object-fit:contain;image-rendering:pixelated">` : '';
+      }
       const url = atlas.version ? `/assets/site/assets/maps/marker-atlas.png?v=${atlas.version}` : '/assets/site/assets/maps/marker-atlas.png';
       return `<span class="plt-retrato-img" style="width:${px}px;height:${px}px;background-image:url('${url}');background-size:${(atlas.cols || 16) * px}px ${(atlas.rows || 1) * px}px;background-position:${-slot[0] * px}px ${-slot[1] * px}px"></span>`;
     },

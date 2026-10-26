@@ -105,9 +105,9 @@
   let rotina = null; // { destino, curar, compras, etapa, desde, tentativas, motivo }
   const ocupado = () => !!rotina;
 
-  function iniciarRotina({ destino, curar, compras = [], motivo, manual = false }) {
+  function iniciarRotina({ destino, curar, compras = [], motivo, manual = false, ficar = false }) {
     if (rotina) return false;
-    rotina = { destino, curar, compras, motivo, manual, etapa: 'esperar', desde: Date.now(), tentativas: 0, origem: eu?.huntSlug ?? null };
+    rotina = { destino, curar, compras, motivo, manual, ficar, etapa: 'esperar', desde: Date.now(), tentativas: 0, origem: eu?.huntSlug ?? null };
     anotar(`${motivo} — esperando sair de combate`);
     passo();
     return true;
@@ -155,7 +155,14 @@
       // com o time desmaiado (ou ficando parado lá, porque o jogo não deixa entrar na hunt assim).
       PIH.enviar({ t: 'centro.curar' });
       if (r.compras.length) comprar(r.compras);
-      r.etapa = 'sair'; r.desde = agora; r.curas = 1;
+      r.etapa = r.ficar ? 'parado' : 'sair'; r.desde = agora; r.curas = 1;
+      return;
+    }
+    // 1.26.3: a janela Time pediu para ficar no Centro enquanto troca o time inteiro; ela libera
+    // (liberarCentro) quando acaba. Rede de segurança: 12 min parado, volta sozinho.
+    if (r.etapa === 'parado') {
+      if (!eu.noCentro) return encerrar('saiu do Centro antes da troca acabar', 'aviso');
+      if (parado > 12 * 60_000) { r.etapa = 'sair'; r.desde = agora - 2000; anotar('o Centro passou de 12 min: voltando à hunt', 'aviso'); }
       return;
     }
     if (r.etapa === 'sair') {
@@ -193,6 +200,25 @@
     if (!PIH.cofre?.ligado?.()) return { ok: false, motivo: 'com o Piloto em Off, use a fila simples' };
     const ok = iniciarRotina({ destino: eu.huntSlug, curar: true, manual: true, motivo: 'você pediu: Centro, curar e voltar' });
     return { ok, motivo: ok ? null : 'ocupado' };
+  }
+  // 1.26.3 (pedido do André): a troca do time inteiro acontece no Centro. Vai na primeira brecha
+  // de combate (a mesma fila do botão do Centro), cura, compra o que faltar e FICA até a janela
+  // Time chamar liberarCentro(); aí volta para a hunt de onde saiu.
+  function irAoCentroEFicar({ motivo } = {}) {
+    if (rotina) return { ok: false, motivo: 'o Piloto já está indo para outro lugar' };
+    if (!eu) return { ok: false, motivo: 'esperando o jogo' };
+    const destino = (naHunt() ? eu.huntSlug : null) || ultimaHunt;
+    if (!destino) return { ok: false, motivo: 'não sei para qual hunt voltar' };
+    if (!naHunt() && !eu.noCentro) return { ok: false, motivo: 'só numa hunt ou no Centro' };
+    const ok = iniciarRotina({ destino, curar: true, compras: comprasPendentes(), motivo: motivo || 'indo ao Centro', ficar: true });
+    return { ok, motivo: ok ? null : 'ocupado' };
+  }
+  function liberarCentro(destino) {
+    if (!rotina || !rotina.ficar) return false;
+    if (destino) rotina.destino = destino;
+    rotina.ficar = false;
+    if (rotina.etapa === 'parado') { rotina.etapa = 'sair'; rotina.desde = Date.now() - 2000; passo(); }
+    return true;
   }
   function cancelarIdaManual() {
     if (rotina && rotina.manual && rotina.etapa === 'esperar') { encerrar('fila do Centro cancelada por você'); return true; }
@@ -641,5 +667,5 @@
     if (m?.repor) Object.assign(cfg.repor, { ligado: !!m.repor.ligado });
     gravar();
   }
-  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina, vigiaCentro, centro: () => ({ ultimaHunt, centroDesde, centroFalhou }), forcarCentro: (o) => { if ('centroDesde' in o) centroDesde = o.centroDesde; if ('mexeuEm' in o) mexeuEm = o.mexeuEm; } } };
+  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, irAoCentroEFicar, liberarCentro, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina, vigiaCentro, centro: () => ({ ultimaHunt, centroDesde, centroFalhou }), forcarCentro: (o) => { if ('centroDesde' in o) centroDesde = o.centroDesde; if ('mexeuEm' in o) mexeuEm = o.mexeuEm; } } };
 })(globalThis);

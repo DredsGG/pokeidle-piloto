@@ -123,15 +123,17 @@
     const por = new Map();
     for (const p of ts) {
       const vistos = new Set();
-      for (const k of p.time) {
-        if (vistos.has(k.speciesId)) continue;
+      const ult = Math.max(1, p.time.length - 1);
+      p.time.forEach((k, i) => {
+        if (vistos.has(k.speciesId)) return;
         vistos.add(k.speciesId);
-        const a = por.get(k.speciesId) || { speciesId: k.speciesId, nome: k.nome, tipos: k.tipos, shiny: false, n: 0, poder: 0, nivel: 0, nota: 0, quem: [] };
-        a.n++; a.poder += k.poder; a.nivel += k.level; a.nota += k.nota; a.quem.push(p.nick);
+        const a = por.get(k.speciesId) || { speciesId: k.speciesId, nome: k.nome, tipos: k.tipos, shiny: false, n: 0, poder: 0, nivel: 0, nota: 0, pos: 0, quem: [] };
+        // 1.27: a posição na escalação (0 = abre a luta, 1 = fecha) — o pvpTime do perfil vem na ordem
+        a.n++; a.poder += k.poder; a.nivel += k.level; a.nota += k.nota; a.pos += i / ult; a.quem.push(p.nick);
         por.set(k.speciesId, a);
-      }
+      });
     }
-    const lista = [...por.values()].map((a) => ({ ...a, uso: ts.length ? a.n / ts.length : 0, poder: a.poder / a.n, nivel: a.nivel / a.n, nota: a.nota / a.n }))
+    const lista = [...por.values()].map((a) => ({ ...a, uso: ts.length ? a.n / ts.length : 0, poder: a.poder / a.n, nivel: a.nivel / a.n, nota: a.nota / a.n, pos: a.pos / a.n }))
       .sort((x, y) => y.n - x.n || y.poder - x.poder);
     return { n: ts.length, lista, comp: lista.slice(0, 5) };
   }
@@ -185,6 +187,46 @@
   // A raiz da família de um pokémon (seu ou do meta). 1.26: Mega X conta como da família do X
   // (pelo nome, ou pelo id 3000 + base quando a espécie Mega nem está no catálogo) — antes um Mega
   // Venusaur seu não contava como "já tem" o Venusaur do meta.
+  // A espécie "de verdade" (Mega X → X). 1.26.3: base para o "serve para o meta".
+  function baseDe(a) {
+    const F = familias;
+    if (!F || !a) return null;
+    let id = Number(a.speciesId);
+    const nomeEsp = (F.especies.get(id) || {}).name || '';
+    const nome = /^mega /i.test(String(a.nome || '')) ? String(a.nome) : nomeEsp;
+    if (!F.especies.has(id) || /^mega /i.test(nome)) {
+      const base = String(nome || '').replace(/^mega\s+/i, '').replace(/\s+[xy]$/i, '').toLowerCase();
+      id = F.porNome.get(base) ?? (id > 3000 && F.especies.has(id - 3000) ? id - 3000 : id);
+    }
+    return id;
+  }
+  // Quantas evoluções de `de` até `para` (0 = a mesma), ou -1 se não chega.
+  function passosAte(de, para) {
+    const F = familias;
+    let x = de;
+    for (let i = 0; i < 8 && x != null; i++) { if (x === para) return i; x = (F.especies.get(x) || {}).evolvesToId ?? null; }
+    return -1;
+  }
+  // 1.26.3 (o André pegou um Pupitar e o Piloto não viu que vira o Tyranitar do meta): serve para o
+  // meta quem É a espécie do meta (ou o Mega dela) ou EVOLUI até ela — por qualquer linhagem
+  // (Pupitar e Ancient Pupitar viram Tyranitar). Antes era pela "raiz", e duas linhagens que
+  // chegam no mesmo pokémon tinham raízes diferentes.
+  function serve(p, a) {
+    if (!familias) return false;
+    const bp = baseDe(p);
+    const ba = baseDe(a);
+    return bp != null && ba != null && passosAte(bp, ba) >= 0;
+  }
+  function membrosDoMeta(a) {
+    if (!familias) return [];
+    const ba = baseDe(a);
+    const out = [];
+    for (const e of familias.especies.values()) {
+      const n = passosAte(e.pokeId, ba);
+      if (n >= 0) out.push({ id: e.pokeId, nome: e.name, estagio: Math.max(0, 2 - n) });
+    }
+    return out.sort((x, y) => x.estagio - y.estagio);
+  }
   function familiaDe(a) {
     const F = familias;
     if (!F || !a) return null;
@@ -203,7 +245,7 @@
     if (mesmo) return { p: mesmo, como: 'mesma' };
     const fam = familiaDe(a);
     if (fam == null || !familias) return null;
-    const daFamilia = meus.filter((p) => familiaDe(p) === fam).sort((x, y) => (y.poder || 0) - (x.poder || 0))[0];
+    const daFamilia = meus.filter((p) => serve(p, a) || familiaDe(p) === fam).sort((x, y) => (y.poder || 0) - (x.poder || 0))[0];
     return daFamilia ? { p: daFamilia, como: 'familia' } : null;
   }
   function mudou(recorte, speciesId, pos) {
@@ -234,7 +276,9 @@
     if (!a.n) return `${topo}<div class="pih-carga">${ui.recorte === 'faixa' && !s.faixa.length ? 'Jogue uma partida do Ranqueado (ou espere o placar) para o Piloto conhecer os seus adversários.' : 'Lendo os primeiros times… (um a cada 2 min)'}</div>`;
     const cartao = (x, i, grande) => {
       const meu = seuMelhor(x);
-      const tem = meu ? `<span class="plt-meta-tem${meu.como === 'mesma' ? ' on' : ''}" title="${meu.como === 'mesma' ? 'Você tem esta espécie' : 'Você tem um da mesma família'}">você: ${esc(meu.p.nome)} Nv ${nf.format(meu.p.level || 0)} · ⚔ ${curto(meu.p.poder || 0)}</span>` : '<span class="plt-meta-tem plt-meta-falta">você não tem</span>';
+      // 1.26.3 (pedido do André): além do "você tem", se ele já está no time (campo e PvP) ou ainda fora
+      const noTime = meu && meu.p.slot != null;
+      const tem = meu ? `<span class="plt-meta-chips"><span class="plt-meta-tem${meu.como === 'mesma' ? ' on' : ''}" title="${meu.como === 'mesma' ? 'Você tem esta espécie' : 'Você tem um da mesma família (ou que evolui até ele)'}">você: ${esc(meu.p.nome)} Nv ${nf.format(meu.p.level || 0)} · ⚔ ${curto(meu.p.poder || 0)}</span><span class="plt-meta-tem plt-meta-${noTime ? 'notime on' : 'fora'}" title="${noTime ? 'Já está no time (campo e PvP)' : 'Você tem, mas ainda não está no time — o montar sozinho troca'}">${noTime ? 'no time ✓' : 'fora do time'}</span></span>` : '<span class="plt-meta-tem plt-meta-falta">você não tem</span>';
       return `<div class="cfg-linha plt-pk plt-meta-pk${grande ? ' plt-meta-comp' : ''}">
         <span class="plt-pk-arte">${arte({ speciesId: x.speciesId, shiny: false, nome: x.nome }, grande ? 64 : 40, `meta:${ui.recorte}:${x.speciesId}`)}</span>
         <span class="plt-pk-info"><span class="plt-pk-nome"><b>${esc(x.nome)}</b>${mudou(ui.recorte, x.speciesId, i)}</span>
@@ -254,6 +298,8 @@
     raizDe: (id) => (familias ? familias.raizDe(id) : null),
     raizDoMeta: (a) => familiaDe(a),
     raizDePk: (p) => familiaDe(p),
+    serve: (p, a) => serve(p, a),
+    membrosDoMeta: (a) => membrosDoMeta(a),
     membros(raizId) {
       if (!familias) return [];
       const out = [];
@@ -264,5 +310,24 @@
       return out;
     },
   };
-  PIH.meta = { html, definir, agregar, familia, ligarPintura: (fn) => { pintar = fn; }, _interno: { tique, estado: () => s, st, proximoNick } };
+  // 1.27 (pedido do André): a ordem da escalação do PvP (quem abre e quem fecha a luta) copiada de
+  // quem joga no topo: cada pokémon seu que serve para uma espécie do meta vai na posição média em
+  // que os jogadores do recorte usam aquela espécie; quem não é do meta fica no meio. Desempate e
+  // falta de dados (menos de 5 times lidos): o mais forte abrindo, como antes.
+  function ordemPvp(pks, recorte) {
+    const lista = (pks || []).slice();
+    const porPoder = (a, b) => (Number(b.poder) || 0) - (Number(a.poder) || 0);
+    const ag = agregar(recorte === 'faixa' ? 'faixa' : 'topo');
+    if (!familias || ag.n < 5) return { ordem: lista.sort(porPoder), comMeta: false };
+    const posDe = (p) => {
+      let melhor = null;
+      for (const a of ag.lista) if (serve(p, a) && (melhor === null || a.uso > melhor.uso)) melhor = a;
+      return melhor ? melhor.pos : null;
+    };
+    const pos = new Map(lista.map((p) => [p.id, posDe(p)]));
+    const comMeta = [...pos.values()].some((v) => v != null);
+    lista.sort((a, b) => ((pos.get(a.id) ?? 0.5) - (pos.get(b.id) ?? 0.5)) || porPoder(a, b));
+    return { ordem: lista, comMeta };
+  }
+  PIH.meta = { html, definir, agregar, familia, ordemPvp, ligarPintura: (fn) => { pintar = fn; }, _interno: { tique, estado: () => s, st, proximoNick } };
 })(globalThis);
