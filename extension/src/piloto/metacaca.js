@@ -117,6 +117,35 @@
     cfg.vistos = [...vistos].slice(-3000);
     gravar();
   }
+  // 1.32 (o André: "o Ancient Pupitar é da Outland, não evolui para Tyranitar"): a comp congelada
+  // antes da 1.31 guardou variantes Outland na família e como "já tinha". Uma vez por carga, com o
+  // catálogo e os pokémon na mão: tira a Outland da família (a não ser que o próprio meta seja
+  // Outland) e esquece o pokémon guardado que não serve mais — o cartão volta a dizer que falta.
+  let saneado = false;
+  async function sanear() {
+    if (saneado || !PIH.meta?.familia?.serve || !PIH.meta.familia.ehOutland) return;
+    if (!(await PIH.meta.familia.pronta())) return;
+    if (!meus().length) return;
+    saneado = true;
+    const F = PIH.meta.familia;
+    let mexeu = false;
+    for (const a of cfg.alvos) {
+      const membros = Array.isArray(a.membros) ? a.membros : [];
+      const soOutland = membros.length > 0 && membros.every((m) => F.ehOutland(m.id));
+      const limpos = soOutland ? membros : membros.filter((m) => !F.ehOutland(m.id));
+      if (limpos.length !== membros.length) { a.membros = limpos; mexeu = true; }
+      for (const k of ['capturadoId', 'tinhaId']) {
+        const p = a[k] ? porId(a[k]) : null;
+        if (p && !daFamilia(a, p)) {
+          if (k === 'capturadoId') diario(`${a.meta}: ${p.nome} é da Outland e não evolui — não conta para o meta`, 'aviso');
+          a[k] = null; if (k === 'tinhaId') a.tinha = false; mexeu = true;
+        }
+      }
+    }
+    if (mexeu) gravar();
+  }
+  setInterval(() => { if (!saneado) sanear().catch(() => {}); }, 5000);
+
   // 1.26 (pedido do André: "sempre verificar para deixar 100% alinhado"): a cada volta, cada vaga
   // fica com o MELHOR pokémon seu daquela família — inclusive o que você já tinha antes de ligar
   // (o Venusaur que ele tinha no time e o 1.24 não viu). Ninguém ocupa duas vagas.
@@ -129,7 +158,8 @@
       let melhor = null;
       let mv = -1;
       for (const p of cand) { const v = await potencial(p); if (v > mv) { mv = v; melhor = p; } }
-      const atual = a.capturadoId ? porId(a.capturadoId) : null;
+      let atual = a.capturadoId ? porId(a.capturadoId) : null;
+      if (atual && !daFamilia(a, atual)) { a.capturadoId = null; atual = null; mexeu = true; } // 1.32: não serve mais (Outland)
       if (melhor && (!atual || usados.has(atual.id) || (melhor.id !== atual.id && mv > (await potencial(atual)) * 1.02))) {
         if (atual && !usados.has(atual.id)) diario(`${a.meta}: você já tem um ${melhor.nome} melhor (Nv ${melhor.level}) — ele fica no lugar do ${atual.nome} Nv ${atual.level}`, 'ok');
         else if (!atual) diario(`${a.meta}: você já tem ${melhor.nome} (Nv ${melhor.level}) — não precisa caçar`, 'ok');
@@ -290,5 +320,5 @@
     return null;
   }
 
-  PIH.metaCaca = { html, definir, desligar, ativo: () => cfg.ligado, protegidos, especiesAlvo, _interno: { cfg: () => cfg, st, tique, escolherHunt, conferirCapturas } };
+  PIH.metaCaca = { html, definir, desligar, ativo: () => cfg.ligado, protegidos, especiesAlvo, _interno: { cfg: () => cfg, st, tique, escolherHunt, conferirCapturas, sanear, refazer: () => { saneado = false; } } };
 })(globalThis);

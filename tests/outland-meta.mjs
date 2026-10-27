@@ -49,6 +49,7 @@ const welcome = {
     casa: { lista: [] }, passe: {}, chocadeira: { total: 1, ovos: [] },
     pokemons: [
       { id: 3, slot: 0, level: 30, xp: 9000, nome: 'Charmander', speciesId: 4, tipos: ['FIRE'], quality: 1.2, potencia: 1, poder: 3000, ivs: { hp: 16, atk: 16, def: 16, spAtk: 16, spDef: 16, speed: 16 }, stats: { hp: 160, atk: 90, def: 75, spAtk: 95, spDef: 80, speed: 85 }, maxHp: 1720, hp: 1720 },
+      { id: 50, slot: null, level: 30, xp: 9000, nome: 'Brave Charmander', speciesId: 2004, tipos: ['FIRE'], quality: 1.2, potencia: 1, poder: 3000, ivs: { hp: 16, atk: 16, def: 16, spAtk: 16, spDef: 16, speed: 16 }, stats: { hp: 160, atk: 90, def: 75, spAtk: 95, spDef: 80, speed: 85 }, maxHp: 1720, hp: 1720 },
     ],
   },
 };
@@ -140,6 +141,16 @@ const h = await page.evaluate(async () => {
   return r && { slug: r.slug, especie: r.especie && r.especie.id };
 });
 ok(h && h.slug === 'charmander_1' && h.especie === 4, `Caçar o meta vai para a hunt normal, não a da Outland (${JSON.stringify(h)})`);
+// 1.32: a comp congelada antes da 1.31, com a Outland na família e como "já tinha"
+const s = await page.evaluate(async () => {
+  const M = window.__pokeidleHunt.metaCaca._interno;
+  const c = M.cfg();
+  c.alvos = [{ meta: 'Mega Charmeleon', metaId: 5, raiz: 4, membros: [{ id: 4, nome: 'Charmander', estagio: 0 }, { id: 2004, nome: 'Brave Charmander', estagio: 0 }, { id: 5, nome: 'Charmeleon', estagio: 1 }], capturadoId: 50, tinhaId: 50, tinha: true, semHunt: false }];
+  M.refazer(); await M.sanear();
+  const a = c.alvos[0];
+  return { membros: a.membros.map((m) => m.id), cap: a.capturadoId, tinha: a.tinha };
+});
+ok(!s.membros.includes(2004) && s.cap !== 50 && s.tinha === false, `comp antiga: tira a Outland e esquece o "já tinha" (${JSON.stringify(s)})`);
 console.log(falhas ? `${falhas} FALHA(S)` : 'TUDO PASSOU');
 setTimeout(() => process.exit(falhas ? 1 : 0), 200);
 await ctx.close();

@@ -18,6 +18,9 @@
       { t: 'Ayuda siempre a mano', x: 'El ? de cada fila explica lo que hace. Debajo del menú están Reportar error, Buscar actualización y el idioma. Esta guía vuelve con el botón ? de arriba.' },
     ],
     novidades: {
+      '1.31.1': [
+        "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
+      ],
       '1.31.0': [
         'Ahora también funciona en Edge, Brave, Opera GX y Firefox.',
         'Modo Manual liberado: tú activas y ajustas cada automatización.',

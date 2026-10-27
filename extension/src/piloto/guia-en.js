@@ -18,6 +18,9 @@
       { t: 'Help is always at hand', x: 'The ? on each row explains what it does. Report bug, Check for updates and the language are below the menu. This guide comes back with the ? button at the top.' },
     ],
     novidades: {
+      '1.31.1': [
+        "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
+      ],
       '1.31.0': [
         'Now also works on Edge, Brave, Opera GX and Firefox.',
         'Manual mode is unlocked: you turn on and tune each automation.',
