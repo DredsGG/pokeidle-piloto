@@ -613,6 +613,7 @@
     [/^rotina: PvP: o jogo desligou a fila automática \(equipe vazia ou nível\)$/u, 'routine: PvP: the game turned off the auto queue (empty team or level)', 'rutina: PvP: el juego apagó la cola automática (equipo vacío o nivel)'],
     [/^rotina: rodízio: não cheguei ao Centro — tento de novo em 2 min$/u, "routine: rotation: didn't reach the Center — trying again in 2 min", 'rutina: rotación: no llegué al Centro — lo intento de nuevo en 2 min'],
     [/^rotina: erro em (.+?): (.+)$/u, 'routine: error in $1: $2', 'rutina: error en $1: $2'],
+    [/^rotina: pedra: (.+?) \(Nv (\d+)\) já pode virar (.+?) — usei 1× (.+?) do estoque do Radar$/u, "routine: stone: $1 (Lv $2) can already become $3 — used 1× $4 from the Radar's stock", 'rutina: piedra: $1 (Nv $2) ya puede convertirse en $3 — usé 1× $4 del stock del Radar'],
     [/^rotina: pedra: (.+?) \(Nv (\d+)\) já pode virar (.+?) — pedi 1× (.+?) ao Radar \(Mercado, em ouro\)$/u, 'routine: stone: $1 (Lv $2) can already become $3 — asked the Radar for 1× $4 (Market, gold)', 'rutina: piedra: $1 (Nv $2) ya puede convertirse en $3 — pedí 1× $4 al Radar (Mercado, en oro)'],
     [/^rotina: rodízio: (.+?) \(Nv (\d+)\) entra no lugar de (.+?) \(Nv (\d+)\)(.*)$/u, 'routine: rotation: $1 (Lv $2) comes in for $3 (Lv $4)$5', 'rutina: rotación: $1 (Nv $2) entra en lugar de $3 (Nv $4)$5'],
     [/^sem dados do jogo para analisar$/u, 'no game data to analyze', 'sin datos del juego para analizar'],

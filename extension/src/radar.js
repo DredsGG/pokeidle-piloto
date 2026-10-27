@@ -1046,7 +1046,10 @@
     // "sem resposta" e erro em texto solto podem ser compra que aconteceu (auditoria, caso F).
     const NAO_COMPROU = ['perdeu', 'indisponivel', 'preco-mudou', 'cedo-demais', 'anuncio-proprio', 'sem-saldo'];
     if (c.auto && enviada && NAO_COMPROU.includes(r) && ponte.estornarCofre) ponte.estornarCofre(c.alerta.anuncioId);
-    if (C.comprou(r) && c.alerta.itemId !== null && c.alerta.itemId !== undefined && ponte.reservarItens) ponte.reservarItens(c.alerta.itemId, c.estado.qtd);
+    // 1.33.5: a pedra comprada para o time evoluir NÃO entra na reserva de revenda — antes entrava, e a
+    // Rotina (que não gasta o que está reservado) nunca evoluía: o pokémon ficava esperando e o radar
+    // comprava outra a cada 30 min.
+    if (C.comprou(r) && !c.alerta.pedraDoTime && c.alerta.itemId !== null && c.alerta.itemId !== undefined && ponte.reservarItens) ponte.reservarItens(c.alerta.itemId, c.estado.qtd);
     if (c.auto && C.comprou(r)) {
       s.gastoDia = Auto.somarGasto(s.gastoDia, c.estado.qtd * c.alerta.preco, Date.now());
       const st = ponte.storage();

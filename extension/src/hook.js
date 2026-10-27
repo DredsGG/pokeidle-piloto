@@ -435,6 +435,16 @@
     if (r !== (Number(reservaItens[itemId]) || 0)) { reservaItens[itemId] = r; try { raiz.localStorage.setItem(CHAVE_RESERVA_ITENS, JSON.stringify(reservaItens)); } catch { /* nada */ } }
     return r;
   };
+  // 1.33.5: a evolução do time usa UMA pedra do estoque do radar (sai da reserva de revenda) em vez
+  // de comprar outra no Mercado. Só de uma em uma, e só tira do que está reservado.
+  PIH.liberarItemParaEvoluir = (itemId) => {
+    const id = Number(itemId);
+    const r = Number(reservaItens[id]) || 0;
+    if (!Number.isInteger(id) || r < 1) return false;
+    reservaItens[id] = r - 1;
+    try { raiz.localStorage.setItem(CHAVE_RESERVA_ITENS, JSON.stringify(reservaItens)); } catch { /* nada */ }
+    return true;
+  };
 
   // O estado chega cheio no welcome e depois em delta: a remontagem é a do próprio jogo.
   let mesclarEstado = null;
@@ -743,7 +753,7 @@
   }, 20000);
   PIH.freio = () => ({ taxaLeitura: BALDES.leitura.taxa, taxaEscrita: BALDES.escrita.taxa, reclamacoes: freioInfo.reclamacoes });
   PIH.contagemDoJogo = () => ({ in: { ...st.contagem.in }, out: { ...st.contagem.out }, conectado: !!st.atual, ultimaEntrada: st.ultimaEntrada || 0 });
-  for (const k of ['on', 'emit', 'pedir', 'enviar', 'registrarCofre', 'itensReservados', 'BLOQUEADOS', 'COMANDOS_DO_PILOTO', 'hookInstalado', 'contagemDoJogo', 'freio']) {
+  for (const k of ['on', 'emit', 'pedir', 'enviar', 'registrarCofre', 'itensReservados', 'liberarItemParaEvoluir', 'BLOQUEADOS', 'COMANDOS_DO_PILOTO', 'hookInstalado', 'contagemDoJogo', 'freio']) {
     Object.defineProperty(PIH, k, { value: PIH[k], writable: false, configurable: false, enumerable: true });
   }
 

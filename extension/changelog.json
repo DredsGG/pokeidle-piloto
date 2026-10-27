@@ -1,7 +1,8 @@
 {
   "versoes": {
-    "1.33.4": {
+    "1.33.5": {
       "pt": [
+        "Evolução automática: a pedra que o Radar compra para o time não vai mais para a revenda (antes o pokémon ficava esperando e o Radar comprava outra a cada 30 min); se o Radar já tem a pedra no estoque, usa uma de lá.",
         "Rodízio: quando a hunt nunca dá uma brecha de combate (o pokémon fraco não para de apanhar), em 2 min o próximo da fila entra ali mesmo, limpa a hunt e segue para o Centro e a melhor hunt dele. A ordem não muda.",
         "Se o próximo da fila não aguenta aquela hunt, o mais forte do time entra só para limpar; não conta como turno nem perde o lugar na fila.",
         "Sem VIP: a pokébola automática continua lançando com a janela minimizada (o Chrome freava o relógio para uma vez por minuto).",
@@ -22,6 +23,7 @@
         "Torneios: o Piloto inscreve você sozinho no Mundial, no Amador e no Showdown assim que as inscrições abrem (aba Rotina)."
       ],
       "en": [
+        "Automatic evolution: the stone the Radar buys for the team no longer goes to resale (before, the Pokémon kept waiting and the Radar bought another every 30 min); if the Radar already has the stone in stock, it uses one from there.",
         "Rotation: when the hunt never gives a break in combat (the weak Pokémon keeps getting hit), after 2 min the next one in line comes in right there, clears the hunt and goes on to the Center and its best hunt. The order doesn't change.",
         "If the next one in line can't handle that hunt, the team's strongest comes in only to clear it; it doesn't count as a turn or lose its place in line.",
         "No VIP: the automatic Poké Ball keeps throwing with the window minimized (Chrome was slowing the clock to once a minute).",
@@ -42,6 +44,7 @@
         "Tournaments: the Pilot signs you up for the World, the Amateur and the Showdown as soon as registration opens (Routine tab)."
       ],
       "es": [
+        "Evolución automática: la piedra que el Radar compra para el equipo ya no va a la reventa (antes el pokémon se quedaba esperando y el Radar compraba otra cada 30 min); si el Radar ya tiene la piedra en stock, usa una de ahí.",
         "Rotación: cuando la hunt nunca da una pausa de combate (el pokémon débil no deja de recibir golpes), a los 2 min el siguiente de la fila entra ahí mismo, limpia la hunt y sigue al Centro y a su mejor hunt. El orden no cambia.",
         "Si el siguiente de la fila no aguanta esa hunt, el más fuerte del equipo entra solo para limpiar; no cuenta como turno ni pierde su lugar en la fila.",
         "Sin VIP: la pokébola automática sigue lanzando con la ventana minimizada (Chrome frenaba el reloj a una vez por minuto).",

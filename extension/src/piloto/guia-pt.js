@@ -30,7 +30,8 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
-      '1.33.4': [
+      '1.33.5': [
+        "Evolução automática: a pedra que o Radar compra para o time não vai mais para a revenda (antes o pokémon ficava esperando e o Radar comprava outra a cada 30 min); se o Radar já tem a pedra no estoque, usa uma de lá.",
         "Rodízio: quando a hunt nunca dá uma brecha de combate (o pokémon fraco não para de apanhar), em 2 min o próximo da fila entra ali mesmo, limpa a hunt e segue para o Centro e a melhor hunt dele. A ordem não muda.",
         "Se o próximo da fila não aguenta aquela hunt, o mais forte do time entra só para limpar; não conta como turno nem perde o lugar na fila.",
         "Sem VIP: a pokébola automática continua lançando com a janela minimizada (o Chrome freava o relógio para uma vez por minuto).",

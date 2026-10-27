@@ -219,11 +219,27 @@ await caso('evolução não gasta pedra que o radar comprou para revender', asyn
   doc.dispatchEvent(new CustomEvent('radar-mercado:ponte', { detail: JSON.stringify({ tipo: 'reservar-itens', itemId: 300, qtd: 3 }) }));
   const cfg = PIH.rotina._interno.cfg();
   cfg.passe.ligado = cfg.xpshare.ligado = cfg.outland.ligado = cfg.chocadeira.ligado = false; cfg.evoluir.ligado = true;
+  cfg.evoluir.comprarPedra = false; // sem "Comprar a pedra do time": o estoque do radar fica intocado
   const marcas = JSON.parse(localStorage.getItem('piloto:rotina:v1') || '{}');
   msg({ t: 'estado', estado: { items: { 300: 3 }, pokemons: [{ id: 8, slot: 0, level: 30, nome: 'Charmander', speciesId: 4 }] } });
   enviados.length = 0;
   await PIH.rotina._interno.tique(); await sleep(1300);
   assert.equal(enviados.filter((m) => m.t === 'pokemon.evoluir').length, 0);
+  cfg.evoluir.ligado = false;
+});
+
+await caso('1.33.5: com "Comprar a pedra do time", o time usa UMA pedra do estoque do radar e evolui', async () => {
+  const cfg = PIH.rotina._interno.cfg();
+  cfg.evoluir.ligado = true; cfg.evoluir.comprarPedra = true;
+  PIH.rotina._interno.marcas().pedraTime = 0; PIH.rotina._interno.marcas().evoluir = 0;
+  delete PIH.rotina._interno.marcas()['evo:8'];
+  msg({ t: 'estado', estado: { items: { 300: 3 }, pokemons: [{ id: 8, slot: 0, level: 30, nome: 'Charmander', speciesId: 4 }] } });
+  enviados.length = 0;
+  for (let i = 0; i < 3 && !enviados.some((m) => m.t === 'pokemon.evoluir'); i++) { await PIH.rotina._interno.tique(); await sleep(1300); }
+  const ev = enviados.filter((m) => m.t === 'pokemon.evoluir');
+  assert.equal(ev.length, 1, `devia evoluir uma vez: ${JSON.stringify(enviados.map((m) => m.t))}`);
+  assert.equal(PIH.itensReservados(300, 3), 2, 'saiu exatamente 1 do estoque do radar');
+  assert.equal(enviados.filter((m) => m.t === 'market.comprar').length, 0, 'não compra outra no Mercado');
   cfg.evoluir.ligado = false;
 });
 

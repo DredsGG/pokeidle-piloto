@@ -431,6 +431,13 @@
       if (!pedra) continue; // evolui por nível: não precisa de pedra
       const tem = Number((eu.items || {})[pedra.itemId]) || 0;
       if (tem - PIH.itensReservados(pedra.itemId, tem) >= 1) continue; // já tem: o Evoluir resolve
+      // 1.33.5: o radar tem essa pedra no estoque de revenda → uma sai do estoque para o time (é o jeito
+      // mais barato: ele comprou abaixo do Mercado) e o Evoluir usa no próximo minuto.
+      if (tem >= 1 && PIH.liberarItemParaEvoluir && PIH.liberarItemParaEvoluir(pedra.itemId)) {
+        marcas.evoluir = 0; gravar();
+        diario(`pedra: ${pk.nome} (Nv ${pk.level}) já pode virar ${d.especie.name} — usei 1× ${pedra.nome || 'pedra'} do estoque do Radar`);
+        return true;
+      }
       if (Date.now() - (pedidoPedra.get(pedra.itemId) || 0) < 30 * 60_000) continue;
       pedidoPedra.set(pedra.itemId, Date.now());
       document.dispatchEvent(new CustomEvent('piloto:pedra-precisa', { detail: JSON.stringify({ itemId: pedra.itemId, nome: pedra.nome || 'pedra', para: `${pk.nome} → ${d.especie.name}` }) }));

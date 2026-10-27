@@ -40,10 +40,11 @@ const welcome = {
     { slug: 'rattata_1', nome: 'Rattata', nivel: 5, regiao: 'kanto', especies: [{ pokeId: 19, pontos: 10 }] },
     { slug: 'squirtle_1', nome: 'Squirtle', nivel: 10, regiao: 'kanto', especies: [{ pokeId: 7, pontos: 8 }] },
   ],
+  pedrasEvolucao: { FIRE: { itemId: 300, nome: 'Fire Stone' } },
   mercado: { catalogo: [{ id: 300, nome: 'Fire Stone', categoria: 'stone' }, { id: 301, nome: 'Leaf Stone', categoria: 'stone' }], taxaDiaria: 100000 },
   estado: {
     id: 7, nick: 'andre', gold: 80_000_000, level: 30, xp: 400000, activeId: 3, huntSlug: 'rattata_1', servidorAgora: Date.now(),
-    automation: { ballIds: [1], potionIds: [200], reviveIds: [205] }, balls: { 1: 50 }, items: { 200: 10, 205: 2, 300: 1 },
+    automation: { ballIds: [1], potionIds: [200], reviveIds: [205] }, balls: { 1: 50 }, items: { 200: 10, 205: 2, 300: 0 },
     casa: { lista: [] }, passe: {}, chocadeira: { total: 1, ovos: [] },
     pokemons: [
       { id: 3, slot: 0, level: 20, xp: 9000, nome: 'Charmander', speciesId: 4, tipos: ['FIRE'], quality: 1.2, potencia: 1, ivs: { hp: 16, atk: 16, def: 16, spAtk: 16, spDef: 16, speed: 16 }, stats: { hp: 60, atk: 30, def: 25, spAtk: 35, spDef: 30, speed: 35 }, maxHp: 720, hp: 720 },
@@ -70,6 +71,10 @@ await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
     if (o.t === 'market.comprar') {
       const id = o.id;
       ws.send(JSON.stringify({ t: 'batalha', ev: [{ k: 'mktSorteio', id, fase: 'entrou', total: id === 950 ? 3 : 9, quem: ['andre', 'zeca'] }] }));
+      if (id === 901) { // 1.33.5: a pedra do time sai no sorteio e chega na mochila
+        setTimeout(() => { ws.send(JSON.stringify({ t: 'batalha', ev: [{ k: 'mktSorteio', id, fase: 'fim', ok: true, descricao: '1× Fire Stone', total: 9, levaram: [{ nick: 'andre', sobra: 0 }] }, { k: 'marketComprado', descricao: '1× Fire Stone', valor: 5000, moeda: 'gold' }] })); ws.send(JSON.stringify({ t: 'estado', estado: { items: { 200: 10, 205: 2, 300: 1 } } })); }, 3500);
+        return;
+      }
       setTimeout(() => ws.send(JSON.stringify({ t: 'batalha', ev: id === 950
         ? [{ k: 'mktSorteio', id, fase: 'fim', ok: true, descricao: '30× Fire Stone', total: 3, levaram: [{ nick: 'andre', sobra: 0 }] }, { k: 'marketComprado', descricao: '30× Fire Stone', valor: 60000, moeda: 'gold' }]
         : [{ k: 'mktSorteio', id, fase: 'fim', perdeu: true, total: 9, levaram: [{ nick: 'zeca', sobra: 0 }] }] })), 3500);
@@ -103,6 +108,22 @@ await page.evaluate(() => document.dispatchEvent(new CustomEvent('piloto:pedra-p
 await sleep(4000);
 r.repetiu = recebidos.slice(a1).filter((m) => m.t === 'market.comprar' || m.t === 'market.item').length;
 r.diario = await page.evaluate(() => (window.__pokeidleHunt.cofre.ultimos ? window.__pokeidleHunt.cofre.ultimos(10) : []).map((d) => d.txt || d).filter((t) => /pedra/.test(String(t))));
+// 1.33.5: o caminho inteiro — a Rotina vê o Charmander Nv 20 pronto e sem Fire Stone, o Radar compra a mais
+// barata, a pedra NÃO entra na reserva de revenda e o Evoluir manda o pokemon.evoluir.
+await sleep(4500);
+r.reservaDepois = await page.evaluate(() => JSON.parse(localStorage.getItem('piloto:itensDoRadar:v1') || '{}')[300] || 0);
+const a2 = recebidos.length;
+await page.evaluate(async () => {
+  const R = window.__pokeidleHunt.rotina; const c = R._interno.cfg();
+  for (const k of ['passe', 'xpshare', 'outland', 'chocadeira', 'rodizio']) c[k].ligado = false;
+  c.depot.modo = 'off'; c.pvp.time = c.pvp.fila = false; c.autoColecao.ligado = false;
+  c.evoluir.ligado = true; c.evoluir.comprarPedra = true; R._interno.marcas().evoluir = 0;
+  for (let i = 0; i < 4; i++) { await R._interno.tique(); await new Promise((res) => setTimeout(res, 1500)); }
+});
+r.evoluiu = recebidos.slice(a2).filter((m) => m.t === 'pokemon.evoluir').map((m) => ({ pokemonId: m.pokemonId, alvoId: m.alvoId }));
+const okFluxo = r.comprou.length === 1 && r.comprou[0].id === 901 && r.reservaDepois === 0 && r.evoluiu.length === 1 && r.evoluiu[0].pokemonId === 3 && r.evoluiu[0].alvoId === 5;
+console.log(okFluxo ? 'ok   evolução: compra a pedra mais barata em ouro, ela não vai para a revenda e o pokémon evolui' : 'FALHOU evolução ' + JSON.stringify({ c: r.comprou, res: r.reservaDepois, ev: r.evoluiu }));
+if (!okFluxo) process.exitCode = 1;
 r.erros = erros.filter((e) => /error|Error/.test(e) && !/404/.test(e));
 console.log(JSON.stringify(r, null, 1));
 setTimeout(() => process.exit(0), 500); await ctx.close();
