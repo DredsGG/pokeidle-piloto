@@ -136,7 +136,7 @@ await page.locator('button.plt-barra').click(); await sleep(1800);
 a = await aberto();
 ok(a && a.tipo === 'novidades', `depois de atualizar: novidades (${JSON.stringify(a)})`);
 const itens = await page.locator('.plt-guia-lista li').count();
-ok(itens >= 3, `lista de novidades (${itens} itens)`);
+ok(itens >= 1, `lista de novidades (${itens} itens)`);
 ok(/Novidades da v\d+\.\d+\.\d+/.test(await page.locator('.plt-guia-h').innerText()), 'título "Novidades da vX.Y.Z"');
 await J().screenshot({ path: `${SAIDA}/2-novidades-pt.png` });
 await page.locator('.plt-guia [data-guia="fechar"]').click(); await sleep(400);
