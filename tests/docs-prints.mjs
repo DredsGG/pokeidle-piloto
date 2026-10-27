@@ -86,7 +86,7 @@ await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
   setInterval(() => ws.send(JSON.stringify({ t: 'estado', estado: { servidorAgora: Date.now() } })), 1000);
 });
 
-await ctx.addInitScript(() => { try { localStorage.setItem('piloto:idioma', 'en'); localStorage.removeItem('piloto:dev:manual'); } catch {} if (location.hostname === 'pokeidle.io') window.__plateiaPonte = true; });
+await ctx.addInitScript(() => { try { localStorage.setItem('piloto:idioma', 'en'); localStorage.removeItem('piloto:dev:manual'); localStorage.setItem('piloto:dev:semGuia', '1'); } catch {} if (location.hostname === 'pokeidle.io') window.__plateiaPonte = true; });
 await ctx.route(/https:\/\/(www\.twitch\.tv|kick\.com|github\.com)\/.*/, (rota) => rota.fulfill({ status: 200, contentType: 'text/html', body: 'ok' }));
 const page = await ctx.newPage();
 page.on('console', (m) => { if (m.type() === 'error' || /radar|piloto/i.test(m.text())) erros.push(m.type() + ': ' + m.text().slice(0, 300)); });
@@ -169,6 +169,12 @@ await page.locator('#p-equipe').screenshot({ path: `${SAIDA}/team-panel.png` }).
 await page.evaluate(() => { const m = document.createElement('div'); m.id = 'modal-fake'; m.style.cssText = 'position:fixed;left:40px;top:40px;width:560px;padding:16px;background:#3b2a3f;border:2px solid #7a4a6f;border-radius:12px;z-index:9;color:#fff;font:14px Barlow,sans-serif'; m.innerHTML = '<h3 style="margin:0 0 10px">Twitch</h3><div class="vt-modal tw-modal" id="tw-corpo"><p style="opacity:.8;margin:0">Official channels live now: watch one to get the XP bonus.</p></div>'; document.body.append(m); });
 await sleep(1000);
 await page.locator('#modal-fake').screenshot({ path: `${SAIDA}/plateia-banner.png` }).catch(() => {});
+// 1.31: o Manual (aba Caçar com os ajustes)
+await page.evaluate(() => document.getElementById('modal-fake')?.remove());
+await page.locator('button.plt-barra').click(); await sleep(1200);
+await page.locator('.plt-janela .plt-modo-bt[data-modo="manual"]').click(); await sleep(1500);
+await page.locator('.plt-cats [data-aba="hunts"]').click(); await sleep(2500);
+{ const b = await J().boundingBox(); await page.screenshot({ path: `${SAIDA}/manual-hunt-tab.png`, clip: { x: b.x, y: b.y, width: b.width, height: Math.min(b.height, 820) } }); }
 r.ok = true;
 r.erros = erros.filter((e) => /error|Error/.test(e) && !/404/.test(e));
 console.log(JSON.stringify(r));

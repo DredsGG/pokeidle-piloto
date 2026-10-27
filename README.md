@@ -5,10 +5,11 @@
 # PokeIdle Piloto
 
 **An autopilot for [pokeidle.io](https://pokeidle.io) with a budget vault in front of every gold coin it spends.**
-Hunt optimizer, market radar, team manager and daily routine in one Chrome extension, built so it can't touch premium currency.
+Hunt optimizer, market radar, team manager and daily routine in one browser extension for Chrome, Edge, Brave, Opera GX and Firefox 140+, built so it can't touch premium currency.
 
-![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.29.1-e53935)
+![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
+![Browsers](https://img.shields.io/badge/Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20GX%20·%20Firefox%20140+-works-6d4aff)
+![Version](https://img.shields.io/badge/version-1.31.0-e53935)
 ![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-2e7d32)
 
 <img src="docs/hunt-tab.png" width="80%" alt="The Piloto window in Automatic mode, Hunt tab: hunt switching, restock, team rotation, Outland tier, automatic Poké Ball and auto-reload, above the ranking of the best hunts">
@@ -22,8 +23,12 @@ Hunt optimizer, market radar, team manager and daily routine in one Chrome exten
 Everything lives inside the game, behind a **Pilot** bar above your active Pokémon, in a window built from the game's own pieces (frame, menu, rows, ON/OFF switches). One switch runs it all:
 
 - **Off:** nothing automatic runs.
-- **Automatic:** turns on the hunt switch, restock, the daily routine, the team builder, the rotation and the market radar, each with its own ON/OFF switch. A switch you turn off stays off after a reload. Irreversible actions (evolving, hatching) stay off until you turn them on.
-- **Manual** (every setting of every automation) is locked for now.
+- **Manual:** you turn on and tune each automation yourself. Every row shows its settings (restock amounts, turn length, vault caps, the Radar's discounts and limits…) and the Radar starts by only alerting; its automatic buying stays off until you turn it on.
+- **Automatic:** turns on the hunt switch, restock, the daily routine, the team builder, the rotation and the market radar, each with its own ON/OFF switch and no numbers to tune. A switch you turn off stays off after a reload. Irreversible actions (evolving, hatching) stay off until you turn them on.
+
+<p align="center">
+  <img src="docs/manual-hunt-tab.png" width="70%" alt="The Piloto window in Manual mode, Hunt tab: hunt switching with Top 1 by XP/h or gold/h, restock with the minimum and target of each ball and potion, team rotation with the turn length, and the automatic Poké Ball options">
+</p>
 
 ## Features
 
@@ -35,10 +40,10 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 
 **Hunting**
 - **Hunt switching.** Ranks every hunt for the Pokémon in the field by XP/h or gold/h (the /hunt model plus what you actually measured there) and always goes to the top one, waiting for a gap in combat.
-- **Restock.** Buys the balls, potions and revives you ticked in the game's own automation, at the shop price and within the vault. With little gold it brings revives and potions to their minimum before any Poké Ball. Every Center trip heals, and a watchdog brings you back to your hunt if the character is left standing at the Center.
+- **Restock.** Buys the balls, potions and revives ticked in the game's own automation, at the shop price and within the vault. With **Pick the items for the account** (on in Auto) it keeps exactly one ball, one potion and one revive ticked there and switches them as the account grows: the potion by your team's HP, the revive by cost and the ball by your gold/h, so restock only buys those three. With little gold it brings revives and potions to their minimum before any Poké Ball. Every Center trip heals, and a watchdog brings you back to your hunt if the character is left standing at the Center.
 - **Pokémon Center queue.** Two buttons next to the game's "Go to Pokémon Center": **Queue** presses the game's button at the first gap in combat; **Return** goes, heals and comes back to the same hunt. It never presses "Give up the fight".
 - **Automatic Poké Ball for accounts without VIP.** One gold ball at each fainted wild Pokémon, never faster than the VIP auto-throw (1.3 s), shinies first, never Beast Ball. Locked while VIP is active. Note that the game treats auto-throwing as a VIP benefit.
-- **Comes back by itself.** If the game stops in the tab for 5 minutes (another device took the session, the server restarted), the Piloto reloads the page, waiting while another tab of the same Chrome is playing.
+- **Comes back by itself.** If the game stops in the tab for 5 minutes (another device took the session, the server restarted), the Piloto reloads the page, waiting while another tab of the same browser is playing.
 
 **Team**
 
@@ -47,11 +52,12 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
   <img src="docs/meta-tab.png" width="49%" alt="Meta tab: the Ranked meta comp of the top 20, with usage, Power, level and grade, and whether you own each species and have it on the team">
 </p>
 
-- **One team for the field and PvP.** The Team window builds it: your locked Pokémon first, then **the meta species you already own** (your best of each family; Megas count as their base form and a Pupitar counts for Tyranitar), then the strongest by Power. The same team goes to Ranked with the strongest opening. Team changes happen at the Pokémon Center: it pauses the hunt switch, heals, swaps everyone in the game's own order and goes back to the hunt.
+- **One team for the field and PvP.** The Team window builds it: your locked Pokémon first, then **the meta species you already own** (your best of each family; Megas count as their base form and a Pupitar counts for Tyranitar). Nothing outside the meta joins the team, so a new account doesn't fill it with weak catches, and the meta the team follows only changes after a species has been out of it for 24 hours (the 5th place of the ladder moves all the time). The same team goes to Ranked with the strongest opening. Team changes happen at the Pokémon Center: it pauses the hunt switch, heals, swaps everyone in the game's own order and goes back to the hunt.
 - **Team rotation.** Each team member fights for one turn (60 min by default) and the one that has gone longest without fighting comes in next. With hunt switching on, the swap happens at the Center and the newcomer goes straight to its own best hunt.
 - **Turn timer.** A ⏱ button on each row of the game's Team panel shows how long the active Pokémon has been fighting, the time left in its turn, the rotation queue with when each one comes in, and today's turns.
+- **Days in the session clock.** The game's Session panel shows the hunt time in hours only (252:58:16); the Piloto splits it into a days box and the rest in hours (10 days · 12:58:16).
 - **Meta tab.** Reads the Ranked ladder and the players' public profiles to show which species the top 20, or the players in your own bracket, are using, with daily ▲▼ changes and whether you own each one and have it on the team. When the meta shifts you get a small toast, never a pop-up.
-- **Hunt the meta (opt-in).** Freezes the current meta comp, takes your strongest Pokémon to the hunt where those species spawn most, keeps the best catch of each family (including the ones you already had), protects them from any sale, then hands the team to the builder and turns the hunt switch back on.
+- **Hunt the meta (opt-in).** Freezes the current meta comp, takes your strongest Pokémon to the regular hunt where those species spawn most (never Outland: Outland variants don't evolve), keeps the best catch of each family (including the ones you already had), protects them from any sale, then hands the team to the builder and turns the hunt switch back on.
 - **Evolution stones for the team.** When a team member is ready to evolve by stone and you don't have it, the Radar buys **one** from the market (cheapest listing that isn't yours), in gold and through the vault, and the opt-in evolve step uses it.
 
 <p align="center">
@@ -74,7 +80,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
   <img src="docs/plateia-banner.png" width="60%" alt="Banner on the game's Twitch bonus window: Farm this bonus with Plateia, with an Open the Twitch room button">
 </p>
 
-- If you also use [Plateia](https://github.com/DredsGG/plateia) (Twitch and Kick), opening the game opens its Twitch and/or Kick room in a separate window, once per Chrome session, for the platforms linked in your game account. The game's own Twitch/Kick bonus windows get an **Open the room** button, or a link to download Plateia if you don't have it.
+- If you also use [Plateia](https://github.com/DredsGG/plateia) (Twitch and Kick), opening the game opens its Twitch and/or Kick room in a separate window, once per browser session, for the platforms linked in your game account. The game's own Twitch/Kick bonus windows get an **Open the room** button, or a link to download Plateia if you don't have it.
 
 **Support**
 
@@ -97,19 +103,70 @@ An automation that spends in-game money needs hard limits more than features. Ev
 
 And under the vault, the WebSocket hook itself enforces:
 
-- **Closed command list.** The pilot can send only 21 game commands, each validated against the game's own format. Anything else is dropped.
+- **Closed command list.** The pilot can send only 21 game commands, each validated against the game's own format. Anything else is dropped. The game's automation settings (`auto.set`) only accept two changes: turning on the Ranked auto-queue (VIP) and setting exactly one ball, one potion and one revive from the game's own catalog (never Beast or Master Ball); every other automation field is copied from the server's state, never from the request.
 - **Absolute block on 20 commands:** gem withdrawal, diamond shop, VIP pass, guild donation, sending coins or trades, chat and DMs, and guild or Pokémon-level changes. Purchases only in `gold`; a gem purchase is refused at the hook.
 - **Hardened against the page:** the allow-list only accepts own keys (`Object.hasOwn`), requests are copied and frozen, and the command type and block list are checked again right before sending. Tests try to swap the vault, forge state and rewrite the send function from the page, and they fail.
 - **One rate limiter for everything:** reads ~2/s, writes 1/s with a burst of 3.
 
 ## Install
 
-1. Download **pokeidle-piloto-vX.Y.Z.zip** from the [latest release](https://github.com/DredsGG/pokeidle-piloto/releases/latest).
-2. Open `chrome://extensions` and turn on **Developer mode**.
-3. Drag the zip onto the page (or unzip it and use **Load unpacked**). From a clone of this repo, load the `extension/` folder.
-4. Open the game. The Piloto starts in **Off**: check the reserve in the Vault tab, then pick **Auto**.
+**Works on:** Chrome · Edge · Brave · Opera GX · Firefox 140+
 
-Updates: **Check for updates** shows what changed and downloads the new zip; unzip it over the same folder and the Piloto reloads by itself within a minute.
+Download the file from the [latest release](https://github.com/DredsGG/pokeidle-piloto/releases/latest): `pokeidle-piloto-vX.Y.Z.zip` for Chrome, Edge, Brave and Opera GX, and `pokeidle-piloto-vX.Y.Z.xpi` for Firefox. Then open the game: on a new install the Piloto starts in **Off** and shows a short guide. Check the reserve in the Vault tab, then pick **Manual** or **Auto**.
+
+<p align="center">
+  <img src="docs/first-run-guide.png" width="70%" alt="First-run guide inside the Piloto window: Welcome to the Pilot, step 1 of 6, with Skip and Next">
+</p>
+
+<details open>
+<summary><b>Chrome</b></summary>
+
+1. Download the `.zip` and unzip it into a folder you'll keep (not your Downloads, so it isn't deleted by accident).
+2. Open `chrome://extensions` and turn on **Developer mode** (top right).
+3. Click **Load unpacked** and choose the folder that has `manifest.json` inside.
+4. To update: unzip the new version over the same folder, or use **Check for updates** in the Piloto's menu.
+</details>
+
+<details>
+<summary><b>Microsoft Edge</b></summary>
+
+1. Download the `.zip` and unzip it into a folder you'll keep.
+2. Open `edge://extensions` and turn on **Developer mode** (left side).
+3. Click **Load unpacked** and choose the folder that has `manifest.json` inside.
+4. To update: unzip the new version over the same folder, or use **Check for updates** in the Piloto's menu.
+</details>
+
+<details>
+<summary><b>Brave</b></summary>
+
+1. Download the `.zip` and unzip it into a folder you'll keep.
+2. Open `brave://extensions` and turn on **Developer mode** (top right).
+3. Click **Load unpacked** and choose the folder that has `manifest.json` inside.
+4. To update: unzip the new version over the same folder, or use **Check for updates** in the Piloto's menu.
+</details>
+
+<details>
+<summary><b>Opera GX</b></summary>
+
+1. Download the `.zip` and unzip it into a folder you'll keep, outside Opera's own profile folder.
+2. Open `opera://extensions` and turn on **Developer mode** (top right).
+3. Click **Load unpacked** and choose the folder that has `manifest.json` inside.
+4. To update: unzip the new version over the same folder, or use **Check for updates** in the Piloto's menu.
+
+If the Piloto disappears after you close Opera GX, just load it again the same way: it's a known Opera issue with unpacked extensions.
+</details>
+
+<details>
+<summary><b>Firefox</b></summary>
+
+1. Download the `.xpi` (signed by Mozilla) and open it, or go to `about:addons` → gear icon → **Install Add-on From File…** and pick it.
+2. Confirm **Add**. Firefox updates the Piloto by itself from then on.
+3. If Firefox ever shows the Piloto without access to pokeidle.io (the icon gets a red **!**), click the Piloto's icon and allow it.
+
+Needs Firefox 140 or newer. If a release has no `.xpi` yet, the `.zip` can be loaded for the current session in `about:debugging` → **This Firefox** → **Load Temporary Add-on…**.
+</details>
+
+From a clone of this repo, load the `extension/` folder: it's the same code and the same manifest for every browser.
 
 ## Languages
 
@@ -117,11 +174,11 @@ Portuguese, English and Spanish (flags at the bottom of the menu), with light an
 
 ## Known limitations
 
-- **Manual mode is locked** for now: Off or Automatic.
+- **Firefox support is new:** the extension passes Mozilla's linter (`web-ext lint`) and runs the same code as Chrome, but it has had far less real use there. If something looks off, use **Report bug**.
 - **Use a single game tab.** Each tab has its own vault, and opening the game somewhere else takes the session from this tab (it reloads by itself after 5 minutes).
 - **PvP order:** the strongest Pokémon opens. The game hides the entry order of other players' teams, so the Piloto doesn't copy anyone's order.
 - **Ranked PvP** opens at trainer level 150.
-- The Plateia integration needs the [Plateia](https://github.com/DredsGG/plateia) extension installed in the same Chrome.
+- The Plateia integration needs the [Plateia](https://github.com/DredsGG/plateia) extension installed in the same browser.
 - Settings, turns and the journal live in this browser's storage; another browser or profile starts from scratch.
 
 ## Architecture
@@ -157,6 +214,10 @@ node tests/e2e.mjs            # needs Playwright: the real extension in Chromium
 node tests/time.mjs           # team builder, Center swaps, rotation by turn, turn timer in the Team panel
 node tests/meta.mjs           # Ranked meta from the ladder and profiles; profile pop-ups stay hidden
 node tests/metacaca.mjs       # hunt the meta: picks the hunt, keeps the catch, fills the team
+node tests/outland-meta.mjs   # Outland variants don't count for the meta and their hunts are skipped
+node tests/so-meta.mjs        # only meta Pokémon join the team; the comp it follows changes after 24 h
+node tests/kit.mjs            # one ball, one potion and one revive picked for the account, and the hook accepts only that
+node tests/guia.mjs           # first-run guide on a new install, "What's new" once per version, Esc and X close it
 node tests/hunt.mjs           # hunt switching, portraits, Hunt tab layout
 node tests/centro.mjs         # Pokémon Center queue and return
 node tests/pedra.mjs          # buys one evolution stone, gold only, never twice in a row
@@ -166,10 +227,12 @@ node tests/volta.mjs          # reloads after 5 min stopped, waits for another t
 node tests/saude.mjs          # health check against the game modules, clickable signature
 node tests/suporte.mjs        # bug report and update check
 node tests/bola.mjs           # auto Poké Ball, locked with VIP
-node tests/trava.mjs          # the window's locks
+node tests/trava.mjs          # the three modes: Off, Manual and Auto, and Manual survives a reload
 node tests/janela.mjs         # the Piloto window floats over the game without stretching the page
 node tests/arte.mjs           # alerts with the animated sprite and the item icon
-node tests/idioma-scan.mjs    # lists any text left untranslated in English and Spanish
+node tests/idioma-scan.mjs    # lists any text left untranslated in English and Spanish (all tabs, Radar sub-tabs, Team window)
+node tests/sessao-dias.mjs    # the days box in the game's Session clock
+node tests/navegadores.mjs    # the background script as a service worker (Chromium) and as a Firefox event page; the right release file per browser
 node tests/docs-prints.mjs    # the screenshots in docs/ (fake game, placeholder art, no real account)
 ```
 

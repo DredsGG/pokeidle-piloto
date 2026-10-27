@@ -1,5 +1,7 @@
+import path from 'node:path';
+const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const assert = require('assert');
-const Pk = require(process.argv[2] ? require('path').resolve(process.argv[2]) : require('path').join(__dirname, '../extension/src/lib/pokemon.js'));
+const Pk = require(process.argv[2]);
 const cfg = { compraAutomaticaPokemon: true, gastoMaximoPokemon: 20_000_000, gastoMaximoDia: 0, calibrada: true };
 const av = (n, min, p25) => ({ aviso: true, ref: { n, min, valor: p25, p25 } });
 const caso = (nome, f) => { f(); console.log('ok', nome); };

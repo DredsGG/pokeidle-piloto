@@ -81,7 +81,7 @@ await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
   setInterval(() => ws.send(JSON.stringify({ t: 'estado', estado: { servidorAgora: Date.now() } })), 1000);
 });
 
-await ctx.addInitScript(() => { try { localStorage.setItem('piloto:dev:manual', '1'); } catch {} if (location.hostname === 'pokeidle.io' && !/semplateia/.test(location.search)) window.__plateiaPonte = true; });
+await ctx.addInitScript(() => { try { localStorage.setItem('piloto:dev:manual', '1'); localStorage.setItem('piloto:dev:semGuia', '1'); } catch {} if (location.hostname === 'pokeidle.io' && !/semplateia/.test(location.search)) window.__plateiaPonte = true; });
 await ctx.route(/https:\/\/(www\.twitch\.tv|kick\.com)\/.*/, (rota) => rota.fulfill({ status: 200, contentType: 'text/html', body: '<title>sala</title>sala falsa' }));
 const page = await ctx.newPage();
 page.on('console', (m) => { if (m.type() === 'error' || /radar|piloto/i.test(m.text())) erros.push(m.type() + ': ' + m.text().slice(0, 300)); });

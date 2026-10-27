@@ -37,8 +37,9 @@
       const t = c.travados || {};
       const uniao = [...new Set([...ids(t.time), ...ids(t.campo), ...ids(t.pvp)])].slice(0, MAX_EQUIPE);
       // 1.26: a aba Analisar saiu da janela (a análise continua por dentro, para a venda automática)
-      return { campoAuto: typeof c.campoAuto === 'boolean' ? c.campoAuto : null, doMeta: c.doMeta !== false, travados: { time: uniao }, aba: ['time', 'meta'].includes(c.aba) ? c.aba : 'time' };
-    } catch { return { campoAuto: null, doMeta: true, travados: { time: [] }, aba: 'time' }; }
+      const est = c.compEstavel && typeof c.compEstavel === 'object' ? c.compEstavel : {};
+      return { campoAuto: typeof c.campoAuto === 'boolean' ? c.campoAuto : null, doMeta: c.doMeta !== false, travados: { time: uniao }, aba: ['time', 'meta'].includes(c.aba) ? c.aba : 'time', compEstavel: est };
+    } catch { return { campoAuto: null, doMeta: true, travados: { time: [] }, aba: 'time', compEstavel: {} }; }
   };
   const cfg = lerCfg();
   const gravar = () => { try { localStorage.setItem(CHAVE, JSON.stringify(cfg)); } catch { /* sem armazenamento */ } };
@@ -239,11 +240,58 @@
   // 1.26 (pedido do André): os do meta que você tem. Para cada pokémon da comp do meta (o recorte
   // do Caçar o meta: Topo 20 ou Sua faixa), o seu melhor da mesma família (Mega X conta como X),
   // que o treinador pode usar. Conferido a cada volta: pegou um melhor da família, ele entra.
+  // 1.31 (o André: "trocou meu Venusaur pelo Scizor, sendo que o meta é o Venusaur"): a comp do meta
+  // que o time segue é ESTÁVEL. O 5º lugar do meta oscila a cada perfil lido; antes, um pokémon que
+  // saía da comp por alguns minutos perdia o lugar no time. Agora uma espécie só sai da comp do
+  // time depois de 24 h seguidas fora da comp ao vivo, e só então entra a nova. Começa pela comp
+  // congelada do Caçar o meta (a que você caçou), se houver.
+  const FORA_DA_COMP_MS = 24 * 3600_000;
+  function compEstavel(recorte) {
+    const viva = ((PIH.meta && PIH.meta.agregar(recorte)) || {}).comp || [];
+    const est = cfg.compEstavel[recorte] || null;
+    const agora = Date.now();
+    let mudou = false;
+    let e = est;
+    if (!e || !Array.isArray(e.lista) || !e.lista.length) {
+      let base = [];
+      try {
+        const mc = JSON.parse(localStorage.getItem('piloto:metacaca:v1') || 'null');
+        const alvos = mc && (mc.cfg || mc).alvos;
+        if (Array.isArray(alvos) && alvos.length && ((mc.recorte || (mc.cfg || mc).recorte || 'topo') === recorte)) base = alvos.map((a) => ({ speciesId: a.metaId, nome: a.meta }));
+      } catch { /* sem caça */ }
+      if (!base.length) base = viva.map((a) => ({ speciesId: a.speciesId, nome: a.nome }));
+      if (!base.length) return [];
+      e = { lista: base.slice(0, MAX_EQUIPE), fora: {} };
+      mudou = true;
+    }
+    const vivos = new Set(viva.map((a) => a.speciesId));
+    for (const a of e.lista) {
+      if (vivos.has(a.speciesId)) { if (e.fora[a.speciesId]) { delete e.fora[a.speciesId]; mudou = true; } } else if (!e.fora[a.speciesId] && viva.length) { e.fora[a.speciesId] = agora; mudou = true; }
+    }
+    const novos = viva.filter((a) => !e.lista.some((x) => x.speciesId === a.speciesId));
+    for (const n of novos) {
+      const sai = e.lista.find((x) => e.fora[x.speciesId] && agora - e.fora[x.speciesId] >= FORA_DA_COMP_MS);
+      if (!sai) break;
+      e.lista[e.lista.indexOf(sai)] = { speciesId: n.speciesId, nome: n.nome };
+      delete e.fora[sai.speciesId];
+      diario(`o meta mudou de verdade (24 h): sai ${sai.nome}, entra ${n.nome} na comp do time`);
+      mudou = true;
+    }
+    for (const x of [...e.lista]) {
+      if (e.fora[x.speciesId] && agora - e.fora[x.speciesId] >= FORA_DA_COMP_MS) { e.lista.splice(e.lista.indexOf(x), 1); delete e.fora[x.speciesId]; diario(`${x.nome} saiu do meta há 24 h: sai da comp do time`); mudou = true; }
+    }
+    if (e.lista.length < MAX_EQUIPE) for (const n of novos) { if (e.lista.length >= MAX_EQUIPE) break; if (!e.lista.some((x) => x.speciesId === n.speciesId)) { e.lista.push({ speciesId: n.speciesId, nome: n.nome }); mudou = true; } }
+    if (mudou) { cfg.compEstavel[recorte] = e; gravar(); }
+    return e.lista;
+  }
+  // 1.26 (pedido do André): os do meta que você tem. Para cada pokémon da comp do meta (o recorte
+  // do Caçar o meta: Topo 20 ou Sua faixa), o seu melhor da mesma família (Mega X conta como X),
+  // que o treinador pode usar. Conferido a cada volta: pegou um melhor da família, ele entra.
   function doMetaAgora() {
     if (!cfg.doMeta || !PIH.meta || !PIH.meta.familia || !PIH.meta.familia.raizDePk) return [];
     let recorte = 'topo';
     try { recorte = JSON.parse(localStorage.getItem('piloto:metacaca:v1') || 'null')?.recorte === 'faixa' ? 'faixa' : 'topo'; } catch { /* topo */ }
-    const comp = (PIH.meta.agregar(recorte) || {}).comp || [];
+    const comp = compEstavel(recorte);
     const F = PIH.meta.familia;
     const cand = meus().filter((p) => p.stats && podeUsar(p) && poderDe(p) > 0);
     const out = [];
@@ -267,6 +315,14 @@
     for (const id of cfg.travados.time) { const p = porIdC.get(id); if (p && time.length < MAX_EQUIPE) time.push(p); }
     const fixos = new Set(time.map((p) => p.id));
     for (const { p } of doMetaAgora()) { if (time.length < MAX_EQUIPE && !fixos.has(p.id)) { time.push(p); fixos.add(p.id); } }
+    // 1.31 (pedido do André): com "Usar os do meta" ligado, SÓ os do meta entram no time. Quem já
+    // está no time fica até um do meta precisar da vaga; ninguém de fora do meta entra por Poder (conta
+    // nova não monta time com pokémon ruim: eles seguem para a Auto Coleção/Depot do jogo).
+    const soMeta = cfg.doMeta !== false;
+    if (soMeta) {
+      for (const p of timeCampo()) { const c = porIdC.get(p.id); if (c && !time.includes(c) && time.length < MAX_EQUIPE) time.push(c); }
+      return time.sort((a, b) => poderDe(b) - poderDe(a));
+    }
     for (const p of timeCampo()) { const c = porIdC.get(p.id); if (c && !time.includes(c) && time.length < MAX_EQUIPE) time.push(c); }
     for (const c of cand) { if (time.length >= MAX_EQUIPE) break; if (!time.includes(c)) time.push(c); }
     for (const c of cand) {
@@ -496,12 +552,12 @@
     const base = cfg.doMeta ? `${nMeta} do meta + os de maior Poder` : 'os 5 de maior Poder';
     const status = !on ? 'desligado' : st.sessao && !st.troca ? `${esc(st.motivo || 'trocando o time no Centro')} · ${pvpTxt}` : st.troca ? `trocando: entra ${esc(st.troca.nomeEntra)}` : `${st.motivo ? esc(st.motivo) : base} · ${pvpTxt}`;
     const linha = K.linha({ id: 'principal', icone: 'pvp', nome: 'Montar o time principal sozinho', alvo: 'time:principalAuto', on, trava, status,
-      dica: 'Um time só para o campo e para o PvP. Primeiro os do meta que você tem (para cada pokémon da comp da aba Meta, o seu melhor da mesma família; Mega X conta como X), depois os de maior Poder que você já pode usar (treinador + 5). Entra quem tiver 2% mais Poder que o mais fraco; quem sai vai para a Coleção (a venda nunca leva). O cadeado fixa no time; o que está lutando só sai depois do rodízio. O PvP recebe a mesma equipe (treinador Nv 150+). No máximo uma troca a cada 2 min.',
+      dica: "Um time só para o campo e para o PvP. Com \"Usar os do meta\" ligado, só entram os do meta que você tem (para cada pokémon da comp da aba Meta, o seu melhor da mesma família; Mega X conta como X): nenhum pokémon de fora do meta entra, e quem já está no time fica até um do meta precisar da vaga. A comp que o time segue só muda quando o meta muda de verdade (24 h). Desligado, entram os de maior Poder que você já pode usar (treinador + 5), com 2% de margem. Quem sai vai para a Coleção (a venda nunca leva). O cadeado fixa no time; o que está lutando só sai depois do rodízio. O PvP recebe a mesma equipe (treinador Nv 150+).",
       ajustes: modo === 'manual' ? K.mini('time:doMeta', cfg.doMeta, 'Usar os do meta', 'Põe no time, primeiro, os pokémon do meta que você tem', trava) : '' });
     const r = rc && rc.rodizio;
     const rod = K.linha({ id: 'rodizio', icone: 'nivel', nome: 'Rodízio do time', alvo: 'rotina:rodizio.ligado', on: !!(r && r.ligado), trava,
       status: r && r.ligado ? `troca o ativo a cada ${r.intervaloMin} min${PIH.rotina && PIH.rotina.proximoRodizio ? ` · ${esc(PIH.rotina.proximoRodizio())}` : ''}` : 'desligado',
-      dica: 'A cada hora o próximo do time vira o ativo, um de cada vez, para todos ganharem XP. Com a Troca de hunt ligada, ele vai na hora para a melhor hunt do pokémon que entrou.' });
+      dica: 'Cada pokémon do time luta um turno (60 min, ou o que você escolher no Manual) e entra quem está há mais tempo sem lutar, para todos ganharem XP. Com a Troca de hunt ligada, a troca é feita no Centro e o novo vai direto para a melhor hunt dele; sem ela, só entra quem mata com segurança na hunt atual. Se o ativo desmaiar, o turno dele acaba em 2 min.' });
     const max = maxDe(time);
     const vazias = Math.max(0, MAX_EQUIPE - time.length);
     return `${linha}${rod}${K.grupo(`Time principal · campo e PvP · ${time.length}/${MAX_EQUIPE}${slug ? ` · farm em ${esc(nomeHunt(slug))}` : ''}`)}${(() => {
@@ -835,5 +891,5 @@
     cfg.aba = aba; gravar();
     if (!janela) alternar(); else pintar(true);
   }
-  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), campoAuto, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
+  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), compEstavel: (r) => compEstavel(r || "topo").map((a) => a.speciesId), _cfgTime: () => cfg, campoAuto, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
 })(globalThis);

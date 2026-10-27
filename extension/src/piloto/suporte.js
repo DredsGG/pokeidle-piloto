@@ -27,7 +27,7 @@
     let d = {};
     try { d = JSON.parse(ev.detail) || {}; } catch { return; }
     if (d.acao === 'checar') status = d.erro ? 'erro' : (d.r && d.r.erro ? 'erro' : (d.r && d.r.disponivel ? null : 'nenhuma'));
-    if (d.acao === 'aplicar') status = d.erro ? 'erro' : d.r && d.r.status === 'baixado' ? 'baixado' : d.r && d.r.modo === 'loja' ? (d.r.status === 'aplicando' ? 'aplicando' : 'loja') : 'erro';
+    if (d.acao === 'aplicar') status = d.erro ? 'erro' : d.r && d.r.modo === 'firefox' ? 'firefox' : d.r && d.r.modo === 'firefox-temporario' ? 'firefox-temporario' : d.r && d.r.status === 'baixado' ? 'baixado' : d.r && d.r.modo === 'loja' ? (d.r.status === 'aplicando' ? 'aplicando' : 'loja') : 'erro';
     pintar();
   });
   const pedir = (acao, extra = {}) => document.dispatchEvent(new CustomEvent('piloto:upd-pedir', { detail: JSON.stringify({ acao, ...extra }) }));
@@ -35,7 +35,10 @@
   // ---- o relatório -------------------------------------------------------------------------------
   function relatorio(oque, maxLog = 60) {
     const ua = navigator.userAgent;
-    const chrome = (ua.match(/Chrome\/([\d.]+)/) || [])[1] || '?';
+    const v = (re) => (ua.match(re) || [])[1];
+    // Brave se identifica como Chrome; só o navigator.brave entrega
+    const navegador = v(/Firefox\/([\d.]+)/) ? `Firefox ${v(/Firefox\/([\d.]+)/)}` : v(/Edg\/([\d.]+)/) ? `Edge ${v(/Edg\/([\d.]+)/)}`
+      : v(/OPR\/([\d.]+)/) ? `Opera ${v(/OPR\/([\d.]+)/)}` : navigator.brave ? `Brave (Chromium ${v(/Chrome\/([\d.]+)/) || '?'})` : `Chrome ${v(/Chrome\/([\d.]+)/) || '?'}`;
     const so = /Windows NT 10/.test(ua) ? 'Windows 10/11' : /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'macOS' : /CrOS/.test(ua) ? 'ChromeOS' : /Linux/.test(ua) ? 'Linux' : '?';
     const versao = document.documentElement.dataset.pilotoVersao || '?';
     let modo = '?';
@@ -53,7 +56,7 @@
     const meta = [
       `Piloto: v${versao} (${upd.instalacao || '?'})`,
       `Jogo: ${PIH.versaoDoJogo ? PIH.versaoDoJogo() || '?' : '?'} · página ${location.pathname}`,
-      `Navegador: Chrome ${chrome} · ${so} · ${navigator.language} · painel ${(PIH.idioma && PIH.idioma.atual && PIH.idioma.atual()) || '?'}`,
+      `Navegador: ${navegador} · ${so} · ${navigator.language} · painel ${(PIH.idioma && PIH.idioma.atual && PIH.idioma.atual()) || '?'}`,
       `Modo: ${modo}`,
       ligado.length ? `Ligado: ${ligado.join(' · ')}` : '',
       `Saúde: ${saude}`,
@@ -80,7 +83,7 @@
   const ICO_BUG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.6 7 4.1 8.1 3l1.8 1.8a5 5 0 0 1 4.2 0L15.9 3 17 4.1l-1.5 1.5A5 5 0 0 1 17 9h2v2h-2v1.5h2.5v2H17V15a5 5 0 0 1-.3 1.6l2.2 2.2-1.4 1.4-1.9-1.9A5 5 0 0 1 12 20a5 5 0 0 1-3.6-1.7l-1.9 1.9-1.4-1.4 2.2-2.2A5 5 0 0 1 7 15v-.5H4.5v-2H7V11H5V9h2a5 5 0 0 1 1.5-3.4zM11 10v8h2v-8z" fill="currentColor"/></svg>';
   const ICO_UPD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4a8 8 0 0 1 7.4 5H17v2h5V6h-2v1.7A10 10 0 0 0 2.1 11h2A8 8 0 0 1 12 4zm7.9 9A8 8 0 0 1 4.6 15H7v-2H2v5h2v-1.7A10 10 0 0 0 21.9 13z" fill="currentColor"/></svg>';
   const itensDasNotas = (md) => String(md || '').replace(/^\s*###\s*(Install|Instalar)[\s\S]*?\n\s*\n\s*\n/i, '').split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).map((l) => l.replace(/^\s*([-*+]|\d+\.)\s*/, '').replace(/[*_`]/g, '').trim())
-    .filter((l) => l && !/^(install|instalar|download|baixe|open `chrome|abra `chrome|drag the zip|arraste o zip)/i.test(l)).flatMap((l) => (l.length > 160 ? l.split(/(?<=[.!?])\s+/) : [l])).filter(Boolean).slice(0, 6);
+    .filter((l) => l && !/^(install|instalar|download|baixe|open `chrome|abra `chrome|drag the zip|arraste o zip|chrome, edge|firefox 128|step by step|passo a passo)/i.test(l)).flatMap((l) => (l.length > 160 ? l.split(/(?<=[.!?])\s+/) : [l])).filter(Boolean).slice(0, 6);
 
   function htmlBotoes() {
     const procurando = status === 'procurando';
@@ -88,7 +91,7 @@
     return `<div class="plt-sup-bts">
       <button type="button" class="plt-sup-bt" data-sup="bug" title="Relatar um bug para o Dreds" aria-expanded="${bugAberto}">${ICO_BUG}<span>${esc(tr('Relatar bug'))}</span></button>
       <button type="button" class="plt-sup-bt${procurando ? ' gira' : ''}" data-sup="checar" title="Procurar versão nova no GitHub">${ICO_UPD}<span>${esc(tr('Procurar atualização'))}</span></button>
-    </div>${st ? `<div class="plt-sup-st${upd.disponivel ? ' novo' : ''}">${esc(tr(st))}</div>` : ''}`;
+    </div>${st ? `<div class="plt-sup-st${upd.disponivel ? ' novo' : status === 'nenhuma' ? ' ok' : status === 'procurando' ? ' busca' : ' erro'}">${upd.disponivel ? '' : status === 'nenhuma' ? '<i aria-hidden="true">✓</i>' : ''}<span>${esc(tr(st))}</span></div>` : ''}`;
   }
   function htmlCartoes() {
     let out = '';
@@ -96,8 +99,10 @@
     if (ju && Date.now() - ju.em < 30 * 60_000) out += `<div class="plt-sup-ok"><span>${esc(tr(`Piloto atualizado: v${ju.de || '?'} → v${ju.para}`))}</span><button type="button" data-sup="visto" aria-label="Fechar">×</button></div>`;
     if (upd.disponivel && upd.dispensada !== upd.ultima) {
       const itens = itensDasNotas(upd.notas);
-      const msg = status === 'baixado' ? 'O zip foi baixado (pasta Downloads). Extraia por cima da pasta do Piloto: em até 1 min ele se recarrega sozinho e as abas do jogo recarregam.'
-        : status === 'aplicando' ? 'Atualizando…' : status === 'loja' ? 'O Chrome ainda não liberou a versão nova: tente de novo daqui a pouco.' : status === 'erro' ? 'Não deu para atualizar agora.' : '';
+      const msg = status === 'firefox' ? 'O Firefox vai perguntar se quer instalar a versão nova: clique em Adicionar. As abas do jogo recarregam sozinhas.'
+        : status === 'firefox-temporario' ? 'O zip novo foi baixado. Em about:debugging, remova o Piloto e carregue o zip novo em "Carregar extensão temporária".'
+        : status === 'baixado' ? 'O zip foi baixado (pasta Downloads). Extraia por cima da pasta do Piloto: em até 1 min ele se recarrega sozinho e as abas do jogo recarregam.'
+        : status === 'aplicando' ? 'Atualizando…' : status === 'loja' ? 'O navegador ainda não liberou a versão nova: tente de novo daqui a pouco.' : status === 'erro' ? 'Não deu para atualizar agora.' : '';
       out += `<div class="plt-sup-upd">
         <div class="plt-sup-h"><span class="plt-sup-ic">${ICO_UPD}</span><span><b>${esc(tr('Atualização disponível'))}</b><small>v${esc(upd.atual || '?')} → <i>v${esc(upd.ultima)}</i></small></span></div>
         ${itens.length ? `<ul>${itens.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}

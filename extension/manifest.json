@@ -1,10 +1,22 @@
 {
   "manifest_version": 3,
   "name": "PokeIdle Piloto",
-  "version": "1.29.1",
+  "version": "1.31.0",
   "author": "Dreds",
   "description": "Radar do Mercado + /hunt numa extensão só: onde caçar, troca de hunt, reposição, rotina diária, XP Share, revenda e compra no Mercado em ouro, tudo com um cofre de orçamento. Nunca gasta Gema nem diamante.",
-  "minimum_chrome_version": "111",
+  "minimum_chrome_version": "121",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "pokeidle-piloto@dredsgg",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      },
+      "update_url": "https://raw.githubusercontent.com/DredsGG/pokeidle-piloto/main/firefox/updates.json"
+    }
+  },
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -20,7 +32,15 @@
     "https://pokeidle.io/*"
   ],
   "background": {
-    "service_worker": "src/sw.js"
+    "service_worker": "src/sw.js",
+    "scripts": [
+      "src/lib/estatistica.js",
+      "src/lib/historico.js",
+      "src/lib/csv.js",
+      "src/lib/compra.js",
+      "src/lib/lucro.js",
+      "src/sw.js"
+    ]
   },
   "action": {
     "default_title": "PokeIdle Piloto: abrir o jogo",
@@ -55,7 +75,14 @@
         "src/piloto/guarda.js",
         "src/piloto/metacaca.js",
         "src/piloto/saude.js",
-        "src/piloto/volta.js", "src/piloto/suporte.js", "src/piloto/plateia.js"
+        "src/piloto/volta.js",
+        "src/piloto/suporte.js",
+        "src/piloto/plateia.js",
+        "src/piloto/sessao-dias.js",
+        "src/piloto/guia-pt.js",
+        "src/piloto/guia-en.js",
+        "src/piloto/guia-es.js",
+        "src/piloto/guia.js"
       ],
       "run_at": "document_start",
       "world": "MAIN"
@@ -75,6 +102,7 @@
         "https://pokeidle.io/*"
       ],
       "js": [
+        "src/lib/navegador.js",
         "src/lib/gravador.js",
         "src/lib/barramento.js",
         "src/lib/estatistica.js",

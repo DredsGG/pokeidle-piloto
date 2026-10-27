@@ -296,6 +296,24 @@
         .catch((e) => { document.dispatchEvent(new CustomEvent('piloto:upd-resposta', { detail: JSON.stringify({ acao: d.acao, erro: String(e && e.message || e) }) })); });
     });
     setTimeout(lerUpd, 1500);
+    // 1.31 (regra 12): o "já viu" do guia de primeiro uso e das novidades, no storage.local
+    const CHAVE_GUIA = 'piloto:guia';
+    const mandarGuia = (g) => { try { document.dispatchEvent(new CustomEvent('piloto:guia-estado', { detail: JSON.stringify(g && typeof g === 'object' ? g : {}) })); } catch (e) { erro(e); } };
+    document.addEventListener('piloto:guia-ler', () => {
+      const s2 = storage();
+      if (!s2) return mandarGuia({});
+      s2.get(CHAVE_GUIA).then((r) => mandarGuia(r[CHAVE_GUIA])).catch(() => mandarGuia({}));
+    });
+    document.addEventListener('piloto:guia-gravar', (ev) => {
+      let d = {};
+      try { d = JSON.parse(ev.detail) || {}; } catch { return; }
+      const limpo = {};
+      if (typeof d.tutorial === 'boolean') limpo.tutorial = d.tutorial;
+      if (typeof d.novidades === 'string' && /^\d+\.\d+\.\d+$/.test(d.novidades)) limpo.novidades = d.novidades;
+      const s2 = storage();
+      if (!s2 || !Object.keys(limpo).length) return;
+      s2.get(CHAVE_GUIA).then((r) => s2.set({ [CHAVE_GUIA]: { ...(r[CHAVE_GUIA] || {}), ...limpo } })).catch(() => {});
+    });
     // 1.29: abrir as salas da Plateia (o service worker abre numa janela à parte)
     document.addEventListener('piloto:plateia-abrir', (ev) => {
       let d = {};

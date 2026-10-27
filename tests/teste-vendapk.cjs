@@ -1,5 +1,7 @@
+import path from 'node:path';
+const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const assert = require('assert');
-const R = require(process.argv[2] ? require('path').resolve(process.argv[2]) : require('path').join(__dirname, '../extension/src/lib/revendapk.js'));
+const R = require(process.argv[2]);
 const card = (o = {}) => ({ acao: 'anunciar', ficha: { moeda: 'gold', shiny: false }, custo: null, sugestao: { n: 6, p25: 6e6, preco: 6e6 }, ...o });
 const c = (n, f) => { f(); console.log('ok', n); };
 c('anuncia pelo sugerido', () => { const d = R.decidirAutoPk(card(), { diaria: 1e5 }); assert.equal(d.ok, true); assert.equal(d.preco, 6e6); assert.equal(d.dias, 1); });

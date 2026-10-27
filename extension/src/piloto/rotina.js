@@ -670,9 +670,9 @@
     const L = (o) => K.linha({ trava, ...o, ajustes: manual ? o.ajustes : '' });
     const r = cfg.rodizio;
     return `
-      ${L({ icone: 'nivel', nome: 'Rodízio do time', alvo: 'rotina:rodizio.ligado', on: r.ligado, dica: 'A cada hora o próximo do time vira o ativo, um de cada vez, para todos ganharem XP. Com a Troca de hunt ligada, ele vai na hora para a melhor hunt do pokémon que entrou; sem ela, só entra quem mata com segurança na hunt atual.',
-        status: r.ligado ? `${r.modo === 'ciclo' ? 'um de cada vez' : r.modo === 'xp' ? 'quem rende mais XP/h' : 'o mais atrasado'} · a cada ${r.intervaloMin} min` : '',
-        ajustes: `${K.fcampo('Quem entra', K.escala('rotina:rodizio.modo', r.modo, [['ciclo', 'Um de cada vez'], ['atrasado', 'Mais atrasado'], ['xp', 'Mais XP/h']], trava))}${K.fcampo('A cada (min)', K.numero('rotina:rodizio.intervaloMin', r.intervaloMin, 10, 240, 5, trava))}` })}
+      ${L({ icone: 'nivel', nome: 'Rodízio do time', alvo: 'rotina:rodizio.ligado', on: r.ligado, dica: 'Cada pokémon do time luta um turno (60 min, ou o que você escolher no Manual) e entra quem está há mais tempo sem lutar, para todos ganharem XP. Com a Troca de hunt ligada, a troca é feita no Centro e o novo vai direto para a melhor hunt dele; sem ela, só entra quem mata com segurança na hunt atual. Se o ativo desmaiar, o turno dele acaba em 2 min.',
+        status: r.ligado ? `um de cada vez · turno de ${r.intervaloMin} min` : '',
+        ajustes: `${K.fcampo('Turno de cada um (min)', K.numero('rotina:rodizio.intervaloMin', r.intervaloMin, 10, 240, 5, trava))}` })}
       ${L({ icone: 'outland', nome: 'Tier da Outland', alvo: 'rotina:outland.ligado', on: cfg.outland.ligado, dica: 'Na Outland, sobe para o maior tier liberado: mesmo XP e ouro, drops raros ×1 a ×8.', status: eu && eu.outlandTier ? `tier ${eu.outlandTier}` : '' })}
 `;
   }
@@ -713,6 +713,9 @@
     const falta = faltaDoTurno();
     return falta > 0 ? `próximo em ${Math.ceil(falta / 60_000)} min` : 'troca na próxima chance';
   }
+  // 1.31 (Manual liberado para o público): o rodízio é sempre por turno, um de cada vez (o cartão ⏱
+  // e a fila do painel Equipe seguem essa regra). Os modos antigos 'atrasado' e 'xp' saíram da tela.
+  if (cfg.rodizio.modo !== 'ciclo') { cfg.rodizio.modo = 'ciclo'; try { gravar(); } catch { /* sem armazenamento */ } }
   // 1.22, uma vez: o rodízio vira o ciclo de 1 h (pedido do André); no Auto ele já liga.
   try {
     if (!localStorage.getItem('piloto:migr:rodizio122')) {

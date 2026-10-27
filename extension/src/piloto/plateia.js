@@ -4,7 +4,7 @@
 // oficiais; Kick: pacote de recompensas por pontos do canal) só rende com as lives abertas. A Plateia
 // faz isso numa "sala" (twitch.tv/drops/inventory#plateia e kick.com/drops/claimed#plateia). Aqui:
 //
-// 1. Ao abrir o jogo (uma vez por sessão do Chrome, só com o Piloto ligado), abre as salas da
+// 1. Ao abrir o jogo (uma vez por sessão do navegador, só com o Piloto ligado), abre as salas da
 //    Plateia das plataformas vinculadas na conta (o service worker abre numa janela à parte, sem
 //    roubar o foco). Opção "Abrir as salas ao entrar no jogo".
 // 2. Na janela do bônus da Twitch e da Kick do próprio jogo, uma faixa deixa explícito o que fazer:
@@ -51,7 +51,7 @@
     if (!plataformas.length) return;
     pediuAoEntrar = true;
     document.dispatchEvent(new CustomEvent('piloto:plateia-abrir', { detail: JSON.stringify({ plataformas }) }));
-    diario(`abrindo a sala da ${plataformas.map((p) => SALAS[p].nome).join(' e da ')} (uma vez por sessão do Chrome)`);
+    diario(`abrindo a sala da ${plataformas.map((p) => SALAS[p].nome).join(' e da ')} (uma vez por sessão do navegador)`);
   }
   PIH.on('estado', (e) => { eu = e; setTimeout(autoAbrir, 8000); });
 
@@ -113,7 +113,7 @@
       : !ps.length ? 'nenhuma Twitch/Kick vinculada no jogo'
       : `${ps.map((p) => SALAS[p].nome).join(' e ')} · ${cfg.abrirAoEntrar ? 'abre ao entrar no jogo' : 'só no botão'}`;
     return `${K.grupo('Bônus de live')}${K.linha({ id: 'plateia', icone: 'xp', nome: 'Plateia (Twitch e Kick)', alvo: 'plateia:abrirAoEntrar', on: cfg.abrirAoEntrar, trava: modo === 'desligado', status: esc(status),
-      dica: 'Liga o Piloto à Plateia, a outra extensão do Dreds que assiste as lives com bônus do PokeIdle. Ao abrir o jogo (uma vez por sessão do Chrome), abre a sala da Twitch e/ou da Kick que estiverem vinculadas na sua conta, numa janela à parte. Na janela do bônus da Twitch/Kick do jogo aparece o botão "Abrir a sala". Sem a Plateia, aparece o link para baixar.',
+      dica: 'Liga o Piloto à Plateia, a outra extensão do Dreds que assiste as lives com bônus do PokeIdle. Ao abrir o jogo (uma vez por sessão do navegador), abre a sala da Twitch e/ou da Kick que estiverem vinculadas na sua conta, numa janela à parte. Na janela do bônus da Twitch/Kick do jogo aparece o botão "Abrir a sala". Sem a Plateia, aparece o link para baixar.',
       ajustes: modo === 'manual' ? (temPlateia() ? K.acao('Abrir as salas agora', 'data-acao="plateia-abrir"', 'xp', modo === 'desligado') : `<a class="cfg-escala-bt plt-acao on" href="${BAIXAR}" target="_blank" rel="noopener noreferrer">Baixar a Plateia</a>`) : '' })}`;
   }
   function definir(caminho, v) {

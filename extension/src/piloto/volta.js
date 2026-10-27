@@ -74,7 +74,7 @@
     caiuEm ??= Math.max(n, carregouEm);
     if (!cfg.ligado) { motivo = 'desligada'; return; }
     if (!ligadoNoPiloto()) { motivo = 'Piloto em Off'; return; }
-    if (outraAbaJogando()) { caiuEm = n; motivo = 'outra aba deste Chrome está no jogo: espero ela fechar'; return; }
+    if (outraAbaJogando()) { caiuEm = n; motivo = 'outra aba deste navegador está no jogo: espero ela fechar'; return; }
     const falta = caiuEm + esperaMs() - n;
     if (falta > 0) { motivo = `jogo parado: recarrego em ${min(falta)} min`; return; }
     if (n - mexeuEm < MEXEU_MS) { motivo = 'você está mexendo na página: recarrego quando parar'; return; }
@@ -85,7 +85,7 @@
     setTimeout(() => location.reload(), 1500);
   }
   setInterval(tique, 5000);
-  // Aba que volta a ficar visível confere na hora (o Chrome espaça os relógios das abas escondidas).
+  // Aba que volta a ficar visível confere na hora (o navegador espaça os relógios das abas escondidas).
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') tique(); });
 
   function status() {
@@ -95,7 +95,7 @@
   function linha(modo) {
     return K.linha({
       id: 'volta', icone: 'voltar', nome: 'Voltar sozinho se o jogo cair', alvo: 'volta:ligado', on: cfg.ligado, trava: modo === 'desligado', status: status(),
-      dica: 'Se o jogo parar nesta aba (outra aba ou aparelho entrou na sua conta, o servidor reiniciou, a internet caiu), recarrega a página depois de 5 min parado para voltar ao farm. Só espera enquanto outra aba deste Chrome estiver no jogo ou enquanto você estiver clicando. Se outro aparelho tomar a conta de novo logo depois da volta, a espera seguinte dobra (até 30 min) — nunca desiste.',
+      dica: 'Se o jogo parar nesta aba (outra aba ou aparelho entrou na sua conta, o servidor reiniciou, a internet caiu), recarrega a página depois de 5 min parado para voltar ao farm. Só espera enquanto outra aba deste navegador estiver no jogo ou enquanto você estiver clicando. Se outro aparelho tomar a conta de novo logo depois da volta, a espera seguinte dobra (até 30 min) — nunca desiste.',
     });
   }
   function definir(caminho, v) {

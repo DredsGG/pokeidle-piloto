@@ -1,8 +1,9 @@
 name: Release
 
 # Publish a GitHub Release whose tag is vX.Y.Z (same as "version" in
-# extension/manifest.json). This job builds the ready-to-install zip
-# (manifest.json at the root) and attaches it to that release.
+# extension/manifest.json). This job builds the ready-to-install zips
+# (manifest.json at the root) for Chromium browsers and, when the AMO keys
+# are set, the Mozilla-signed .xpi for Firefox.
 on:
   release:
     types: [published]
@@ -28,18 +29,34 @@ jobs:
             echo "::error::Tag $TAG does not match manifest version $MANIFEST"; exit 1
           fi
 
-      - name: Build zip
+      - name: Build the zip
         run: cd extension && zip -r "../pokeidle-piloto-$TAG.zip" . -x '.*'
 
-      - name: Attach zip and install notes
+      # One manifest for every browser (background has both "scripts" and "service_worker").
+      # Firefox only keeps signed add-ons, so with the AMO API keys saved as repository secrets
+      # (AMO_JWT_ISSUER / AMO_JWT_SECRET) the same folder is signed by Mozilla as a self-distributed
+      # (unlisted) add-on and the .xpi goes into the release. Firefox then updates it by itself from
+      # firefox/updates.json (update_url in the manifest). Without the keys this step is skipped.
+      - name: Sign for Firefox (needs the AMO keys)
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          if [ -z "$AMO_JWT_ISSUER" ] || [ -z "$AMO_JWT_SECRET" ]; then echo "::notice::No AMO keys in the repository secrets: the release ships without the Firefox .xpi"; exit 0; fi
+          npx --yes web-ext@8 sign --channel=unlisted --source-dir extension --artifacts-dir signed \
+            --api-key "$AMO_JWT_ISSUER" --api-secret "$AMO_JWT_SECRET"
+          cp "$(ls signed/*.xpi | head -1)" "pokeidle-piloto-$TAG.xpi"
+
+      - name: Attach the files and install notes
         env:
           NOTES: |
             ### Install
-            1. Download **pokeidle-piloto-${{ github.event.release.tag_name }}.zip** below.
-            2. Open `chrome://extensions` and turn on **Developer mode**.
-            3. Drag the zip onto the page (or unzip it and use **Load unpacked**).
+            - **Chrome, Edge, Brave, Opera GX:** download **pokeidle-piloto-${{ github.event.release.tag_name }}.zip**, unzip it into a folder you keep, open the browser's extensions page, turn on **Developer mode** and use **Load unpacked** on that folder.
+            - **Firefox 140+:** open **pokeidle-piloto-${{ github.event.release.tag_name }}.xpi** and confirm. It updates by itself.
+            - Step by step for each browser: [README → Install](https://github.com/${{ github.repository }}#install).
         run: |
           gh release upload "$TAG" "pokeidle-piloto-$TAG.zip" --clobber
+          if [ -f "pokeidle-piloto-$TAG.xpi" ]; then gh release upload "$TAG" "pokeidle-piloto-$TAG.xpi" --clobber; fi
           gh release view "$TAG" --json body -q .body > old.md
           { printf '%s\n\n' "$NOTES"; cat old.md; } > notes.md
           gh release edit "$TAG" --notes-file notes.md

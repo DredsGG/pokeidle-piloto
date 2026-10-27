@@ -7,7 +7,14 @@
 // - Notificações do sistema; o clique leva para a aba do jogo.
 'use strict';
 
-importScripts('lib/estatistica.js', 'lib/historico.js', 'lib/csv.js', 'lib/compra.js', 'lib/lucro.js');
+// 1.31: um manifest só para todos os navegadores (regra 11 do hub). Chrome, Edge, Brave e Opera
+// rodam este arquivo como service worker (as libs vêm por importScripts); o Firefox roda o mesmo
+// arquivo como página de eventos (background.scripts, com as libs listadas antes dele). Nada aqui
+// usa window nem DOM.
+// No Firefox, o namespace browser.* devolve promise em todas as APIs: usa ele.
+if (typeof browser !== 'undefined' && browser && browser.runtime && globalThis.chrome !== browser) { try { globalThis.chrome = browser; } catch { /* fica o chrome.* */ } }
+if (typeof importScripts === 'function') importScripts('lib/estatistica.js', 'lib/historico.js', 'lib/csv.js', 'lib/compra.js', 'lib/lucro.js');
+const NO_FIREFOX = typeof chrome.runtime.getBrowserInfo === 'function';
 
 const H = self.RadarHistorico;
 const Csv = self.RadarCsv;
@@ -373,8 +380,34 @@ async function limparHistorico() {
 
 // ---- selo e notificações ----------------------------------------------------------------------
 
+// 1.31: no Firefox, o usuário pode tirar a permissão do pokeidle.io (about:addons). Sem ela o Piloto
+// não entra no jogo: o ícone fica com "!" e o clique nele pede a permissão de volta.
+const ORIGENS = { origins: ['https://pokeidle.io/*'] };
+let semPermissao = false;
+let avisouPermissao = false;
+async function conferirPermissao() {
+  try { semPermissao = !(await chrome.permissions.contains(ORIGENS)); } catch { semPermissao = false; }
+  if (semPermissao && !avisouPermissao) {
+    avisouPermissao = true;
+    try { await chrome.notifications.create('piloto-permissao', { type: 'basic', iconUrl: chrome.runtime.getURL('icons/icon-128.png'), title: 'PokeIdle Piloto sem acesso ao jogo', message: 'O navegador tirou a permissão do Piloto no pokeidle.io. Clique no ícone do Piloto para permitir de novo.' }); } catch (e) { erro(e); }
+  }
+  if (!semPermissao) avisouPermissao = false;
+  await atualizarSelo();
+  return !semPermissao;
+}
+try {
+  chrome.permissions.onAdded.addListener(() => { conferirPermissao().catch(erro); });
+  chrome.permissions.onRemoved.addListener(() => { conferirPermissao().catch(erro); });
+} catch (e) { erro(e); }
+
 async function atualizarSelo() {
   try {
+    if (semPermissao) {
+      await chrome.action.setBadgeText({ text: '!' });
+      await chrome.action.setBadgeBackgroundColor({ color: '#c62828' });
+      await chrome.action.setTitle({ title: 'PokeIdle Piloto: sem permissão no pokeidle.io. Clique para permitir.' });
+      return;
+    }
     const s = await chrome.storage.local.get([CHAVE_GRAVANDO, CHAVE_NAO_VISTOS]);
     const gravando = s[CHAVE_GRAVANDO] === true;
     const naoVistos = listaNaoVistos(s[CHAVE_NAO_VISTOS]).length;
@@ -471,15 +504,28 @@ async function checarUpd() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
     const ultima = String(j.tag_name || '').replace(/^v/i, '');
-    const zip = (j.assets || []).find((a) => /\.zip$/i.test(a.name))?.browser_download_url || null;
-    return gravarUpd({ ...base, ultima, notas: String(j.body || '').slice(0, 4000), pagina: j.html_url || null, zip, disponivel: !!ultima && cmpVer(ultima, cur) > 0, erro: null });
+    const assets = j.assets || [];
+    const link = (re) => assets.find((a) => re.test(a.name))?.browser_download_url || null;
+    // o mesmo zip serve para todos; no Firefox, o .xpi assinado pela Mozilla (instala com um clique)
+    const zip = link(/\.zip$/i);
+    const xpi = NO_FIREFOX ? link(/\.xpi$/i) : null;
+    return gravarUpd({ ...base, ultima, notas: String(j.body || '').slice(0, 4000), pagina: j.html_url || null, zip, xpi, disponivel: !!ultima && cmpVer(ultima, cur) > 0, erro: null });
   } catch (e) {
     return gravarUpd({ ...base, erro: String(e && e.message || e) });
   }
 }
 async function aplicarUpd() {
   const st = (await chrome.storage.local.get(CHAVE_UPD))[CHAVE_UPD] || {};
-  if (await tipoInstalacao() === 'normal') {
+  if (NO_FIREFOX) {
+    // assinado (instalado pelo .xpi): o Firefox atualiza sozinho pelo update_url; o botão abre o .xpi
+    // novo e o Firefox pergunta se quer instalar. Temporário (about:debugging): baixa o zip novo.
+    const temp = await tipoInstalacao() !== 'normal';
+    const url = (!temp && st.xpi) || st.zip || st.pagina || `https://github.com/${REPO}/releases/latest`;
+    await chrome.tabs.create({ url, active: !temp });
+    await gravarUpd({ baixadoEm: Date.now() });
+    return { modo: temp ? 'firefox-temporario' : 'firefox', status: 'baixado' };
+  }
+  if (await tipoInstalacao() === 'normal' && typeof chrome.runtime.requestUpdateCheck === 'function') {
     const res = await new Promise((ok) => chrome.runtime.requestUpdateCheck((status) => ok({ status })));
     if (res.status === 'update_available') { setTimeout(() => chrome.runtime.reload(), 1500); return { modo: 'loja', status: 'aplicando' }; }
     return { modo: 'loja', status: res.status };
@@ -493,7 +539,7 @@ async function aplicarUpd() {
 // 15 s para o zip terminar de ser extraído)
 let recargaPendente = null;
 async function vigiarDisco() {
-  if (await tipoInstalacao() !== 'development') return;
+  if (NO_FIREFOX || await tipoInstalacao() !== 'development') return;
   try {
     const r = await fetch(chrome.runtime.getURL('manifest.json') + '?t=' + Date.now(), { cache: 'no-store' });
     const noDisco = (await r.json()).version;
@@ -569,7 +615,8 @@ const ACOES = {
       const chave = `plateia:janela:${p}`;
       const { [chave]: antiga } = await chrome.storage.session.get(chave);
       if (typeof antiga === 'number') { const ok = await chrome.windows.get(antiga).then(() => true).catch(() => false); if (ok) continue; }
-      const w = await chrome.windows.create({ url: SALAS[p], type: 'popup', focused: false, width: 1440, height: 900 }).catch(() => null);
+      const w = await chrome.windows.create({ url: SALAS[p], type: 'popup', focused: false, width: 1440, height: 900 })
+        .catch(() => chrome.windows.create({ url: SALAS[p], type: 'popup', width: 1440, height: 900 })).catch(() => null); // sem 'focused' se o navegador recusar
       if (w && typeof w.id === 'number') { await chrome.storage.session.set({ [chave]: w.id }); abertas.push(p); }
     }
     return abertas;
@@ -596,8 +643,16 @@ chrome.runtime.onMessage.addListener((m, remetente, responder) => {
   return true;
 });
 
-chrome.runtime.onInstalled.addListener(atualizarSelo);
-chrome.runtime.onStartup.addListener(atualizarSelo);
+chrome.runtime.onInstalled.addListener(() => { conferirPermissao().catch(erro); });
+chrome.runtime.onStartup.addListener(() => { conferirPermissao().catch(erro); });
+// 1.31 (regra 12): instalação nova mostra o guia de primeiro uso; atualização mostra só as novidades.
+chrome.runtime.onInstalled.addListener(async (d) => {
+  try {
+    const { 'piloto:guia': g } = await chrome.storage.local.get('piloto:guia');
+    if (d.reason === 'install') await chrome.storage.local.set({ 'piloto:guia': { tutorial: false, novidades: versaoAtual() } });
+    else if (d.reason === 'update' && !g) await chrome.storage.local.set({ 'piloto:guia': { tutorial: true, novidades: d.previousVersion || null } });
+  } catch (e) { erro(e); }
+});
 chrome.runtime.onStartup.addListener(() => { podarAlertas().catch(erro); });
 chrome.storage.onChanged.addListener((mudancas, area) => {
   if (area === 'local' && (mudancas[CHAVE_GRAVANDO] || mudancas[CHAVE_NAO_VISTOS])) atualizarSelo();
@@ -606,7 +661,12 @@ chrome.storage.onChanged.addListener((mudancas, area) => {
 // O ícone da extensão não tem menu: tudo fica no painel dentro do jogo. Clicar nele leva para a
 // aba do jogo (ou abre uma, se não houver).
 chrome.action.onClicked.addListener(async () => {
+  // pede a permissão do site no próprio clique (o Firefox só aceita o pedido vindo de um gesto);
+  // se ela já existe, não aparece nada
+  const pedido = chrome.permissions.request(ORIGENS).catch(() => false);
   try {
+    await pedido;
+    await conferirPermissao();
     const [aba] = await chrome.tabs.query({ url: 'https://pokeidle.io/*' });
     if (aba) {
       await chrome.tabs.update(aba.id, { active: true });

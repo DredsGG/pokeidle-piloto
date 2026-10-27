@@ -151,7 +151,13 @@
     return time.sort((a, b) => poderDe(b) - poderDe(a))[0] || null;
   }
   async function escolherHunt(alvo, pk) {
-    const hunts = ((welcome && welcome.hunts) || []).filter((h) => (h.especies || []).some((e) => alvo.membros.some((m) => m.id === e.pokeId)));
+    // 1.31 (o André: "pokémon da Outland não evolui, tem que ser os normais dos campos normais"):
+    // a Outland fica de fora, a não ser que a própria espécie do meta seja uma variante Outland.
+    const F = PIH.meta && PIH.meta.familia;
+    const ehOutland = (id) => (F && F.ehOutland ? F.ehOutland(id) : Number(id) >= 2001 && Number(id) < 2100);
+    const soOutland = alvo.membros.length > 0 && alvo.membros.every((m) => ehOutland(m.id));
+    const huntOutland = (h) => h.area === 'outland' || h.regiao === 'outland' || /outland/i.test(String(h.slug || ''));
+    const hunts = ((welcome && welcome.hunts) || []).filter((h) => (soOutland || !huntOutland(h)) && (h.especies || []).some((e) => alvo.membros.some((m) => m.id === e.pokeId) && (soOutland || !ehOutland(e.pokeId))));
     if (!hunts.length) return null;
     const jogo = await PIH.carregarJogo();
     const ctx = {
@@ -171,7 +177,7 @@
       let qual = null;
       for (const e of h.especies || []) {
         const m = alvo.membros.find((x) => x.id === e.pokeId);
-        if (!m) continue;
+        if (!m || (!soOutland && ehOutland(e.pokeId))) continue;
         const v = (Number(l.kph) || 0) * ((Number(e.pontos) || 0) / total) * (1 + 0.25 * m.estagio);
         if (v > nota) { nota = v; qual = m; }
       }

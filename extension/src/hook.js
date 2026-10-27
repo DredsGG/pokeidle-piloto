@@ -631,13 +631,33 @@
       if (!ids || ids.length < 1 || ids.length > 5 || new Set(ids).size !== ids.length || !ids.every((id) => int(id, 1, ID) && meus.has(id))) return null;
       return { t: 'pvp.time.salvar', pokemonIds: [...ids] };
     },
-    // Fila automática do PvP (VIP): SÓ liga o pvpAutoFila. O resto da automação sai do estado que o
-    // gancho recebeu do servidor, nunca do pedido — o piloto não mexe em bola, poção ou revive.
+    // Automações do jogo. Dois pedidos, e só eles; o resto da automação sai do estado que o gancho
+    // recebeu do servidor, nunca do pedido:
+    // - Fila automática do PvP (VIP): SÓ liga o pvpAutoFila.
+    // - 1.31 (pedido do André): os itens da reposição — exatamente UMA bola, UMA poção e UM revive:
+    //   a bola do catálogo do jogo, comprável em ouro (Beast Ball e Master Ball nunca); a poção e o
+    //   revive da lista fechada abaixo. Não liga nem desliga
+    //   nenhuma automação: só troca qual item cada uma usa.
     'auto.set': (p) => {
-      if (p.pvpAutoFila !== true) return null;
       const e = pihUltimo.get('estado') || {};
-      if (!e.automation || typeof e.automation !== 'object' || !(e.loja && e.loja.vip)) return null;
-      return { ...e.automation, t: 'auto.set', pvpAutoFila: true };
+      if (!e.automation || typeof e.automation !== 'object') return null;
+      if (p.pvpAutoFila === true && p.ballIds === undefined && p.potionIds === undefined && p.reviveIds === undefined) {
+        if (!(e.loja && e.loja.vip)) return null;
+        return { ...e.automation, t: 'auto.set', pvpAutoFila: true };
+      }
+      if (p.pvpAutoFila !== undefined) return null;
+      const um = (v) => (Array.isArray(v) && v.length === 1 && int(v[0], 1, 1e6) ? v[0] : null);
+      const bola = um(p.ballIds);
+      const pocao = um(p.potionIds);
+      const revive = um(p.reviveIds);
+      if (bola == null || pocao == null || revive == null) return null;
+      const w = pihUltimo.get('welcome') || {};
+      const b = (Array.isArray(w.catalogoBolas) ? w.catalogoBolas : []).find((x) => x && Number(x.id) === bola);
+      if (!b || b.compravel === false || !(Number(b.priceGold) > 0) || /beast|master/i.test(String(b.nome || ''))) return null;
+      // as poções e revives que o NPC vende (assets/items.json do jogo, 2026-10-27): Small, Great,
+      // Ultra, Hyper e Ultimate Potion; Revive e Max Revive. A Medicine (sem preço) fica de fora.
+      if (![200, 201, 202, 203, 204].includes(pocao) || ![205, 206].includes(revive)) return null;
+      return { ...e.automation, t: 'auto.set', ballIds: [bola], potionIds: [pocao], reviveIds: [revive] };
     },
   };
   PIH.COMANDOS_DO_PILOTO = Object.freeze(Object.keys(PIH_PERMITIDOS));

@@ -179,7 +179,10 @@
         if (e.evolvesToId && !(pai.has(e.evolvesToId) && pai.get(e.evolvesToId) < e.pokeId)) pai.set(e.evolvesToId, e.pokeId);
       }
       const raizDe = (id) => { let x = id; for (let i = 0; i < 6 && pai.has(x); i++) x = pai.get(x); return x; };
-      familias = { porNome, raizDe, especies: j.especies };
+      // 1.31 (o André: "pokémon da Outland não evolui"): as variantes Outland (#2001–#2058) ficam
+      // fora da família do meta — não evoluem, então não servem para chegar na espécie do meta.
+      const ehOutland = (id) => { try { if (j.mod && j.mod.outland && typeof j.mod.outland.isOutlandPokeId === 'function') return j.mod.outland.isOutlandPokeId(id); } catch { /* fallback */ } return Number(id) >= 2001 && Number(id) < 2100; };
+      familias = { porNome, raizDe, especies: j.especies, ehOutland };
     } catch { familias = null; }
     return familias;
   }
@@ -215,13 +218,16 @@
     if (!familias) return false;
     const bp = baseDe(p);
     const ba = baseDe(a);
-    return bp != null && ba != null && passosAte(bp, ba) >= 0;
+    if (bp == null || ba == null) return false;
+    if (familias.ehOutland(bp)) return bp === ba; // Outland não evolui: só serve se já for a espécie do meta
+    return passosAte(bp, ba) >= 0;
   }
   function membrosDoMeta(a) {
     if (!familias) return [];
     const ba = baseDe(a);
     const out = [];
     for (const e of familias.especies.values()) {
+      if (familias.ehOutland(e.pokeId) && e.pokeId !== ba) continue; // 1.31: Outland não evolui
       const n = passosAte(e.pokeId, ba);
       if (n >= 0) out.push({ id: e.pokeId, nome: e.name, estagio: Math.max(0, 2 - n) });
     }
@@ -300,6 +306,7 @@
     raizDePk: (p) => familiaDe(p),
     serve: (p, a) => serve(p, a),
     membrosDoMeta: (a) => membrosDoMeta(a),
+    ehOutland: (id) => (familias ? familias.ehOutland(id) : Number(id) >= 2001 && Number(id) < 2100),
     membros(raizId) {
       if (!familias) return [];
       const out = [];

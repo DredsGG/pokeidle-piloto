@@ -10,7 +10,7 @@
   const IDIOMAS = ['pt', 'en', 'es'];
   const NOMES = { pt: 'Português', en: 'English', es: 'Español' };
   const ATRIBUTOS = ['title', 'aria-label', 'placeholder'];
-  const RAIZES = '.plt-janela, .plt-painel, .plt-barra, .plt-mini-pilha, .plt-bandeja, .plt-pop, .plt-toast, .plt-voto, .pih-aviso, .plt-plateia-faixa, .plt-eq-turno, .plt-eqc';
+  const RAIZES = '.plt-janela, .plt-painel, .plt-barra, .plt-mini-pilha, .plt-bandeja, .plt-pop, .plt-toast, .plt-voto, .pih-aviso, .plt-plateia-faixa, .plt-eq-turno, .plt-eqc, .plt-ss-tempo, .plt-guia';
   const HOSTS = ['radar-mercado-tela', 'radar-mercado-barra'];
 
   let atual = 'pt';
@@ -60,6 +60,7 @@
   function noTexto(n) {
     const p = n.parentNode;
     if (!p || (p.nodeType === 1 && /^(STYLE|SCRIPT|TEXTAREA)$/.test(p.nodeName))) return;
+    if (p.nodeType === 1 && p.closest && p.closest('[data-sem-traducao]')) return; // 1.31: já vem no idioma certo (guia e novidades)
     const rec = memTexto.get(n);
     const dado = n.data;
     if (rec && dado === rec.saida) return; // já é a tradução que pusemos
@@ -70,6 +71,7 @@
   }
 
   function noAttr(el) {
+    if (el.closest && el.closest('[data-sem-traducao]')) return;
     let rec = memAttr.get(el);
     for (const a of ATRIBUTOS) {
       const v = el.getAttribute(a);

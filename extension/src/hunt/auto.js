@@ -17,7 +17,7 @@
   const CHAVE = 'pokeidle-hunt:auto:v1';
   const PADRAO = {
     hunt: { ligado: false, criterio: 'xp', intervaloMin: 30, margemPct: 10, evitarRisco: true, curar: true, conferir: true },
-    repor: { ligado: false, reservaOuro: 5_000_000, intervaloMin: 3, irAoCentro: true, alvos: {} },
+    repor: { ligado: false, reservaOuro: 5_000_000, intervaloMin: 3, irAoCentro: true, alvos: {}, kitAuto: true },
   };
   const ler = () => {
     try {
@@ -445,11 +445,78 @@
 
   let precisaCentro = false;
   let ultimaReposicao = 0;
+  // ---- 1.31: a bola, a poção e o revive escolhidos pela conta (pedido do André) ----------------
+  // Com a Reposição ligada, o Piloto deixa marcado nas Automações do jogo UM item de cada — uma
+  // bola, uma poção e um revive — e troca conforme a conta sobe, para a reposição só comprar esses.
+  // - Poção: a maior que cabe no HP que falta quando a poção do jogo dispara (HP máximo médio do
+  //   time × (1 − limiar)); assim não sobra cura e o ouro por HP é o menor possível.
+  // - Revive: o Revive (volta com 50%); o Max Revive só quando completar os outros 50% com a poção
+  //   escolhida sairia mais caro que a diferença de preço.
+  // - Bola: a de maior captura que custa até 3% do ouro/h medido por bola lançada (um lançamento por
+  //   abate); conta nova (sem medida) fica na mais barata. Beast e Master Ball nunca.
+  // Só troca quando a mesma escolha aparece duas vezes seguidas (10 min) e no máximo a cada 30 min.
+  const KIT_ESTAVEL_MS = 10 * 60_000;
+  const KIT_INTERVALO_MS = 30 * 60_000;
+  let kitVisto = null;
+  let kitTrocadoEm = 0;
+  let kphCache = { em: 0, v: 0 };
+  function escolherKit(teste = {}) {
+    if (!eu || !welcome || !jogoCache) return null;
+    const time = (eu.pokemons ?? []).filter((p) => p.slot != null && Number(p.maxHp) > 0);
+    const hpMedio = time.length ? time.reduce((s, p) => s + Number(p.maxHp), 0) / time.length : 0;
+    const limiar = Number.isFinite(Number(eu.automation?.hpLimiar)) ? Math.min(0.95, Math.max(0.05, Number(eu.automation.hpLimiar))) : 0.5;
+    const itens = [...(jogoCache.itensPorId?.values() ?? [])];
+    const vende = (i) => Number(i.npcPrice) > 0 && Number(i.priceGold) > 0;
+    const pocoes = itens.filter((i) => i.category === 'heal' && vende(i) && Number(i.healAmount) > 0).sort((a, b) => a.healAmount - b.healAmount);
+    const revives = itens.filter((i) => i.category === 'revive' && vende(i) && Number(i.revivePct) > 0).sort((a, b) => a.revivePct - b.revivePct);
+    const bolas = (welcome.catalogoBolas ?? []).filter((b) => b && b.compravel !== false && Number(b.priceGold) > 0 && !/beast|master/i.test(String(b.nome || ''))).sort((a, b) => a.priceGold - b.priceGold);
+    if (!pocoes.length || !revives.length || !bolas.length) return null;
+    const falta = hpMedio * (1 - limiar);
+    const pocao = hpMedio ? ([...pocoes].reverse().find((i) => i.healAmount <= falta) ?? pocoes[0]) : pocoes[0];
+    const porHp = Number(pocao.priceGold) / Number(pocao.healAmount);
+    const reviveBase = revives[0];
+    let revive = reviveBase;
+    for (const rv of revives.slice(1)) {
+      const extraHp = (Number(rv.revivePct) - Number(reviveBase.revivePct)) * hpMedio;
+      if (extraHp * porHp > Number(rv.priceGold) - Number(reviveBase.priceGold)) revive = rv;
+    }
+    const ouroH = teste.ouroH ?? (Number(PIH.cofre?.resumo?.()?.ouroH) || 0);
+    const kph = kphCache.v > 0 ? kphCache.v : 400; // abates/h do ativo nesta hunt (modelo do /hunt)
+    const porBola = ouroH > 0 ? (ouroH * 0.05) / Math.max(1, kph) : 0;
+    const daBolsa = bolas.filter((b) => b.priceGold <= porBola);
+    const bola = daBolsa.length ? daBolsa.sort((a, b) => (Number(b.catchRate) || 0) - (Number(a.catchRate) || 0) || b.priceGold - a.priceGold)[0] : bolas[0];
+    return { bola, pocao, revive, hpMedio: Math.round(hpMedio), porBola: Math.round(porBola) };
+  }
+  async function conferirKit(forcar = false) {
+    if (!cfg.repor.ligado || cfg.repor.kitAuto === false || !eu || !PIH.cofre?.liberado('hunt')) return null;
+    if (Date.now() - kphCache.em > 10 * 60_000 && eu.huntSlug && eu.activeId != null) {
+      kphCache.em = Date.now();
+      try { const at = (eu.pokemons ?? []).find((p) => p.id === eu.activeId); const m = at ? await farmDe([at], eu.huntSlug) : null; const v = m && m.get(at.id); if (v && v.kph > 0) kphCache.v = v.kph; } catch { /* fica o anterior */ }
+    }
+    const k = escolherKit();
+    if (!k) return null;
+    const a = eu.automation ?? {};
+    const igual = (ids, id) => Array.isArray(ids) && ids.length === 1 && Number(ids[0]) === Number(id);
+    if (igual(a.ballIds, k.bola.id) && igual(a.potionIds, k.pocao.id) && igual(a.reviveIds, k.revive.id)) { kitVisto = null; return k; }
+    const chave = `${k.bola.id}/${k.pocao.id}/${k.revive.id}`;
+    const agora = Date.now();
+    if (!forcar) {
+      if (!kitVisto || kitVisto.chave !== chave) { kitVisto = { chave, em: agora }; return k; }
+      if (agora - kitVisto.em < KIT_ESTAVEL_MS || agora - kitTrocadoEm < KIT_INTERVALO_MS) return k;
+    }
+    kitTrocadoEm = agora;
+    kitVisto = null;
+    PIH.pedir({ t: 'auto.set', ballIds: [k.bola.id], potionIds: [k.pocao.id], reviveIds: [k.revive.id] }, 'hunt');
+    anotar(`automações do jogo: ${k.bola.nome}, ${k.pocao.name} e ${k.revive.name} (um de cada, pela conta: HP médio ${nf.format(k.hpMedio)}${k.porBola ? `, até ${nf.format(k.porBola)} de ouro por bola` : ''})`, 'ok');
+    return k;
+  }
+
   async function avaliarReposicao(forcar = false) {
     const c = cfg.repor;
     if (!forcar && (!c.ligado || ocupado() || !PIH.cofre?.liberado('hunt'))) return;
     ultimaReposicao = Date.now();
     await carregarCatalogo();
+    try { await conferirKit(forcar); } catch (err) { anotar(`erro ao escolher os itens: ${err.message}`, 'erro'); }
     const lista = comprasPendentes();
     if (!lista.length) { if (forcar) anotar('reposição: nada abaixo do mínimo (ou ouro só até a reserva)'); return; }
     if (precisaCentro || eu?.noCentro) {
@@ -613,10 +680,11 @@
         ${K.mini('auto:hunt.evitarRisco', h.evitarRisco, 'Evitar risco', 'Fora hunts com 1 hit, mortes estimadas ou golpe que tira 50%+ do HP', trava)}
         ${K.acao('Analisar agora', 'data-acao="testar-hunt"', 'cacar', trava)}` : '' })
       + K.linha({ icone: 'repor', nome: 'Reposição', alvo: 'auto:repor.ligado', on: p.ligado, trava, status: stRepor,
-        dica: 'Repõe as bolas, poções e revives marcados nas Automações do jogo, sempre dentro do cofre.',
+        dica: 'Repõe as bolas, poções e revives marcados nas Automações do jogo, sempre dentro do cofre. Com "Escolher os itens pela conta" (ligado no Auto), o Piloto deixa marcado um de cada (uma bola, uma poção e um revive) e troca conforme a conta sobe: a poção pelo HP do time, o revive pelo custo e a bola pelo ouro/h.',
         ajustes: manual ? `${K.fcampo('Guardar (ouro)', K.numero('auto:repor.reservaOuro', p.reservaOuro, 0, null, 100000, trava), 'Nunca gasta abaixo disso')}
           ${K.fcampo('A cada (min)', K.numero('auto:repor.intervaloMin', p.intervaloMin, 1, 60, 1, trava))}
           ${K.mini('auto:repor.irAoCentro', p.irAoCentro, 'Ir ao Centro', 'Se o jogo só vender no Centro: vai, compra, cura e volta', trava)}
+          ${K.mini('auto:repor.kitAuto', p.kitAuto !== false, 'Escolher os itens pela conta', 'Deixa marcado nas Automações do jogo uma bola, uma poção e um revive, e troca conforme a conta sobe', trava)}
           ${K.acao('Conferir agora', 'data-acao="testar-repor"', 'repor', trava)}
           <div class="plt-f-largo">${tabela}</div>` : '' });
   }
@@ -677,5 +745,5 @@
     if (m?.repor) Object.assign(cfg.repor, { ligado: !!m.repor.ligado });
     gravar();
   }
-  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, irAoCentroEFicar, liberarCentro, melhorHuntPara, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina, vigiaCentro, centro: () => ({ ultimaHunt, centroDesde, centroFalhou }), forcarCentro: (o) => { if ('centroDesde' in o) centroDesde = o.centroDesde; if ('mexeuEm' in o) mexeuEm = o.mexeuEm; } } };
+  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, irAoCentroEFicar, liberarCentro, melhorHuntPara, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { comprasPendentes, itensVigiados, escolherKit, conferirKit, cfg: () => cfg, passo, rotina: () => rotina, vigiaCentro, centro: () => ({ ultimaHunt, centroDesde, centroFalhou }), forcarCentro: (o) => { if ('centroDesde' in o) centroDesde = o.centroDesde; if ('mexeuEm' in o) mexeuEm = o.mexeuEm; } } };
 })(globalThis);

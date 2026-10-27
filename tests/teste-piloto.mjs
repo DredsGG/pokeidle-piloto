@@ -305,6 +305,20 @@ await caso('PvP: lê, monta a equipe com os 5 de maior Poder, liga a fila autom�
   assert.ok(enviados.some((m) => m.t === 'pvp.fila.entrar'), `faltou entrar na fila: ${enviados.map((m) => m.t)}`);
   // segurança: auto.set não mexe em outra coisa; equipe com pokémon de outro jogador não sai
   assert.equal(PIH.pedir({ t: 'auto.set', autoBallSemParar: true }, 'teste').ok, false);
+  // 1.31: os itens da reposição — um de cada, do catálogo; nada além disso
+  assert.equal(PIH.pedir({ t: 'auto.set', ballIds: [1], potionIds: [201], reviveIds: [205] }, 'teste').ok, true, 'uma bola, uma poção, um revive');
+  const kit = enviados.filter((m) => m.t === 'auto.set').at(-1);
+  await sleep(1300);
+  const kit2 = enviados.filter((m) => m.t === 'auto.set').at(-1);
+  assert.ok(kit2 && kit2.ballIds[0] === 1 && kit2.potionIds[0] === 201 && kit2.reviveIds[0] === 205 && kit2.pvpAutoFila === true, `auto.set do kit mantém o resto da automação: ${JSON.stringify(kit2 || kit)}`);
+  assert.equal(PIH.pedir({ t: 'auto.set', ballIds: [1, 2], potionIds: [201], reviveIds: [205] }, 'teste').ok, false, 'duas bolas');
+  assert.equal(PIH.pedir({ t: 'auto.set', ballIds: [99], potionIds: [201], reviveIds: [205] }, 'teste').ok, false, 'bola fora do catálogo');
+  assert.equal(PIH.pedir({ t: 'auto.set', ballIds: [1], potionIds: [207], reviveIds: [205] }, 'teste').ok, false, 'Medicine (sem preço)');
+  assert.equal(PIH.pedir({ t: 'auto.set', ballIds: [1], potionIds: [201], reviveIds: [205], autoBallSemParar: true }, 'teste').ok, true, 'campo a mais é ignorado');
+  await sleep(1300);
+  const kit3 = enviados.filter((m) => m.t === 'auto.set').at(-1);
+  assert.ok(kit3.autoBallSemParar === undefined, `não liga automação nenhuma: ${JSON.stringify(kit3)}`);
+  assert.equal(PIH.pedir({ t: 'auto.set', ballIds: [1], potionIds: [201], reviveIds: [205], pvpAutoFila: false }, 'teste').ok, false, 'não mexe na fila');
   assert.equal(PIH.pedir({ t: 'pvp.time.salvar', pokemonIds: [4, 999999] }, 'teste').ok, false);
   assert.equal(PIH.pedir({ t: 'pvp.time.salvar', pokemonIds: [4, 4] }, 'teste').ok, false);
   // Sem roleta: alguém de fora só entra com 2%+ de Poder acima do mais fraco da equipe.

@@ -1,3 +1,4 @@
+// 1.31: o modo Manual liberado (antes, 1.19–1.30, este teste conferia o bloqueio).
 // Prova de fogo: a extensão de verdade num Chromium, numa imitação do pokeidle.io com WebSocket simulado.
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -82,6 +83,7 @@ await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
   setInterval(() => ws.send(JSON.stringify({ t: 'estado', estado: { servidorAgora: Date.now() } })), 1000);
 });
 
+await ctx.addInitScript(() => { try { localStorage.setItem('piloto:dev:semGuia', '1'); } catch {} });
 const page = await ctx.newPage();
 page.on('console', (m) => { if (m.type() === 'error' || /radar|piloto/i.test(m.text())) erros.push(m.type() + ': ' + m.text().slice(0, 300)); });
 page.on('pageerror', (e) => erros.push(String(e)));
@@ -93,16 +95,37 @@ await sleep(4000);
 
 
 const r = {};
-// alguém que estava no Manual (o padrão antigo)
-await page.evaluate(() => localStorage.setItem('piloto:modo:v1', JSON.stringify('manual')));
+let falhas = 0;
+const ok = (c, msg) => { console.log(`${c ? 'ok  ' : 'FALHOU'} ${msg}`); if (!c) falhas++; };
+const modo = () => page.evaluate(() => document.querySelector('.plt-janela').dataset.modo);
+const bt = (m) => page.locator(`.plt-janela .plt-modo-bt[data-modo="${m}"]`);
+// 1.31: o Manual voltou. Quem estava no Manual continua no Manual.
+// instalação nova: começa no Off
+await page.locator('button.plt-barra').click(); await sleep(1200);
+ok(await modo() === 'desligado', `instalação nova começa no Off (${await modo()})`);
+await bt('manual').click(); await sleep(1000);
+await page.keyboard.press('Escape'); await sleep(300);
 await page.reload(); await sleep(5000);
 await page.locator('button.plt-barra').click(); await sleep(1200);
-r.manualDesabilitado = await page.locator('.plt-janela .plt-modo-bt[data-modo="manual"]').isDisabled();
-r.modo = await page.evaluate(() => document.querySelector('.plt-janela').dataset.modo);
-await page.locator('.plt-janela .plt-modo-bt[data-modo="manual"]').click({ force: true }).catch(() => {}); await sleep(600);
-r.modoDepoisDoClique = await page.evaluate(() => document.querySelector('.plt-janela').dataset.modo);
-await page.locator('.plt-janela .plt-modo-bt[data-modo="automatico"]').click(); await sleep(1200);
-r.auto = await page.evaluate(() => document.querySelector('.plt-janela').dataset.modo);
+ok(!(await bt('manual').isDisabled()), 'botão Manual habilitado, sem cadeado');
+ok(await page.locator('.plt-janela .plt-modo-bloq').count() === 0, 'nenhum botão com a marca de bloqueado');
+ok(await modo() === 'manual', `quem estava no Manual continua no Manual (${await modo()})`);
+await bt('automatico').click(); await sleep(1200);
+ok(await modo() === 'automatico', 'Auto funciona');
+await bt('manual').click(); await sleep(1200);
+ok(await modo() === 'manual', 'Auto → Manual funciona');
+const radar = await page.evaluate(() => new Promise((res) => { const f = (e) => { document.removeEventListener('piloto:radar', f); res(JSON.parse(e.detail)); }; document.addEventListener('piloto:radar', f); setTimeout(() => res(null), 4000); }));
+ok(!radar || radar.auto === false, `no Manual a compra do Radar fica desligada até você ligar (${JSON.stringify(radar && { ligado: radar.ligado, auto: radar.auto })})`);
+await bt('desligado').click(); await sleep(1200);
+ok(await modo() === 'desligado', 'Off funciona');
+const aviso = await page.locator('.plt-janela').innerText();
+ok(/Manual ou Auto|Manual or Auto|Manual o Auto/.test(aviso), 'o aviso do Off fala do Manual e do Auto');
+await bt('manual').click(); await sleep(1200);
+ok(await modo() === 'manual', 'Off → Manual funciona');
+await page.reload(); await sleep(5000);
+await page.locator('button.plt-barra').click(); await sleep(1200);
+ok(await modo() === 'manual', 'o Manual continua depois de recarregar');
 await page.locator('.plt-janela .modal-topo').screenshot({ path: `${SAIDA}/topo.png` });
-console.log(JSON.stringify(r));
-setTimeout(() => process.exit(0), 300); await ctx.close();
+ok(!erros.some((e) => /pageerror|TypeError|ReferenceError/.test(e)), `sem erro de página (${erros.filter((e) => /Error/.test(e)).slice(0, 3).join(' | ')})`);
+console.log(falhas ? `${falhas} FALHA(S)` : 'TUDO PASSOU');
+setTimeout(() => process.exit(falhas ? 1 : 0), 300); await ctx.close();

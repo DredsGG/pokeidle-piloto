@@ -299,10 +299,9 @@
     const m = lerJson(CHAVE_MODO, null);
     return m === 'automatico' || m === 'manual' ? m : 'manual';
   }
-  // 1.19 (pedido do André): o Manual fica bloqueado por enquanto — só Off e Auto. Quem estava no
-  // Manual passa para o Off (o seguro: nada automático roda) até escolher o Auto.
-  // (os testes automáticos destravam com a chave de desenvolvimento 'piloto:dev:manual' = '1')
-  const MANUAL_BLOQUEADO = (() => { try { return localStorage.getItem('piloto:dev:manual') !== '1'; } catch { return true; } })();
+  // 1.19 bloqueou o Manual; 1.31 (pedido do André) libera de novo, revisado para o público. Fica a
+  // constante para um bloqueio futuro sem caçar todos os pontos.
+  const MANUAL_BLOQUEADO = false;
   function definirModo(modo) {
     if (!['desligado', 'manual', 'automatico'].includes(modo)) return;
     if (modo === 'manual' && MANUAL_BLOQUEADO) return;
@@ -333,6 +332,10 @@
   }
   setInterval(publicarContexto, 5_000);
   setTimeout(() => {
+    // 1.31: instalação nova (nenhum modo salvo) começa no Off — você escolhe Manual ou Auto.
+    // (a chave de desenvolvimento 'piloto:dev:manual' dos testes automáticos mantém o começo antigo)
+    const devManual = (() => { try { return localStorage.getItem('piloto:dev:manual') === '1'; } catch { return false; } })();
+    if (!devManual && lerJson(CHAVE_MODO, null) === null && modoAtual() !== 'desligado') definirModo('desligado');
     if (MANUAL_BLOQUEADO && modoAtual() === 'manual') {
       const veioDoManual = lerJson(CHAVE_MODO, null) === 'manual'; // instalação nova não tem modo salvo
       definirModo('desligado');
@@ -371,7 +374,7 @@
   const ICO_CADEADO = '<svg class="plt-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0zm3 4a1.6 1.6 0 0 0-.8 3V19h1.6v-2a1.6 1.6 0 0 0-.8-3z" fill="currentColor"/></svg>';
   const MODOS = [
     ['desligado', 'Off', 'fechar', 'Desligado: nada automático roda, nem a compra do Radar'],
-    ['manual', 'Manual', 'escudo', 'Manual: bloqueado por enquanto'],
+    ['manual', 'Manual', 'escudo', 'Manual: você liga e ajusta cada automação'],
     ['automatico', 'Auto', 'leme', 'Automático: o Piloto lê a conta e calcula tudo; você só liga e desliga'],
   ];
   let painel = null;
@@ -597,7 +600,7 @@
   }
 
   // ---- Off: um aviso no topo de cada aba ---------------------------------------------------------
-  const avisoOff = () => K.linha({ id: 'off', icone: 'fechar', nome: 'Piloto desligado', classe: 'plt-l-off', status: 'Nada automático roda. Escolha Auto lá em cima para ligar.' });
+  const avisoOff = () => K.linha({ id: 'off', icone: 'fechar', nome: 'Piloto desligado', classe: 'plt-l-off', status: 'Nada automático roda. Escolha Manual ou Auto lá em cima para ligar.' });
 
   // ---- Resumo: a conta inteira numa tela -----------------------------------------------------
   function blocoResumo() {
@@ -908,7 +911,7 @@
       </table>
       ${manual && linhas.length > mostrando ? `<button type="button" class="cfg-escala-bt plt-mais" data-acao="mais">mostrar mais (${linhas.length - mostrando})</button>` : ''}
       </div>
-      ${manual ? `<div class="pih-rodape">Dados do jogo ${jogo.versao ? `v${esc(jogo.versao)}` : 'no ar'} · ${r.linhas.length} de ${r.total} hunts · cálculo em ${r.ms} ms · ranking com ondas cheias · geometria medida em ${PIH.geo?.huntsMedidas?.() ?? 0} hunts (≈ = padrão · ● = você já caçou aqui, passe o mouse)${r.aoe ? ` · TM AoE: ${r.aoe.alvosPorGolpe.toFixed(1).replace('.', ',')} alvos/golpe` : ''}</div>` : ''}`;
+      ${manual ? `<div class="pih-rodape">Dados do jogo ${jogo.versao ? `v${esc(jogo.versao)}` : 'no ar'} · ${r.linhas.length}/${r.total} hunts · cálculo em ${r.ms} ms · ranking com ondas cheias · geometria medida em ${PIH.geo?.huntsMedidas?.() ?? 0} hunts (≈ = padrão · ● = você já caçou aqui, passe o mouse)${r.aoe ? ` · TM AoE: ${r.aoe.alvosPorGolpe.toFixed(1).replace('.', ',')} alvos/golpe` : ''}</div>` : ''}`;
   }
 
   // Só um campo de digitar (número, texto, lista) segura a atualização; botão não.

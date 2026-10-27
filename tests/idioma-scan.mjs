@@ -80,7 +80,7 @@ await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
   setInterval(() => ws.send(JSON.stringify({ t: 'estado', estado: { servidorAgora: Date.now() } })), 1000);
 });
 
-await ctx.addInitScript(() => { try { localStorage.setItem('piloto:dev:manual', '1'); } catch {} });
+await ctx.addInitScript(() => { try { localStorage.setItem('piloto:dev:manual', '1'); localStorage.setItem('piloto:dev:semGuia', '1'); } catch {} });
 const page = await ctx.newPage();
 page.on('console', (m) => { if (m.type() === 'error' || /radar|piloto/i.test(m.text())) erros.push(m.type() + ': ' + m.text().slice(0, 300)); });
 page.on('pageerror', (e) => erros.push(String(e)));
@@ -92,30 +92,54 @@ const r = {};
 await page.locator('button.plt-barra').click();
 await sleep(1500);
 const restos = new Map();
-const coletar = async (onde) => {
-  const lista = await page.evaluate(() => {
+const PT = /[ãõçáéíóúâêôà]|\b(de|do|da|dos|das|para|com|não|sem|hoje|quando|cada|ligado|desligado|agora|vender|comprar|até|ou|em|no|na|ao|só|por|todos|todas|quem|pedra|proibida|categoria|análise|entra|ordenar|livre|vez|mais|menos|tudo|nada|ainda|ver|abrir|fechar|vel)\b/i;
+const coletar = async (onde, sel = '.plt-janela') => {
+  const lista = await page.evaluate((sel) => {
     const out = [];
-    const j = document.querySelector('.plt-janela');
-    if (!j) return out;
-    const w = document.createTreeWalker(j, NodeFilter.SHOW_TEXT);
-    let n; while ((n = w.nextNode())) { const t = n.nodeValue.trim(); if (t) out.push(t); }
-    for (const el of j.querySelectorAll('[title],[placeholder],[aria-label]')) for (const a of ['title', 'placeholder', 'aria-label']) { const v = el.getAttribute(a); if (v) out.push(v.trim()); }
+    const raizes = [...document.querySelectorAll(sel)];
+    for (const h of document.querySelectorAll('radar-mercado-tela, #radar-mercado-tela')) if (h.shadowRoot) raizes.push(h.shadowRoot);
+    for (const j of raizes) {
+      const w = document.createTreeWalker(j, NodeFilter.SHOW_TEXT);
+      let n; while ((n = w.nextNode())) { const p = n.parentElement; if (p && p.closest('script,style')) continue; const t = n.nodeValue.trim(); if (t) out.push(t); }
+      for (const el of j.querySelectorAll('[title],[placeholder],[aria-label]')) for (const a of ['title', 'placeholder', 'aria-label']) { const v = el.getAttribute(a); if (v) out.push(v.trim()); }
+      for (const el of j.querySelectorAll('option')) out.push(el.textContent.trim());
+    }
     return out;
-  });
-  for (const t of lista) if (/[ãõçáéíóúâêôà]|\b(de|do|da|dos|das|para|com|não|sem|hoje|quando|cada|ligado|desligado|agora|vender|comprar|até|ou|em|no|na|ao|só)\b/i.test(t)) { if (!restos.has(t)) restos.set(t, onde); }
+  }, sel);
+  for (const t of lista) if (PT.test(t) && !/^(Pokémon|Poké Ball|Plateia|Dreds|Piloto)$/i.test(t)) { if (!restos.has(t)) restos.set(t, onde); }
 };
 for (const idi of (process.env.IDI || 'en,es').split(',')) {
   await page.click(`.plt-idiomas [data-idioma="${idi}"]`); await sleep(700);
-  for (const modo of ['manual', 'automatico', 'desligado']) {
+  for (const modo of (process.env.MODOS || 'manual,automatico,desligado').split(',')) {
     await page.locator(`.plt-janela .plt-modo-bt[data-modo="${modo}"]`).click(); await sleep(900);
     for (const aba of ['resumo', 'hunts', 'meta', 'rotina', 'mercado', 'cofre']) {
       await page.locator(`.plt-cats [data-aba="${aba}"]`).click(); await sleep(900);
       for (const aj of await page.locator('.plt-janela .cfg-ajuda').all()) await aj.click().catch(() => {});
       await sleep(300);
       await coletar(`${idi}/${modo}/${aba}`);
+      if (aba === 'mercado') {
+        // as sub-abas do Radar (Avisos, Ofertas, Compras, Vendas, Revenda, Lucro, Ajustes)
+        const subs = await page.evaluate(() => { const out = []; const raizes = [document, ...[...document.querySelectorAll('*')].filter((e) => e.shadowRoot).map((e) => e.shadowRoot)]; for (const r of raizes) for (const b of r.querySelectorAll('[data-aba-radar], .rm-abas button, [data-sub], .abas button')) out.push(b.textContent.trim()); return out; });
+        for (let k = 0; k < subs.length; k++) {
+          await page.evaluate((k) => { const raizes = [document, ...[...document.querySelectorAll('*')].filter((e) => e.shadowRoot).map((e) => e.shadowRoot)]; const bs = []; for (const r of raizes) for (const b of r.querySelectorAll('[data-aba-radar], .rm-abas button, [data-sub], .abas button')) bs.push(b); bs[k] && bs[k].click(); }, k);
+          await sleep(500);
+          await coletar(`${idi}/${modo}/mercado:${subs[k]}`);
+        }
+      }
     }
   }
-  if (idi === 'en') await page.locator('.plt-janela').screenshot({ path: `${SAIDA}/en-off-cofre.png` }).catch(() => {});
+  // a janela Time e a aba Meta
+  await page.keyboard.press('Escape'); await sleep(300);
+  if (await page.locator('#p-equipe .plt-time-bt').count()) {
+    await page.locator('#p-equipe .plt-time-bt').click(); await sleep(1500);
+    for (const aj of await page.locator('.plt-janela-time .cfg-ajuda').all()) await aj.click().catch(() => {});
+    await coletar(`${idi}/time`, '.plt-janela-time');
+    await page.evaluate(() => window.__pokeidleHunt.time.abrirAba('meta')); await sleep(1200);
+    await coletar(`${idi}/time-meta`, '.plt-janela-time');
+    await page.keyboard.press('Escape'); await sleep(300);
+  }
+  await page.locator('button.plt-barra').click(); await sleep(1200);
 }
 console.log(JSON.stringify([...restos].map(([t, o]) => `${o} | ${t}`), null, 1));
+setTimeout(() => process.exit(0), 200);
 await ctx.close();
