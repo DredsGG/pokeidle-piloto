@@ -1,7 +1,14 @@
 {
   "versoes": {
-    "1.32.3": {
+    "1.33.3": {
       "pt": [
+        "A compra automática do Mercado agora vai pelo seu dinheiro: compra o que dá lucro enquanto o estoque do radar mais a compra não passar de metade do que você tem; vendeu, libera de novo. Saiu do teto do dia.",
+        "Quando o jogo avisa \"Devagar aí — muitas mensagens\", o radar e o Piloto diminuem o ritmo sozinhos e voltam a subir aos poucos.",
+        "A bola leva em conta o saldo: conta com muito ouro usa a Ultra Ball mesmo enquanto sobe um pokémon fraco.",
+        "Reposição para conta nova: o Piloto marca uma bola, uma poção e um revive na hora e compra o primeiro lote assim que tiver o ouro (guarda só 10% do saldo).",
+        "As quantidades da reposição vêm do que a sua conta gasta de verdade (mínimo de 1 h, alvo de 6 h), e a poção é a de menor ouro por HP que cura.",
+        "Aba Caçar: o ouro/h já desconta as poções, e hunt em que os desmaios levam mais XP do que dão fica marcada como risco.",
+        "Caçar o meta não pula mais ninguém: testa cada pokémon do time e, sem hunt segura, espera farmando XP até o treinador subir de nível.",
         "A Plateia também não abre sala repetida depois de atualizar o Piloto ou com a escala do Windows (adota a janela que já está aberta).",
         "Aba Caçar: hunt em que o pokémon morre antes de terminar um abate sai do ranking (ex.: Larvitar Nv 20 na Ledyba Nv 230), e com \"Evitar risco\" as arriscadas ficam depois das seguras.",
         "Na primeira vez, o Piloto já abre no idioma do navegador (português, inglês ou espanhol); o seletor PT · EN · ES continua no painel.",
@@ -12,6 +19,13 @@
         "Torneios: o Piloto inscreve você sozinho no Mundial, no Amador e no Showdown assim que as inscrições abrem (aba Rotina)."
       ],
       "en": [
+        "Automatic Market buying now follows your money: it buys what's profitable while the radar's stock plus the purchase stays under half of what you have; once it sells, room opens again. It left the daily cap.",
+        "When the game says \"Devagar aí — muitas mensagens\" (too many messages), the radar and the Pilot slow down on their own and speed back up slowly.",
+        "The ball takes your balance into account: an account with lots of gold uses the Ultra Ball even while leveling a weak Pokémon.",
+        "Restock for new accounts: the Pilot ticks one ball, one potion and one revive right away and buys the first batch as soon as there is gold (it keeps only 10% of the balance).",
+        "Restock amounts come from what your account actually uses (1 h minimum, 6 h target), and the potion is the one with the lowest gold per HP it really heals.",
+        "Hunt tab: gold/h already takes potions off, and a hunt where fainting costs more XP than it gives is flagged as risky.",
+        "Hunt the meta no longer skips anyone: it tries every team Pokémon and, with no safe hunt, waits while farming XP until the trainer levels up.",
         "Plateia also stops opening a duplicate room after a Piloto update or with Windows display scaling (it adopts the window that is already open).",
         "Hunt tab: a hunt where your Pokémon dies before finishing a single kill leaves the ranking (e.g. Larvitar Lv 20 at Ledyba Lv 230), and with \"Avoid risk\" the risky ones come after the safe ones.",
         "The first time, the Pilot opens in your browser language (Portuguese, English or Spanish); the PT · EN · ES picker is still in the panel.",
@@ -22,6 +36,13 @@
         "Tournaments: the Pilot signs you up for the World, the Amateur and the Showdown as soon as registration opens (Routine tab)."
       ],
       "es": [
+        "La compra automática del Mercado ahora va por tu dinero: compra lo que da ganancia mientras el stock del radar más la compra no pase de la mitad de lo que tienes; al vender, se libera de nuevo. Salió del tope del día.",
+        "Cuando el juego avisa \"Devagar aí — muitas mensagens\" (demasiados mensajes), el radar y el Piloto bajan el ritmo solos y vuelven a subir de a poco.",
+        "La bola tiene en cuenta el saldo: una cuenta con mucho oro usa la Ultra Ball aunque esté subiendo un pokémon débil.",
+        "Reposición para cuenta nueva: el Piloto marca una bola, una poción y un revivir al instante y compra el primer lote en cuanto hay oro (guarda solo el 10% del saldo).",
+        "Las cantidades de la reposición salen de lo que tu cuenta gasta de verdad (mínimo de 1 h, objetivo de 6 h), y la poción es la de menos oro por HP que cura.",
+        "Pestaña Cazar: el oro/h ya descuenta las pociones, y la hunt donde los desmayos quitan más XP de lo que dan queda marcada como riesgo.",
+        "Cazar el meta ya no salta a nadie: prueba cada pokémon del equipo y, sin hunt segura, espera farmeando XP hasta que el entrenador suba de nivel.",
         "La Plateia tampoco abre una sala repetida después de actualizar el Piloto o con la escala de Windows (adopta la ventana que ya está abierta).",
         "Pestaña Cazar: la hunt donde el pokémon muere antes de terminar un abate sale del ranking (ej.: Larvitar Nv 20 en la Ledyba Nv 230), y con \"Evitar riesgo\" las arriesgadas quedan después de las seguras.",
         "La primera vez, el Piloto abre en el idioma del navegador (portugués, inglés o español); el selector PT · EN · ES sigue en el panel.",

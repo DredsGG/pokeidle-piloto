@@ -39,8 +39,8 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 </p>
 
 **Hunting**
-- **Hunt switching.** Ranks every hunt for the Pokémon in the field by XP/h or gold/h (the /hunt model plus what you actually measured there) and always goes to the top one, waiting for a gap in combat.
-- **Restock.** Buys the balls, potions and revives ticked in the game's own automation, at the shop price and within the vault. With **Pick the items for the account** (on in Auto) it keeps exactly one ball, one potion and one revive ticked there and switches them as the account grows: the potion by your team's HP, the revive by cost and the ball by your gold/h, so restock only buys those three. With little gold it brings revives and potions to their minimum before any Poké Ball. Every Center trip heals, and a watchdog brings you back to your hunt if the character is left standing at the Center.
+- **Hunt switching.** Ranks every hunt for the Pokémon in the field by XP/h or gold/h (the /hunt model plus what you actually measured there) and always goes to the top one, waiting for a gap in combat. Gold/h already takes the potions you'd burn off, trainer XP/h takes off the 10% of a level each faint costs, and a hunt where your Pokémon would faint before finishing a single kill is left out, and with **Avoid risk** (on by default) risky hunts are listed after the safe ones.
+- **Restock.** Buys the balls, potions and revives ticked in the game's own automation, at the shop price and within the vault. With **Pick the items for the account** (on in Auto) it keeps exactly one ball, one potion and one revive ticked there and switches them as the account grows: the potion by your team's HP, the revive by cost and the ball by your gold/h and balance (a rich account keeps the Ultra Ball even while leveling a weak Pokémon), so restock only buys those three. The potion is the one with the lowest gold per HP it actually heals (healing past full HP is waste), and the amounts come from what your account really uses: the minimum is 1 hour of use and the target 6 hours, measured from your inventory. A new account gets its items ticked right away and buys the first batch as soon as it has gold (restock keeps only 10% of the balance; the rest of the vault keeps the full reserve). With little gold it brings revives and potions to their minimum before any Poké Ball. Every Center trip heals, and a watchdog brings you back to your hunt if the character is left standing at the Center.
 - **Pokémon Center queue.** Two buttons next to the game's "Go to Pokémon Center": **Queue** presses the game's button at the first gap in combat; **Return** goes, heals and comes back to the same hunt. It never presses "Give up the fight".
 - **Automatic Poké Ball for accounts without VIP.** One gold ball at each fainted wild Pokémon, never faster than the VIP auto-throw (1.3 s), shinies first, never Beast Ball. Locked while VIP is active. Note that the game treats auto-throwing as a VIP benefit.
 - **Comes back by itself.** If the game stops in the tab for 5 minutes (another device took the session, the server restarted), the Piloto reloads the page, waiting while another tab of the same browser is playing.
@@ -53,11 +53,11 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 </p>
 
 - **One team for the field and PvP.** The Team window builds it: your locked Pokémon first, then **the meta species you already own** (your best of each family; Megas count as their base form and a Pupitar counts for Tyranitar). Nothing outside the meta joins the team, so a new account doesn't fill it with weak catches, and the meta the team follows only changes after a species has been out of it for 24 hours (the 5th place of the ladder moves all the time). The same team goes to Ranked with the strongest opening. Team changes happen at the Pokémon Center: it pauses the hunt switch, heals, swaps everyone in the game's own order and goes back to the hunt.
-- **Team rotation.** Each team member fights for one turn (60 min by default) and the one that has gone longest without fighting comes in next; when you turn rotation back on, a new cycle starts with the weakest and leaves the strongest for last. While Hunt the meta runs, rotation is paused and comes back with the hunt switch. With hunt switching on, the swap happens at the Center and the newcomer goes straight to its own best hunt.
+- **Team rotation.** Each team member fights for one turn (60 min by default) and the one that has gone longest without fighting comes in next; a new cycle starts with the weakest and leaves the strongest for last. Hunt the meta pauses the rotation, which comes back together with hunt switching. With hunt switching on, the swap happens at the Center and the newcomer goes straight to its own best hunt.
 - **Turn timer.** A ⏱ button on each row of the game's Team panel shows how long the active Pokémon has been fighting, the time left in its turn, the rotation queue with when each one comes in, and today's turns.
 - **Days in the session clock.** The game's Session panel shows the hunt time in hours only (252:58:16); the Piloto splits it into a days box and the rest in hours (10 days · 12:58:16).
 - **Meta tab.** Reads the Ranked ladder and the players' public profiles to show which species the top 20, or the players in your own bracket, are using, with daily ▲▼ changes and whether you own each one and have it on the team. When the meta shifts you get a small toast, never a pop-up.
-- **Hunt the meta (opt-in).** Freezes the current meta comp, takes your strongest Pokémon to the regular hunt where those species spawn most (never Outland: Outland variants don't evolve), keeps the best catch of each family (including the ones you already had), protects them from any sale, then hands the team to the builder and turns the hunt switch back on.
+- **Hunt the meta (opt-in).** Freezes the current meta comp, takes your strongest Pokémon to the regular hunt where those species spawn most (never Outland: Outland variants don't evolve), keeps the best catch of each family (including the ones you already had); it tries every team member as the hunter, and if no hunt is safe yet it waits, farming XP, until the trainer levels up — it never skips a species that spawns in a hunt; protects them from any sale, then hands the team to the builder and turns the hunt switch back on.
 - **Evolution stones for the team.** When a team member is ready to evolve by stone and you don't have it, the Radar buys **one** from the market (cheapest listing that isn't yours), in gold and through the vault, and the opt-in evolve step uses it.
 
 <p align="center">
@@ -65,7 +65,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 </p>
 
 **Market**
-- **Market radar.** Scans the community market, flags items and Pokémon priced well below their recent sales, and can buy them automatically in gold.
+- **Market radar.** Scans the community market, flags items and Pokémon priced well below their recent sales, and can buy them automatically in gold. Automatic buying follows your money, not a daily cap: it keeps buying what's profitable while the radar's unsold stock plus the new purchase stays under half of what you have (balance + that stock), and the room comes back as things sell.
 - **Automatic resale.** Every 2 minutes it lists, lowers or raises one price, never below cost + 15%.
 - **Automatic Pokémon listing.** Lists Pokémon you don't use at a price backed by 5+ similar sales, paying the market fee through the vault. Your team, locked and training Pokémon, held-item carriers, **shinies and legendaries are never listed**.
 - **Deal alerts with the game's own art:** the Pokémon's animated sprite and the item icon at a crisp integer scale.
@@ -73,6 +73,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 **Daily routine**
 - **Tournaments.** Signs you up for every tournament as soon as registration opens (World and Amateur championships and the Showdown), waiting for the minimum level when there is one; it never cancels a registration.
 - Battle pass claims, XP Share (the furthest-behind team members in empty slots), highest unlocked Outland tier, Ranked queue, Auto Collection kept on Legendary · Shiny · P5+ · the market's minimum grade, and Depot cleaning (it first moves your team, shinies and top-potential Pokémon into the Collection).
+- **Tournaments.** Signs you up for every tournament as soon as registration opens: the monthly World (trainer Lv 300+) and Amateur (Lv 100+), and the weekly Showdown. Registration is free; it never cancels a registration and doesn't touch your team.
 - **Irreversible actions are opt-in:** evolving (never shiny, Outland or Mega) and hatching eggs you own.
 
 **Live bonus with Plateia**
@@ -81,7 +82,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
   <img src="docs/plateia-banner.png" width="60%" alt="Banner on the game's Twitch bonus window: Farm this bonus with Plateia, with an Open the Twitch room button">
 </p>
 
-- If you also use [Plateia](https://github.com/DredsGG/plateia) (Twitch and Kick), opening the game opens its Twitch and/or Kick room in a separate window, once per browser session, for the platforms linked in your game account. It reuses a room window that's already open (also after the extension updates or the browser restores its windows) instead of opening duplicates. The game's own Twitch/Kick bonus windows get an **Open the room** button, or a link to download Plateia if you don't have it.
+- If you also use [Plateia](https://github.com/DredsGG/plateia) (Twitch and Kick), opening the game opens its Twitch and/or Kick room in a separate window, once per browser session, for the platforms linked in your game account. If a room window is already open (even after the browser or the extension restarts or updates), it isn't opened again; only a missing one opens. The game's own Twitch/Kick bonus windows get an **Open the room** button, or a link to download Plateia if you don't have it.
 
 **Support**
 
@@ -89,7 +90,9 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
   <img src="docs/bug-report.png" width="49%" alt="Report a bug card: what happened, what gets attached (nothing from your account), Open on GitHub and Copy">
 </p>
 
+- **Plays nice with the server.** When the game answers "Devagar aí — muitas mensagens" (too many messages), the radar and the Pilot halve their pace on their own and speed back up slowly.
 - **Report bug** opens a GitHub issue pre-filled with a privacy-safe report (versions, modes, health check, recent journal; no nick, no balance). **Check for updates** reads the latest release. Both sit at the bottom of the menu, above the "made by **Dreds** · vX.Y.Z" signature.
+- **Update notice on the game page.** When a newer release exists, a small box in the middle of the game screen shows "New version vX.Y.Z", what changed in your language and an **Update** button that does the right thing for your browser. It comes back each time the game opens until you update; its X hides it until an even newer version. The first-run guide and the "What's new" box after an update show up the same way, without opening the Piloto. They never block the game or the automation and close with X or Esc. (Firefox installs from the signed .xpi update by themselves, so the version notice doesn't show there.)
 - **Health check after every game update:** checks that the game modules and functions the Piloto relies on still exist, and reports what broke instead of failing silently.
 
 ## The vault (`cofre`): the part I'm proudest of
@@ -104,7 +107,7 @@ An automation that spends in-game money needs hard limits more than features. Ev
 
 And under the vault, the WebSocket hook itself enforces:
 
-- **Closed command list.** The pilot can send only 21 game commands, each validated against the game's own format. Anything else is dropped. The game's automation settings (`auto.set`) only accept two changes: turning on the Ranked auto-queue (VIP) and setting exactly one ball, one potion and one revive from the game's own catalog (never Beast or Master Ball); every other automation field is copied from the server's state, never from the request.
+- **Closed command list.** The pilot can send only 25 game commands, each validated against the game's own format. Anything else is dropped. The game's automation settings (`auto.set`) only accept two changes: turning on the Ranked auto-queue (VIP) and setting exactly one ball, one potion and one revive from the game's own catalog (never Beast or Master Ball); every other automation field is copied from the server's state, never from the request.
 - **Absolute block on 20 commands:** gem withdrawal, diamond shop, VIP pass, guild donation, sending coins or trades, chat and DMs, and guild or Pokémon-level changes. Purchases only in `gold`; a gem purchase is refused at the hook.
 - **Hardened against the page:** the allow-list only accepts own keys (`Object.hasOwn`), requests are copied and frozen, and the command type and block list are checked again right before sending. Tests try to swap the vault, forge state and rewrite the send function from the page, and they fail.
 - **One rate limiter for everything:** reads ~2/s, writes 1/s with a burst of 3.
@@ -171,7 +174,7 @@ From a clone of this repo, load the `extension/` folder: it's the same code and 
 
 ## Languages
 
-Portuguese, English and Spanish, with light and dark themes. The first run follows the browser language (anything else falls back to English) and the flag selector at the bottom of the menu switches it. The first-run guide, *What's new* and *New version vX.Y.Z* (with an **Update** button) show up by themselves in the middle of the game page, with no dark overlay: clicking outside goes to the game, X or Esc closes them.
+Portuguese, English and Spanish. On first run the Piloto picks your browser's language (anything else falls back to English); switch any time with the PT · EN · ES buttons at the bottom of the menu. Light and dark themes.
 
 ## Known limitations
 
@@ -219,6 +222,12 @@ node tests/outland-meta.mjs   # Outland variants don't count for the meta and th
 node tests/so-meta.mjs        # only meta Pokémon join the team; the comp it follows changes after 24 h
 node tests/kit.mjs            # one ball, one potion and one revive picked for the account, and the hook accepts only that
 node tests/guia.mjs           # first-run guide on a new install, "What's new" once per version, Esc and X close it
+node tests/aviso-solto.mjs    # guide, What's new and the new-version notice show up by themselves on the game page (new install, simulated update, simulated newer release in PT/EN/ES)
+node tests/idioma-inicial.mjs # first-run language from the browser (pt, en, es; anything else English); a saved choice wins
+node tests/ranking.mjs        # Hunt ranking: a hunt where you faint before one kill is left out (Larvitar Lv 20 vs Ledyba Lv 230); potion cost and faint XP loss
+node tests/conta-nova.mjs     # new account: items ticked right away, first batch bought, only the picked items, 10% of the balance kept
+node tests/torneio.mjs        # tournament sign-up as soon as registration opens, level check, no cancel
+node tests/changelog.mjs extension --conferir   # changelog.json matches the What's new texts
 node tests/hunt.mjs           # hunt switching, portraits, Hunt tab layout
 node tests/centro.mjs         # Pokémon Center queue and return
 node tests/pedra.mjs          # buys one evolution stone, gold only, never twice in a row

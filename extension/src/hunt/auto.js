@@ -17,12 +17,17 @@
   const CHAVE = 'pokeidle-hunt:auto:v1';
   const PADRAO = {
     hunt: { ligado: false, criterio: 'xp', intervaloMin: 30, margemPct: 10, evitarRisco: true, curar: true, conferir: true },
-    repor: { ligado: false, reservaOuro: 5_000_000, intervaloMin: 3, irAoCentro: true, alvos: {}, kitAuto: true },
+    // 1.33 (pedido do André: conta nova não comprava nada): o "Guardar" da reposição era 5 mi, acima
+    // do saldo de quem começa. Agora 0 — o piso é o do cofre (que, para a reposição, nunca passa de
+    // 10% do saldo; ver piloto/cofre.js).
+    repor: { ligado: false, reservaOuro: 0, intervaloMin: 3, irAoCentro: true, alvos: {}, kitAuto: true },
   };
   const ler = () => {
     try {
       const s = JSON.parse(localStorage.getItem(CHAVE)) ?? {};
-      return { hunt: { ...PADRAO.hunt, ...s.hunt }, repor: { ...PADRAO.repor, ...s.repor, alvos: { ...(s.repor?.alvos ?? {}) } }, castigo: s.castigo ?? {}, troca: s.troca ?? null };
+      const repor = { ...PADRAO.repor, ...s.repor, alvos: { ...(s.repor?.alvos ?? {}) } };
+      if (Number(repor.reservaOuro) === 5_000_000) repor.reservaOuro = 0; // o padrão antigo (1.33)
+      return { hunt: { ...PADRAO.hunt, ...s.hunt }, repor, castigo: s.castigo ?? {}, troca: s.troca ?? null };
     } catch { return structuredClone({ ...PADRAO, castigo: {}, troca: null }); }
   };
   let cfg = ler();
@@ -74,7 +79,7 @@
       const ctx = { mod: jogo.mod, especies: jogo.especies, precoItem, hunts: [hunt], consts, eu, bonusLootPct, geo: (s) => PIH.geo?.daHunt(s) ?? null, ritmoMedido: (s) => (chave ? PIH.geo?.ritmoMedido(s, chave) ?? null : null) };
       try {
         const l = PIH.engine.analisar(pk, ctx, { ordem: 'xp', soLiberadas: false }).linhas[0];
-        if (l) out.set(pk.id, { xpTreinadorH: l.inviavel ? 0 : l.xpTreinadorH, xpPokemonH: l.inviavel ? 0 : l.xpPokemonH, ouroH: l.inviavel ? 0 : l.ouroH, kph: l.kph ?? 0, inviavel: !!l.inviavel, risco: l.hitPct ?? null });
+        if (l) out.set(pk.id, { xpTreinadorH: l.inviavel ? 0 : l.xpTreinadorH, xpPokemonH: l.inviavel ? 0 : l.xpPokemonH, ouroH: l.inviavel ? 0 : l.ouroH, kph: l.kph ?? 0, inviavel: !!l.inviavel, risco: l.hitPct ?? null, pocoesH: l.pocoesH ?? 0, mortesH: Number.isFinite(l.mortesH) ? l.mortesH : 0 });
       } catch { /* espécie fora do catálogo: fica de fora */ }
       if (++n % 25 === 0) await new Promise((r) => setTimeout(r, 0)); // não trava a página
     }
@@ -99,7 +104,7 @@
     return PIH.engine.analisar(pk, ctx, { ordem: criterio === 'ouro' ? 'ouro' : 'xp', soLiberadas: true, comPocao: prefs.comPocao ?? true });
   }
   const valorDe = (l, criterio) => (criterio === 'ouro' ? l.ouroH : l.xpPokemonH);
-  const arriscada = (l) => l.umHit || l.mortesH >= 0.2 || l.hitPct >= 0.5;
+  const arriscada = (l) => PIH.engine.arriscada(l);
 
   // ---- a rotina de deslocamento (uma de cada vez) ----------------------------------------
   let rotina = null; // { destino, curar, compras, etapa, desde, tentativas, motivo }
@@ -396,7 +401,7 @@
       const b = (welcome?.catalogoBolas ?? []).find((x) => x.id === id);
       if (b?.compravel && b.priceGold > 0) lista.push({ chave: `b${id}`, kind: 'ball', id, nome: b.nome, preco: b.priceGold, tem: eu.balls?.[id] ?? 0, cat: 'bola' });
     }
-    const itemDe = (id) => jogoCache?.itensPorId?.get(Number(id));
+    const itemDe = itemPorId;
     for (const [ids, cat] of [[a.potionIds, 'pocao'], [a.reviveIds, 'revive']]) {
       for (const id of ids ?? []) {
         const it = itemDe(id);
@@ -405,10 +410,86 @@
         if (it && preco > 0) lista.push({ chave: `i${id}`, kind: 'item', id: Number(id), nome: it.name, preco, tem: eu.items?.[id] ?? 0, cat });
       }
     }
+    // 1.33: com "Escolher os itens pela conta", só compra os três do kit — mesmo que o jogo ainda
+    // esteja com todos marcados (conta nova) ou tenha recusado a troca
+    if (cfg.repor.kitAuto !== false && kitIds) return lista.filter((x) => kitIds.has(x.chave));
     return lista;
   }
   const PADRAO_ALVO = { bola: { min: 1000, alvo: 10000 }, pocao: { min: 200, alvo: 1000 }, revive: { min: 20, alvo: 100 } };
-  const alvoDe = (it) => ({ ...PADRAO_ALVO[it.cat], ...cfg.repor.alvos[it.chave] });
+  // 1.33 (pedido do André): com "Escolher os itens pela conta", as quantidades também vêm da conta:
+  // o mínimo é 1 h do que a conta gasta daquele item e o alvo, 6 h — o gasto MEDIDO no inventário
+  // (o que saiu sem ser venda nem compra) e, sem medida ainda, o do modelo da hunt atual (bolas = um
+  // lançamento por abate com o lançamento automático ligado; poções = dano levado ÷ cura). Conta nova
+  // compra pouco e logo; conta grande compra o que de fato usa. O número que você puser no Manual vale.
+  const PISO_AUTO = { bola: 30, pocao: 20, revive: 3 };
+  function alvoAuto(it) {
+    const taxa = consumoPorHora(it.chave) ?? taxaDoModelo(it.cat);
+    const min = Math.max(PISO_AUTO[it.cat], Math.ceil(taxa));
+    return { min: Math.min(9999, min), alvo: Math.min(9999, Math.max(min * 3, Math.ceil(taxa * 6))), auto: true, taxa };
+  }
+  function taxaDoModelo(cat) {
+    if (cat === 'bola') {
+      const lanca = !!(eu?.automation?.autoBallSemParar || eu?.automation?.autoBallAteCapturar || PIH.captura?.resumo?.()?.ligado);
+      return lanca ? (kphCache.v > 0 ? kphCache.v : 0) : 0;
+    }
+    if (cat === 'pocao') return kphCache.pocoesH || 0;
+    return Math.max(kphCache.mortesH || 0, 0.2);
+  }
+  const alvoDe = (it) => {
+    const meu = cfg.repor.alvos[it.chave];
+    if (meu && (meu.min != null || meu.alvo != null)) return { ...PADRAO_ALVO[it.cat], ...meu };
+    return cfg.repor.kitAuto !== false ? alvoAuto(it) : { ...PADRAO_ALVO[it.cat] };
+  };
+
+  // ---- 1.33: o gasto medido de cada item (o que saiu do inventário enquanto você caçava) ----------
+  // Baldes de 1 h (12 h guardadas): tempo caçando e quanto saiu de cada bola/poção/revive. Subida no
+  // estoque é compra (não conta); descida é gasto. A taxa vale com 30+ min caçando nas últimas 6 h.
+  const CONSUMO_CHAVE = 'pokeidle-hunt:consumo:v1';
+  let consumo = (() => { try { const c = JSON.parse(localStorage.getItem(CONSUMO_CHAVE)); return c && Array.isArray(c.baldes) ? c : { baldes: [], ultimo: {} }; } catch { return { baldes: [], ultimo: {} }; } })();
+  let consumoAmostra = 0;
+  let consumoGravado = 0;
+  const contagens = (e) => {
+    const out = {};
+    for (const [id, q] of Object.entries(e?.balls ?? {})) out[`b${id}`] = Number(q) || 0;
+    for (const [id, q] of Object.entries(e?.items ?? {})) { const n = Number(id); if ((n >= 200 && n <= 206) || pocaoNossa(n)) out[`i${id}`] = Number(q) || 0; }
+    return out;
+  };
+  function registrarConsumo(e, agora = Date.now()) {
+    if (consumoAmostra && agora < consumoAmostra) consumoAmostra = 0; // relógio voltou (teste ou ajuste do sistema)
+    if (!e || agora - consumoAmostra < 20_000) return;
+    const dt = consumoAmostra ? Math.min(agora - consumoAmostra, 120_000) : 0;
+    consumoAmostra = agora;
+    const hora = Math.floor(agora / 3_600_000);
+    let b = consumo.baldes[consumo.baldes.length - 1];
+    if (!b || b.h !== hora) { b = consumo.baldes.find((x) => x.h === hora); if (!b) { b = { h: hora, ms: 0, q: {} }; consumo.baldes.push(b); consumo.baldes.sort((x, y) => x.h - y.h); } consumo.baldes = consumo.baldes.filter((x) => Math.abs(hora - x.h) < 12); }
+    const cacando = !!e.huntSlug && !e.noCentro;
+    if (cacando) b.ms += dt;
+    const agoraQ = contagens(e);
+    for (const [k, q] of Object.entries(agoraQ)) {
+      const antes = consumo.ultimo[k];
+      if (cacando && antes != null && q < antes) b.q[k] = (b.q[k] || 0) + (antes - q);
+    }
+    consumo.ultimo = agoraQ;
+    if (agora - consumoGravado > 5 * 60_000) { consumoGravado = agora; try { localStorage.setItem(CONSUMO_CHAVE, JSON.stringify(consumo)); } catch { /* sem armazenamento */ } }
+  }
+  function consumoPorHora(chave, agora = Date.now()) {
+    const hora = Math.floor(agora / 3_600_000);
+    const janela = consumo.baldes.filter((x) => x.h <= hora && hora - x.h < 6);
+    const ms = janela.reduce((s, x) => s + x.ms, 0);
+    if (ms < 30 * 60_000) return null;
+    return janela.reduce((s, x) => s + (Number(x.q[chave]) || 0), 0) / (ms / 3_600_000);
+  }
+  // as poções do jogo que não estão no items.json (a Golden Potion vem no welcome, com cura em %)
+  const pocaoNossa = (id) => (welcome?.itensNossos ?? []).some((i) => Number(i?.id) === Number(id) && i.category === 'heal' && Number(i.priceGold) > 0);
+  const itemPorId = (id) => jogoCache?.itensPorId?.get(Number(id)) ?? (welcome?.itensNossos ?? []).find((i) => Number(i?.id) === Number(id)) ?? null;
+  // a poção que a conta usa agora (a primeira marcada nas Automações) — para o modelo da aba Caçar
+  PIH.pocaoDaConta = () => {
+    const a = eu?.automation;
+    const ids = Array.isArray(a?.potionIds) ? a.potionIds : [];
+    const it = ids.map(itemPorId).find((i) => i && Number(i.priceGold) > 0 && (Number(i.healAmount) > 0 || Number(i.healPct) > 0));
+    if (!it) return null;
+    return { id: it.id, cura: Number(it.healAmount) || 0, curaPct: Number(it.healPct) || 0, preco: Number(it.priceGold), limiar: Number.isFinite(Number(a.hpLimiar)) ? Number(a.hpLimiar) : 0.3 };
+  };
 
   /**
    * O que está abaixo do mínimo, com a quantidade que cabe no ouro acima da reserva.
@@ -448,64 +529,103 @@
   // ---- 1.31: a bola, a poção e o revive escolhidos pela conta (pedido do André) ----------------
   // Com a Reposição ligada, o Piloto deixa marcado nas Automações do jogo UM item de cada — uma
   // bola, uma poção e um revive — e troca conforme a conta sobe, para a reposição só comprar esses.
-  // - Poção: a maior que cabe no HP que falta quando a poção do jogo dispara (HP máximo médio do
-  //   time × (1 − limiar)); assim não sobra cura e o ouro por HP é o menor possível.
-  // - Revive: o Revive (volta com 50%); o Max Revive só quando completar os outros 50% com a poção
-  //   escolhida sairia mais caro que a diferença de preço.
-  // - Bola: a de maior captura que custa até 3% do ouro/h medido por bola lançada (um lançamento por
-  //   abate); conta nova (sem medida) fica na mais barata. Beast e Master Ball nunca.
-  // Só troca quando a mesma escolha aparece duas vezes seguidas (10 min) e no máximo a cada 30 min.
+  // São itens da CONTA (o mesmo para o time inteiro): o melhor geral, não o de um pokémon.
+  // 1.33 (pedido do André, "o melhor para todos, pela progressão da conta e do dinheiro"):
+  // - Poção: a de menor ouro por HP que REALMENTE cura. A poção do jogo entra quando o HP cai até o
+  //   limiar e cura até encher: o que passa do HP que falta (HP médio do time × (1 − limiar)) é
+  //   desperdício. Conta com a Golden Potion (cura em %) quando o jogo a vende em ouro. E só entra o
+  //   que a conta consegue comprar: o primeiro lote (o mínimo) tem de caber no ouro livre do cofre —
+  //   senão desce para a mais barata que cabe.
+  // - Revive: o Revive; o Max Revive só quando completar o resto do HP com a poção escolhida sairia
+  //   mais caro que a diferença de preço.
+  // - Bola: a de maior eficiência que cabe no orçamento por lançamento — o maior entre 5% do ouro/h
+  //   e 2% do saldo por dia, dividido pelos lançamentos/h (1.33.2). Beast e Master Ball nunca.
+  // Troca quando a mesma escolha aparece duas vezes seguidas (10 min) e no máximo a cada 30 min. A
+  // PRIMEIRA vez (o jogo vem com todas as poções e revives marcados) aplica na hora.
   const KIT_ESTAVEL_MS = 10 * 60_000;
   const KIT_INTERVALO_MS = 30 * 60_000;
   let kitVisto = null;
   let kitTrocadoEm = 0;
-  let kphCache = { em: 0, v: 0 };
+  let kphCache = { em: 0, v: 0, pocoesH: 0, mortesH: 0 };
+  // 1.33: o kit acabou de ser pedido e o jogo ainda não confirmou — a reposição espera (senão compra
+  // para TODOS os itens que o jogo marca de fábrica numa conta nova, até Max Revive)
+  let kitPedido = null;
+  let kitIds = null; // as chaves do último kit escolhido (b<id>, i<id>)
   function escolherKit(teste = {}) {
     if (!eu || !welcome || !jogoCache) return null;
     const time = (eu.pokemons ?? []).filter((p) => p.slot != null && Number(p.maxHp) > 0);
     const hpMedio = time.length ? time.reduce((s, p) => s + Number(p.maxHp), 0) / time.length : 0;
-    const limiar = Number.isFinite(Number(eu.automation?.hpLimiar)) ? Math.min(0.95, Math.max(0.05, Number(eu.automation.hpLimiar))) : 0.5;
+    const limiar = Number.isFinite(Number(eu.automation?.hpLimiar)) ? Math.min(0.95, Math.max(0.05, Number(eu.automation.hpLimiar))) : 0.3;
     const itens = [...(jogoCache.itensPorId?.values() ?? [])];
     const vende = (i) => Number(i.npcPrice) > 0 && Number(i.priceGold) > 0;
-    const pocoes = itens.filter((i) => i.category === 'heal' && vende(i) && Number(i.healAmount) > 0).sort((a, b) => a.healAmount - b.healAmount);
+    const nossas = (welcome.itensNossos ?? []).filter((i) => i && i.category === 'heal' && Number(i.priceGold) > 0 && Number(i.healPct) > 0);
+    const pocoes = [...itens.filter((i) => i.category === 'heal' && vende(i) && Number(i.healAmount) > 0), ...nossas];
     const revives = itens.filter((i) => i.category === 'revive' && vende(i) && Number(i.revivePct) > 0).sort((a, b) => a.revivePct - b.revivePct);
     const bolas = (welcome.catalogoBolas ?? []).filter((b) => b && b.compravel !== false && Number(b.priceGold) > 0 && !/beast|master/i.test(String(b.nome || ''))).sort((a, b) => a.priceGold - b.priceGold);
     if (!pocoes.length || !revives.length || !bolas.length) return null;
-    const falta = hpMedio * (1 - limiar);
-    const pocao = hpMedio ? ([...pocoes].reverse().find((i) => i.healAmount <= falta) ?? pocoes[0]) : pocoes[0];
-    const porHp = Number(pocao.priceGold) / Number(pocao.healAmount);
+    const falta = Math.max(1, hpMedio * (1 - limiar));
+    const cura = (i) => (Number(i.healPct) > 0 ? Number(i.healPct) * hpMedio : Number(i.healAmount));
+    const util = (i) => Math.max(1, Math.min(cura(i), falta));
+    // ouro livre para a reposição agora (o que o cofre deixa); o teste pode passar outro
+    const livre = teste.livre ?? Math.min((Number(eu.gold) || 0) - (Number(cfg.repor.reservaOuro) || 0), PIH.cofre ? PIH.cofre.livre('repor') : Infinity);
+    const cabe = (i, cat) => livre >= PISO_AUTO[cat] * Number(i.priceGold);
+    const porUtil = (i) => Number(i.priceGold) / util(i);
+    const ordenadas = [...pocoes].sort((a, b) => porUtil(a) - porUtil(b) || cura(b) - cura(a));
+    const baratas = [...pocoes].sort((a, b) => a.priceGold - b.priceGold);
+    const pocao = hpMedio ? (ordenadas.find((i) => cabe(i, 'pocao')) ?? baratas[0]) : baratas[0];
+    const porHp = Number(pocao.priceGold) / util(pocao);
     const reviveBase = revives[0];
     let revive = reviveBase;
     for (const rv of revives.slice(1)) {
       const extraHp = (Number(rv.revivePct) - Number(reviveBase.revivePct)) * hpMedio;
-      if (extraHp * porHp > Number(rv.priceGold) - Number(reviveBase.priceGold)) revive = rv;
+      if (extraHp * porHp > Number(rv.priceGold) - Number(reviveBase.priceGold) && cabe(rv, 'revive')) revive = rv;
     }
+    // 1.33.2 (o André: "a conta ficou alta e marcou Super Ball em vez de Ultra"): a bola olhava só o
+    // ouro/h medido, que despenca quando o ativo é um pokémon fraco subindo de nível (Larvitar no
+    // Pichu: ~5 mil/h), mesmo com 160 mi no saldo. Agora o orçamento das bolas é o MAIOR entre 5% do
+    // ouro/h e 2% do saldo por dia, dividido pelos lançamentos por hora (o gasto medido de bolas;
+    // sem medida, os abates/h da hunt com o lançamento automático ligado). Dentro do orçamento, a de
+    // maior eficiência (Ultra 4, Super 3, Great 2, Poke 1 no catálogo de 27/10/2026).
     const ouroH = teste.ouroH ?? (Number(PIH.cofre?.resumo?.()?.ouroH) || 0);
+    const saldo = teste.saldo ?? (Number(eu.gold) || 0);
     const kph = kphCache.v > 0 ? kphCache.v : 400; // abates/h do ativo nesta hunt (modelo do /hunt)
-    const porBola = ouroH > 0 ? (ouroH * 0.05) / Math.max(1, kph) : 0;
-    const daBolsa = bolas.filter((b) => b.priceGold <= porBola);
+    const lanca = !!(eu.automation?.autoBallSemParar || eu.automation?.autoBallAteCapturar || PIH.captura?.resumo?.()?.ligado);
+    const medidas = bolas.map((b) => consumoPorHora(`b${b.id}`)).filter((x) => x != null);
+    const lancamentosH = teste.lancamentosH ?? (medidas.length ? Math.max(1, medidas.reduce((a, b) => a + b, 0)) : (lanca ? kph : 1));
+    const orcamentoH = Math.max(ouroH * 0.05, (saldo * 0.02) / 24);
+    const porBola = orcamentoH / Math.max(1, lancamentosH);
+    const daBolsa = bolas.filter((b) => b.priceGold <= porBola && cabe(b, 'bola'));
     const bola = daBolsa.length ? daBolsa.sort((a, b) => (Number(b.catchRate) || 0) - (Number(a.catchRate) || 0) || b.priceGold - a.priceGold)[0] : bolas[0];
-    return { bola, pocao, revive, hpMedio: Math.round(hpMedio), porBola: Math.round(porBola) };
+    return { bola, pocao, revive, hpMedio: Math.round(hpMedio), porBola: Math.round(porBola), lancamentosH: Math.round(lancamentosH), limiar };
   }
   async function conferirKit(forcar = false) {
     if (!cfg.repor.ligado || cfg.repor.kitAuto === false || !eu || !PIH.cofre?.liberado('hunt')) return null;
     if (Date.now() - kphCache.em > 10 * 60_000 && eu.huntSlug && eu.activeId != null) {
       kphCache.em = Date.now();
-      try { const at = (eu.pokemons ?? []).find((p) => p.id === eu.activeId); const m = at ? await farmDe([at], eu.huntSlug) : null; const v = m && m.get(at.id); if (v && v.kph > 0) kphCache.v = v.kph; } catch { /* fica o anterior */ }
+      try {
+        const at = (eu.pokemons ?? []).find((p) => p.id === eu.activeId);
+        const m = at ? await farmDe([at], eu.huntSlug) : null;
+        const v = m && m.get(at.id);
+        if (v && v.kph > 0) kphCache = { ...kphCache, v: v.kph, pocoesH: v.pocoesH || 0, mortesH: v.mortesH || 0 };
+      } catch { /* fica o anterior */ }
     }
     const k = escolherKit();
     if (!k) return null;
+    kitIds = new Set([`b${k.bola.id}`, `i${k.pocao.id}`, `i${k.revive.id}`]);
     const a = eu.automation ?? {};
     const igual = (ids, id) => Array.isArray(ids) && ids.length === 1 && Number(ids[0]) === Number(id);
     if (igual(a.ballIds, k.bola.id) && igual(a.potionIds, k.pocao.id) && igual(a.reviveIds, k.revive.id)) { kitVisto = null; return k; }
     const chave = `${k.bola.id}/${k.pocao.id}/${k.revive.id}`;
     const agora = Date.now();
-    if (!forcar) {
+    // a primeira vez (conta nova vem com tudo marcado, ou um item só não está marcado): na hora
+    const primeira = !kitTrocadoEm && !(igual(a.potionIds, a.potionIds?.[0]) && igual(a.reviveIds, a.reviveIds?.[0]) && igual(a.ballIds, a.ballIds?.[0]));
+    if (!forcar && !primeira) {
       if (!kitVisto || kitVisto.chave !== chave) { kitVisto = { chave, em: agora }; return k; }
       if (agora - kitVisto.em < KIT_ESTAVEL_MS || agora - kitTrocadoEm < KIT_INTERVALO_MS) return k;
     }
     kitTrocadoEm = agora;
     kitVisto = null;
+    kitPedido = { em: agora, ids: [`b${k.bola.id}`, `i${k.pocao.id}`, `i${k.revive.id}`] };
     PIH.pedir({ t: 'auto.set', ballIds: [k.bola.id], potionIds: [k.pocao.id], reviveIds: [k.revive.id] }, 'hunt');
     anotar(`automações do jogo: ${k.bola.nome}, ${k.pocao.name} e ${k.revive.name} (um de cada, pela conta: HP médio ${nf.format(k.hpMedio)}${k.porBola ? `, até ${nf.format(k.porBola)} de ouro por bola` : ''})`, 'ok');
     return k;
@@ -517,6 +637,13 @@
     ultimaReposicao = Date.now();
     await carregarCatalogo();
     try { await conferirKit(forcar); } catch (err) { anotar(`erro ao escolher os itens: ${err.message}`, 'erro'); }
+    if (kitPedido) {
+      const a = eu?.automation ?? {};
+      const marcados = new Set([...(a.ballIds ?? []).map((id) => `b${id}`), ...(a.potionIds ?? []).map((id) => `i${id}`), ...(a.reviveIds ?? []).map((id) => `i${id}`)]);
+      const confirmou = marcados.size === 3 && kitPedido.ids.every((x) => marcados.has(x));
+      if (!confirmou && Date.now() - kitPedido.em < 60_000) { setTimeout(() => { ultimaReposicao = 0; }, 4000); return; }
+      kitPedido = null;
+    }
     const lista = comprasPendentes();
     if (!lista.length) { if (forcar) anotar('reposição: nada abaixo do mínimo (ou ouro só até a reserva)'); return; }
     if (precisaCentro || eu?.noCentro) {
@@ -575,7 +702,7 @@
     centroDesde = agora;
     iniciarRotina({ destino: ultimaHunt, curar: true, compras: comprasPendentes(), motivo: `parado no Centro: curando e voltando para ${nomeHunt(ultimaHunt)}` });
   }
-  PIH.on('estado', (e) => { eu = e; if (naHunt()) ultimaHunt = e.huntSlug; notarMudanca(); passo(); });
+  PIH.on('estado', (e) => { eu = e; if (naHunt()) ultimaHunt = e.huntSlug; notarMudanca(); passo(); try { registrarConsumo(e); } catch { /* sem medida */ } });
   setInterval(() => {
     try {
       passo();
@@ -680,11 +807,11 @@
         ${K.mini('auto:hunt.evitarRisco', h.evitarRisco, 'Evitar risco', 'Fora hunts com 1 hit, mortes estimadas ou golpe que tira 50%+ do HP', trava)}
         ${K.acao('Analisar agora', 'data-acao="testar-hunt"', 'cacar', trava)}` : '' })
       + K.linha({ icone: 'repor', nome: 'Reposição', alvo: 'auto:repor.ligado', on: p.ligado, trava, status: stRepor,
-        dica: 'Repõe as bolas, poções e revives marcados nas Automações do jogo, sempre dentro do cofre. Com "Escolher os itens pela conta" (ligado no Auto), o Piloto deixa marcado um de cada (uma bola, uma poção e um revive) e troca conforme a conta sobe: a poção pelo HP do time, o revive pelo custo e a bola pelo ouro/h.',
+        dica: 'Repõe as bolas, poções e revives marcados nas Automações do jogo, sempre dentro do cofre. Com "Escolher os itens pela conta" (ligado no Auto), o Piloto deixa marcado um de cada (uma bola, uma poção e um revive) e troca conforme a conta e o ouro sobem: a poção de menor ouro por HP que cura de verdade, o revive pelo custo e a bola pelo ouro/h e pelo saldo. As quantidades também vêm da conta: o mínimo é 1 h do que você gasta de cada item e o alvo, 6 h. Conta nova compra o primeiro lote assim que tiver o ouro.',
         ajustes: manual ? `${K.fcampo('Guardar (ouro)', K.numero('auto:repor.reservaOuro', p.reservaOuro, 0, null, 100000, trava), 'Nunca gasta abaixo disso')}
           ${K.fcampo('A cada (min)', K.numero('auto:repor.intervaloMin', p.intervaloMin, 1, 60, 1, trava))}
           ${K.mini('auto:repor.irAoCentro', p.irAoCentro, 'Ir ao Centro', 'Se o jogo só vender no Centro: vai, compra, cura e volta', trava)}
-          ${K.mini('auto:repor.kitAuto', p.kitAuto !== false, 'Escolher os itens pela conta', 'Deixa marcado nas Automações do jogo uma bola, uma poção e um revive, e troca conforme a conta sobe', trava)}
+          ${K.mini('auto:repor.kitAuto', p.kitAuto !== false, 'Escolher os itens pela conta', 'Deixa marcado nas Automações do jogo uma bola, uma poção e um revive, troca conforme a conta sobe e compra pelo que a conta gasta', trava)}
           ${K.acao('Conferir agora', 'data-acao="testar-repor"', 'repor', trava)}
           <div class="plt-f-largo">${tabela}</div>` : '' });
   }
@@ -745,5 +872,5 @@
     if (m?.repor) Object.assign(cfg.repor, { ligado: !!m.repor.ligado });
     gravar();
   }
-  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, irAoCentroEFicar, liberarCentro, melhorHuntPara, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { comprasPendentes, itensVigiados, escolherKit, conferirKit, cfg: () => cfg, passo, rotina: () => rotina, vigiaCentro, centro: () => ({ ultimaHunt, centroDesde, centroFalhou }), forcarCentro: (o) => { if ('centroDesde' in o) centroDesde = o.centroDesde; if ('mexeuEm' in o) mexeuEm = o.mexeuEm; } } };
+  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, irAoCentroEFicar, liberarCentro, melhorHuntPara, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { alvoAuto, consumoPorHora, registrarConsumo, consumo: () => consumo, kphCache: () => kphCache, comprasPendentes, itensVigiados, escolherKit, conferirKit, cfg: () => cfg, passo, rotina: () => rotina, vigiaCentro, centro: () => ({ ultimaHunt, centroDesde, centroFalhou }), forcarCentro: (o) => { if ('centroDesde' in o) centroDesde = o.centroDesde; if ('mexeuEm' in o) mexeuEm = o.mexeuEm; } } };
 })(globalThis);

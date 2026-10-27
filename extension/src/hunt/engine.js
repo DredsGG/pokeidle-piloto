@@ -55,6 +55,11 @@
     aoeMaxEngajados: 15,
   };
 
+  // A curva de XP do jogo (`xpTotalParaNivel`, a mesma de hunt/nivel.js): o desmaio cobra 10% do XP
+  // do nível ATUAL do treinador (Pokepédia > Desmaiar e curar), a não ser com o Boost dos Atrasados.
+  const xpTotal = (L) => (L <= 1 ? 0 : Math.round((50 / 3) * (L ** 3 - 6 * L ** 2 + 17 * L - 12)));
+  const PERDA_DESMAIO = 0.1;
+
   /** O pokémon tem o disco AoE aplicado? (mesma leitura do selo "AoE" do jogo) */
   const temAoe = (pk) => {
     const v = pk?.tmAoe ?? pk?.tm_aoe;
@@ -225,25 +230,46 @@
     return luta / hps.length;
   }
 
-  /** O que o selvagem faz com você: dano por segundo e o pior golpe (rolagem máxima). */
+  /**
+   * O que o selvagem faz com você: dano por segundo e o pior golpe (rolagem máxima).
+   * 1.33 (auditoria): o selvagem segue a mesma regra de luta do seu pokémon (Pokepédia > Combate):
+   * a cada ataque, o golpe de maior dano entre os que já recarregaram; sem nenhum pronto, a
+   * Investida; intervalo mínimo de 1,4 s entre ataques dele. Antes o modelo aplicava a média de
+   * TODOS os golpes a cada 1,4 s, como se nada tivesse recarga — o dano por segundo saía ~1,5× maior
+   * e, com o gasto de poção no ouro/h, isso pesaria no ranking. ⚠️ a Pokepédia descreve a regra para
+   * "o pokemon"; que o servidor use a mesma para o selvagem é a leitura mais provável, não confirmada.
+   */
   function ameacaDoSelvagem(esp, nivel, pk, ef, ctx) {
     const st = statsSelvagem(esp, nivel);
     const tiposPk = pk.tipos;
     const tiposEsp = tiposDe(esp);
     const multDano = ctx.consts.multDanoSelvagem ?? 1.8;
-    const golpes = (esp.attacks ?? []).filter((a) => (a.learnLevel ?? 1) <= nivel);
-    const danos = golpes.map((a) => {
+    const comSpeed = (cd) => (ctx.mod?.cooldown?.cooldownGolpeComSpeed ? ctx.mod.cooldown.cooldownGolpeComSpeed(cd, esp.baseSpeed, REGRAS.ivSelvagemMedio) : cd);
+    const golpes = (esp.attacks ?? []).filter((a) => (a.learnLevel ?? 1) <= nivel).map((a) => {
       const fisico = a.category !== 'SPECIAL';
-      return dano(nivel, Math.max(REGRAS.poderMinimo, a.power), fisico ? st.atk : st.spAtk,
+      const d = dano(nivel, Math.max(REGRAS.poderMinimo, a.power), fisico ? st.atk : st.spAtk,
         fisico ? pk.stats.def : pk.stats.spDef, tiposEsp.includes(a.type), ef(a.type, tiposPk[0], tiposPk[1]));
-    });
+      return { d, cdS: Math.max(0.1, (Number(comSpeed(a.cooldownMs)) || 0) / 1000) };
+    }).filter((g) => g.d > 0).sort((a, b) => b.d - a.d);
     const tipoInv = tipoDaInvestida(tiposEsp, ef, tiposPk);
     const inv = dano(nivel, REGRAS.investidaPower, st.atk, pk.stats.def, true, ef(tipoInv, tiposPk[0], tiposPk[1]));
-    const media = danos.length ? (danos.reduce((s, x) => s + x, 0) / danos.length) * 0.92 + inv * 0.08 : inv;
+    const cdInv = cdPeloIv(REGRAS.investidaCdMs, REGRAS.ivSelvagemMedio) / 1000;
+    // 120 s de luta, do começo (tudo pronto): o selvagem fica muito mais tempo em você do que isso só
+    // nos abates longos, e aí o ritmo já é o de recarga
+    const pronto = golpes.map(() => 0);
+    let t = 0, proxInv = 0, total = 0, hits = 0;
+    while (t < 120) {
+      let i = -1;
+      for (let j = 0; j < golpes.length; j++) if (pronto[j] <= t) { i = j; break; }
+      if (i >= 0) { total += golpes[i].d; pronto[i] = t + golpes[i].cdS; hits++; t += REGRAS.gapSelvagemS; }
+      else if (inv > 0 && proxInv <= t) { total += inv; proxInv = t + cdInv; hits++; t += REGRAS.gapSelvagemS; }
+      else { let prox = inv > 0 ? proxInv : Infinity; for (const p of pronto) if (p < prox) prox = p; if (!Number.isFinite(prox)) break; t = Math.max(t + 0.05, prox); }
+    }
+    const media = hits ? total / hits : inv;
     return {
-      dps: media * multDano / REGRAS.gapSelvagemS,
+      dps: (t > 0 ? total / t : 0) * multDano,
       hitMedio: media * multDano,
-      hitMax: Math.max(inv, ...danos) / REGRAS.randMedio * multDano,
+      hitMax: Math.max(inv, ...golpes.map((g) => g.d)) / REGRAS.randMedio * multDano,
     };
   }
 
@@ -403,6 +429,29 @@
     const multPk = opcoes.bonusXp?.pokemon ?? 1;
     const multTr = opcoes.bonusXp?.treinador ?? 1;
 
+    // 1.33 (pedido do André): o gasto REAL de poção. A poção do jogo entra quando o HP cai até o
+    // limiar (slider das Automações; padrão 30%) e cura um valor fixo (ou % do HP, a Golden Potion):
+    // cada uma rende no máximo o que falta até o HP cheio. Poções por abate = dano levado no abate ÷
+    // cura que rende; o custo sai do ouro/h. A poção é a da CONTA (a que está marcada no jogo).
+    let pocoesH = 0, custoPocaoH = 0, curaEf = 0;
+    const poc = opcoes.comPocao ? opcoes.pocao : null;
+    if (poc && (Number(poc.cura) > 0 || Number(poc.curaPct) > 0)) {
+      const lim = Math.min(1, Math.max(0.1, Number(poc.limiar) || 0.3));
+      const cura = Number(poc.curaPct) > 0 ? Number(poc.curaPct) * hpPk : Number(poc.cura);
+      curaEf = Math.max(1, Math.min(cura, Math.max(0.1, 1 - lim) * hpPk));
+      pocoesH = (danoPorAbate / curaEf) * kphEf;
+      custoPocaoH = pocoesH * (Number(poc.preco) || 0);
+    }
+    // 1.33: o XP do treinador que o desmaio leva (10% do nível atual por desmaio; ⚠️ o modelo conta
+    // cada morte do ativo — com Revive automático o time quase nunca cai inteiro, então é o teto).
+    const eu = ctx.eu ?? {};
+    const nivelTr = Number(eu.level) || 0;
+    const at = eu.loja?.atrasados;
+    const semPerda = !!(at && Number(at.mult) > 1 && nivelTr < (Number(at.alvo) || 0));
+    const xpPerdidoH = !semPerda && nivelTr > 0 && mortesH > 0 ? mortesH * PERDA_DESMAIO * (xpTotal(nivelTr + 1) - xpTotal(nivelTr)) : 0;
+    const ouroBrutoH = kphEf * (ouroKill + lootKill);
+    const xpTrH = kphEf * xpKill * multTr;
+
     return {
       ...base,
       inviavel: false,
@@ -412,8 +461,14 @@
       aoe: modoAoe, engajados,
       _cicloS: cicloS, _limiteAoe: limiteAoe(dists, h),
       xpPokemonH: kphEf * xpKill * multPk,
-      xpTreinadorH: kphEf * xpKill * multTr,
-      ouroH: kphEf * (ouroKill + lootKill),
+      xpTreinadorH: xpTrH - xpPerdidoH,
+      xpTreinadorBrutoH: xpTrH, xpPerdidoH,
+      ouroH: ouroBrutoH - custoPocaoH,
+      ouroBrutoH, pocoesH, custoPocaoH, curaPocao: curaEf,
+      // perde mais XP de treinador nos desmaios do que ganha; ou gasta mais em poção do que a hunt
+      // rende e o saldo não aguenta um dia assim (conta grande paga do bolso; conta nova quebraria)
+      perdeXp: xpPerdidoH > 0 && xpTrH - xpPerdidoH < 0,
+      prejuizo: custoPocaoH > 0 && ouroBrutoH - custoPocaoH < 0 && (Number(eu.gold) || 0) < (custoPocaoH - ouroBrutoH) * 24,
       ouroKill, lootKill, xpKill,
     };
   }
@@ -448,6 +503,8 @@
    */
   function analisar(pk, ctx, opcoes = {}) {
     const op = { comPocao: true, ordem: 'xp', soLiberadas: true, ...opcoes };
+    // a poção da conta (marcada nas Automações do jogo): quem chama pode passar outra
+    if (op.pocao === undefined) { try { op.pocao = PIH.pocaoDaConta ? PIH.pocaoDaConta() : null; } catch { op.pocao = null; } }
     const esp = ctx.especies.get(pk.speciesId);
     if (!esp) throw new Error(`espécie ${pk.speciesId} (${pk.nome}) não está no catálogo`);
     const stats = pk.stats ?? null;
@@ -485,5 +542,7 @@
     };
   }
 
-  PIH.engine = { analisar, REGRAS, MEDIDO, _interno: { dano, statsSelvagem, segundosPorAbate, abatesPorHora, abatesPorHoraAoe, golpesDoPokemon, temAoe, bonusXp, quantis } };
+  // 1.33: um critério de risco só, para a aba Caçar, a Troca de hunt, o rodízio e o Caçar o meta.
+  const arriscada = (l) => !!l && (l.umHit || l.mortesH >= 0.2 || l.hitPct >= 0.5 || l.perdeXp || l.prejuizo);
+  PIH.engine = { analisar, arriscada, REGRAS, MEDIDO, _interno: { xpTotal, dano, statsSelvagem, segundosPorAbate, abatesPorHora, abatesPorHoraAoe, golpesDoPokemon, temAoe, bonusXp, quantis } };
 })(globalThis);

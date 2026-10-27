@@ -55,7 +55,27 @@
 
   let welcome = null;
   let eu = null;
-  PIH.on('welcome', (m) => { welcome = m; });
+  PIH.on('welcome', (m) => { welcome = m; guardarCatalogos(m); });
+  // 1.33.1: um retrato dos catálogos que o jogo manda no welcome (bolas, categorias do Mercado e os
+  // itens próprios do jogo), no localStorage do pokeidle.io. Serve para conferir as regras do Piloto
+  // (bola, poção, categorias do radar) com os números reais SEM abrir o /app — a página /terms lê o
+  // mesmo localStorage. Só catálogo do jogo: nada da conta.
+  function guardarCatalogos(m) {
+    try {
+      const pega = (o, ks) => Object.fromEntries(ks.filter((k) => o && o[k] !== undefined).map((k) => [k, o[k]]));
+      const merc = (m && m.mercado && Array.isArray(m.mercado.catalogo)) ? m.mercado.catalogo : [];
+      const cats = {};
+      for (const c of merc) if (c && c.categoria) cats[c.categoria] = (cats[c.categoria] || 0) + 1;
+      localStorage.setItem('piloto:diag:catalogo', JSON.stringify({
+        em: Date.now(),
+        versao: PIH.versaoDoJogo ? PIH.versaoDoJogo() : null,
+        bolas: (m.catalogoBolas || []).map((b) => pega(b, ['id', 'nome', 'priceGold', 'priceGems', 'compravel', 'catchRate', 'eficiencia'])),
+        categoriasMercado: cats,
+        mercado: merc.map((c) => [Number(c.id), String(c.nome || ''), String(c.categoria || '')]),
+        nossos: (m.itensNossos || []).map((i) => pega(i, ['id', 'name', 'category', 'priceGold', 'npcPrice', 'healAmount', 'healPct', 'revivePct'])),
+      }));
+    } catch { /* sem espaço: fica sem o retrato */ }
+  }
   PIH.on('estado', (e) => { eu = e; });
 
   const ler = () => { try { return JSON.parse(localStorage.getItem(CHAVE) || 'null') || {}; } catch { return {}; } };

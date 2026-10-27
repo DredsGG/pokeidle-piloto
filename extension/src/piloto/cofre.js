@@ -134,6 +134,29 @@
 
   // ---- as contas ------------------------------------------------------------------------------
   const reserva = () => Math.max(Number(s.cfg.reservaMin) || 0, (Number(s.cfg.horasReserva) || 0) * s.ouroH);
+  // 1.33 (pedido do André: "conta nova não compra nada no começo"): a reserva de 5 mi era maior que
+  // o saldo de quem começa, e a reposição (bola, poção, revive — sem isso o pokémon morre e a caça
+  // para) nunca comprava. Para a REPOSIÇÃO o piso é o menor entre a reserva e 10% do saldo: conta
+  // nova compra o primeiro lote; conta grande continua com a reserva inteira (10% do saldo passa dela).
+  // 1.33.2 (o André: "se eu tenho dinheiro compra e revende; o automático é pelo dinheiro da conta"):
+  // a compra automática do Mercado não usa mais o teto do DIA (que somava o que o radar comprava e
+  // já revendia: com 160 mi no saldo ela parava em ~23 mi e uma pedra 29% abaixo ficava só no aviso).
+  // O limite agora é o capital em giro: o que o radar comprou e ainda não vendeu (a custo) mais a
+  // compra nova não passa de METADE do que você tem (saldo + esse estoque). Vendeu, a vaga volta.
+  // A reserva continua valendo. Sem o número do estoque ainda, conta como estoque o que o Mercado
+  // gastou hoje (o lado seguro).
+  const GIRO_MAX = 0.5;
+  let estoqueRadar = null; // { valor, em } — vem do radar (o mesmo "Em estoque" da aba Lucro)
+  document.addEventListener('piloto:radar-estoque', (ev) => {
+    try { const d = JSON.parse(ev.detail); const v = Number(d && d.valor); if (Number.isFinite(v) && v >= 0) estoqueRadar = { valor: v, em: Date.now() }; } catch { /* nada */ }
+  });
+  const estoqueAgora = () => (estoqueRadar && Date.now() - estoqueRadar.em < 30 * 60_000 ? estoqueRadar.valor : Number(s.gasto.mercado) || 0);
+  function livreDoGiro() {
+    const ouro = Number(eu && eu.gold) || 0;
+    const est = estoqueAgora();
+    return GIRO_MAX * (ouro + est) - est - pendente();
+  }
+  const reservaDe = (categoria) => (categoria === 'repor' ? Math.min(reserva(), Math.max(0, 0.1 * (Number(eu && eu.gold) || 0))) : reserva());
   function tetoDia() {
     virarDia();
     if (s.cfg.modo === 'fixo') return Number(s.cfg.tetoFixoDia) || 0;
@@ -181,9 +204,14 @@
       if (pedido.moeda && pedido.moeda !== 'gold') return { ok: false, motivo: 'só ouro' };
       const ouro = Number(eu && eu.gold);
       if (!Number.isFinite(ouro)) return { ok: false, motivo: 'saldo desconhecido' };
-      if (ouro - pendente() - custo < reserva()) return { ok: false, motivo: `abaixo da reserva (${fmt(reserva())}, com ${fmt(pendente())} já comprometido)` };
-      const teto = tetoDia();
-      if (gastoHoje() + custo > teto) return { ok: false, motivo: `teto do dia (${fmt(teto)})` };
+      if (ouro - pendente() - custo < reservaDe(categoria)) return { ok: false, motivo: `abaixo da reserva (${fmt(reservaDe(categoria))}, com ${fmt(pendente())} já comprometido)` };
+      if (categoria === 'mercado') {
+        const giro = livreDoGiro();
+        if (custo > giro) return { ok: false, motivo: `capital em giro: o estoque do radar mais esta compra passaria de metade do que você tem (livre ${fmt(Math.max(0, giro))})` };
+      } else {
+        const teto = tetoDia();
+        if (gastoHoje() - (Number(s.gasto.mercado) || 0) + custo > teto) return { ok: false, motivo: `teto do dia (${fmt(teto)})` };
+      }
       const tc = s.cfg.tetoCategoria[categoria];
       if (tc !== null && tc !== undefined && (Number(s.gasto[categoria]) || 0) + custo > tc) return { ok: false, motivo: tc === 0 ? `${CATEGORIAS[categoria]} proibida no cofre` : `teto de ${CATEGORIAS[categoria]} (${fmt(tc)})` };
       s.gasto[categoria] = (Number(s.gasto[categoria]) || 0) + custo;
@@ -216,7 +244,8 @@
     const ouro = Number(eu && eu.gold) || 0;
     const tc = s.cfg.tetoCategoria[categoria];
     const porCat = tc === null || tc === undefined ? Infinity : tc - (Number(s.gasto[categoria]) || 0);
-    return Math.max(0, Math.min(ouro - pendente() - reserva(), tetoDia() - gastoHoje(), porCat));
+    if (categoria === 'mercado') return Math.max(0, Math.min(ouro - pendente() - reservaDe(categoria), livreDoGiro(), porCat));
+    return Math.max(0, Math.min(ouro - pendente() - reservaDe(categoria), tetoDia() - (gastoHoje() - (Number(s.gasto.mercado) || 0)), porCat));
   }
 
   // ---- disjuntor --------------------------------------------------------------------------------
@@ -267,7 +296,8 @@
     const trava = modo === 'desligado';
     const CURTO = { repor: 'Reposição', mercado: 'Mercado', ovos: 'Ovos' };
     const ICO = { repor: 'repor', mercado: 'mercado', ovos: 'ovo' };
-    const gasto = gastoHoje();
+    // o teto do dia vale para reposição e ovos; o Mercado tem o limite do capital em giro (1.33.2)
+    const gasto = gastoHoje() - (Number(s.gasto.mercado) || 0);
     const teto = tetoDia();
     const topo = `<div class="plt-ks">
         ${K.numeroGrande({ icone: 'ouro', rotulo: 'Ouro/h medido', valor: s.ouroH ? fmt(s.ouroH) : '…', classe: 'k-ouro' })}
@@ -279,7 +309,9 @@
       const tc = c.tetoCategoria[k];
       const usado = Number(s.gasto[k]) || 0;
       const limite = tc === null || tc === undefined ? 'sem teto próprio' : tc === 0 ? 'proibida' : `teto ${fmt(tc)}`;
-      return K.linha({ id: `cat:${k}`, icone: ICO[k], nome: CURTO[k], dica: CATEGORIAS[k], status: `hoje ${fmt(usado)} · ${limite}`,
+      const giro = k === 'mercado' ? ` · em estoque ${fmt(Math.round(estoqueAgora()))} · livre ${fmt(Math.max(0, Math.round(livreDoGiro())))}` : '';
+      const dica = k === 'mercado' ? `${CATEGORIAS[k]}. Fora do teto do dia: o limite é o capital em giro — o que o radar comprou e ainda não vendeu mais a compra nova não passa de metade do que você tem (saldo + esse estoque). Vendeu, a vaga volta. A reserva vale sempre.` : CATEGORIAS[k];
+      return K.linha({ id: `cat:${k}`, icone: ICO[k], nome: CURTO[k], dica, status: `hoje ${fmt(usado)} · ${limite}${giro}`,
         direita: manual ? `<input type="number" class="plt-num" min="0" step="100000" placeholder="livre" value="${tc === null || tc === undefined ? '' : tc}" data-definir="cofre:cat.${k}" aria-label="Teto de ${CURTO[k]} (0 = proibida)"${trava ? ' disabled' : ''}>` : '' });
     }).join('');
     const desl = Object.entries(s.desligados);

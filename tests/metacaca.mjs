@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const require = createRequire(import.meta.url);
 const AQUI = path.dirname(new URL(import.meta.url).pathname);
+const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -116,8 +116,10 @@ r.enviados = recebidos.filter((m) => /pvp.info|ranking.perfil/.test(m.t)).map((m
 r.topo = await page.evaluate(() => { const a = window.__pokeidleHunt.meta.agregar('topo'); return { n: a.n, comp: a.comp.map((x) => `${x.nome}:${Math.round(x.uso * 100)}%`) }; });
 r.faixa = await page.evaluate(() => { const a = window.__pokeidleHunt.meta.agregar('faixa'); return { n: a.n, comp: a.comp.map((x) => `${x.nome}:${Math.round(x.uso * 100)}%`) }; });
 // liga o Caçar o meta (topo)
+await page.evaluate(() => window.__pokeidleHunt.rotina.definir('rodizio.ligado', true));
 const n0 = recebidos.length;
 r.ligar = await page.evaluate(async () => { const r = await window.__pokeidleHunt.metaCaca.definir('ligado', true); return r; });
+r.rodizioAoLigar = await page.evaluate(() => window.__pokeidleHunt.rotina._interno.cfg().rodizio.ligado);
 r.alvos = await page.evaluate(() => window.__pokeidleHunt.metaCaca._interno.cfg().alvos.map((a) => `${a.meta}:${a.membros.map((m) => m.id).join('>')}:${a.capturadoId || '-'}`));
 for (let i = 0; i < 4; i++) { await page.evaluate(() => window.__pokeidleHunt.metaCaca._interno.tique()); await sleep(2500); }
 r.st1 = await page.evaluate(() => window.__pokeidleHunt.metaCaca._interno.st.motivo);
@@ -130,10 +132,52 @@ srv({ t: 'estado', estado: { huntSlug: esc ? esc.slug : 'rattata_1', pokemons: [
 await sleep(1500);
 for (let i = 0; i < 3; i++) { await page.evaluate(() => window.__pokeidleHunt.metaCaca._interno.tique()); await sleep(2500); }
 r.cmds2 = recebidos.slice(n1).filter((m) => /hunt|team|colecao|centro/.test(m.t)).map((m) => `${m.t}:${m.slug || m.pokemonId || ''}`);
-r.alvos2 = await page.evaluate(() => window.__pokeidleHunt.metaCaca._interno.cfg().alvos.map((a) => `${a.meta}:${a.capturadoId || (a.semHunt ? 'semHunt' : '-')}`));
+r.alvos2 = await page.evaluate(() => window.__pokeidleHunt.metaCaca._interno.cfg().alvos.map((a) => `${a.meta}:${a.capturadoId || (a.espera ? 'espera' : '-')}`));
 r.st2 = await page.evaluate(() => window.__pokeidleHunt.metaCaca._interno.st.motivo);
 r.guarda = await page.evaluate(() => window.__pokeidleHunt.metaCaca.protegidos());
 r.trocaHunt = await page.evaluate(() => window.__pokeidleHunt.auto._interno.cfg().hunt.ligado);
+// 1.33 (o André: "pular por falta de hunt segura é impossível"): quem caça é testado um por um, e
+// sem hunt segura o alvo espera (não é pulado nem conta como completo)
+{
+  const time2 = [{ id: 3, slot: 0, level: 30, nome: 'Charmander', speciesId: 4, tipos: ['FIRE'], poder: 3000, stats: { hp: 160, atk: 90, def: 75, spAtk: 95, spDef: 80, speed: 85 }, ivs: { hp: 16, atk: 16, def: 16, spAtk: 16, spDef: 16, speed: 16 }, quality: 1.2, potencia: 1, maxHp: 1720, hp: 1720 },
+    { id: 4, slot: 1, level: 12, nome: 'Squirtle', speciesId: 7, tipos: ['WATER'], poder: 1000, stats: { hp: 30, atk: 12, def: 15, spAtk: 13, spDef: 15, speed: 10 }, ivs: { hp: 10, atk: 10, def: 10, spAtk: 10, spDef: 10, speed: 10 }, quality: 1, potencia: 1, maxHp: 360, hp: 360 }];
+  srv({ t: 'estado', estado: { activeId: 3, huntSlug: 'squirtle_1', level: 30, pokemons: time2 } });
+  await sleep(1200);
+  const n2 = recebidos.length;
+  const v = await page.evaluate(async () => {
+    const P = window.__pokeidleHunt; const I = P.metaCaca._interno; const c = I.cfg();
+    const orig = P.engine.analisar;
+    c.alvos = [{ meta: 'Raticate', metaId: 20, raiz: 19, membros: [{ id: 19, nome: 'Rattata', estagio: 0 }], capturadoId: null, tinhaId: null, tinha: false, espera: null }];
+    c.ligado = true; I.st.escolha = null;
+    // o mais forte (3) leva 1 hit na hunt do Rattata; o Squirtle (4) mata com segurança
+    P.engine.analisar = (pk, ctx) => ({ linhas: (ctx.hunts || []).map((h) => ({ slug: h.slug, nome: h.nome, kph: 100, inviavel: false, umHit: pk.id === 3, mortesH: 0, hitPct: pk.id === 3 ? 2 : 0.1, liberada: true })) });
+    await I.tique();
+    const e1 = I.st.escolha && { pk: I.st.escolha.pkId, slug: I.st.escolha.slug };
+    // ninguém mata com segurança: espera, sem concluir e sem desligar
+    P.engine.analisar = (pk, ctx) => ({ linhas: (ctx.hunts || []).map((h) => ({ slug: h.slug, nome: h.nome, kph: 100, inviavel: false, umHit: true, mortesH: 0, hitPct: 2, liberada: true })) });
+    I.st.escolha = null;
+    await I.tique();
+    const a = c.alvos[0];
+    const r2 = { espera: !!a.espera, ligado: c.ligado, fim: c.fim, podeAgora: I.podeTentar(a) };
+    await I.tique();
+    const r3 = { motivo: I.st.motivo, ligado: c.ligado };
+    P.engine.analisar = orig;
+    return { e1, r2, r3 };
+  });
+  const okM = (c, m) => { console.log(`${c ? 'ok  ' : 'FALHOU'} ${m}`); if (!c) process.exitCode = 1; };
+  okM(v.e1 && v.e1.pk === 4, `o mais forte leva 1 hit: o Squirtle caça (${JSON.stringify(v.e1)})`);
+  await sleep(500);
+  okM(recebidos.slice(n2).some((m) => m.t === 'team.active' && m.pokemonId === 4), 'o Squirtle entra para caçar');
+  okM(v.r2.espera && v.r2.ligado && !v.r2.podeAgora, `sem hunt segura: espera, o modo continua ligado (${JSON.stringify(v.r2)})`);
+  okM(/^esperando hunt segura/.test(v.r3.motivo) && v.r3.ligado, `enquanto espera: farma XP (${v.r3.motivo.slice(0, 60)})`);
+  srv({ t: 'estado', estado: { level: 31 } }); await sleep(800);
+  const pode = await page.evaluate(() => { const I = window.__pokeidleHunt.metaCaca._interno; return I.podeTentar(I.cfg().alvos[0]); });
+  okM(pode, 'o treinador subiu de nível: tenta de novo');
+}
+// o André religa a Troca de hunt (ou ela volta no fim da troca no Centro): o rodízio volta junto
+await page.evaluate(() => window.__pokeidleHunt.auto.definir('hunt.ligado', true)); await sleep(300);
+r.rodizioDepois = await page.evaluate(() => window.__pokeidleHunt.rotina._interno.cfg().rodizio.ligado);
+if (r.rodizioAoLigar !== false || r.rodizioDepois !== true) { console.log('FALHOU rodízio com o Caçar o meta', r.rodizioAoLigar, r.rodizioDepois); process.exitCode = 1; } else console.log('ok   rodízio desliga com o Caçar o meta e volta com a Troca de hunt');
 await page.locator('#p-equipe .plt-time-bt').click(); await sleep(1500);
 await page.locator('.plt-janela-time .cfg-cat[data-aba="meta"]').click(); await sleep(2500);
 await page.locator('.plt-janela-time').screenshot({ path: `${SAIDA}/1-meta-topo.png` });

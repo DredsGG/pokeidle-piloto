@@ -30,7 +30,14 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
-      '1.32.3': [
+      '1.33.3': [
+        "A compra automática do Mercado agora vai pelo seu dinheiro: compra o que dá lucro enquanto o estoque do radar mais a compra não passar de metade do que você tem; vendeu, libera de novo. Saiu do teto do dia.",
+        "Quando o jogo avisa \"Devagar aí — muitas mensagens\", o radar e o Piloto diminuem o ritmo sozinhos e voltam a subir aos poucos.",
+        "A bola leva em conta o saldo: conta com muito ouro usa a Ultra Ball mesmo enquanto sobe um pokémon fraco.",
+        "Reposição para conta nova: o Piloto marca uma bola, uma poção e um revive na hora e compra o primeiro lote assim que tiver o ouro (guarda só 10% do saldo).",
+        "As quantidades da reposição vêm do que a sua conta gasta de verdade (mínimo de 1 h, alvo de 6 h), e a poção é a de menor ouro por HP que cura.",
+        "Aba Caçar: o ouro/h já desconta as poções, e hunt em que os desmaios levam mais XP do que dão fica marcada como risco.",
+        "Caçar o meta não pula mais ninguém: testa cada pokémon do time e, sem hunt segura, espera farmando XP até o treinador subir de nível.",
         "A Plateia também não abre sala repetida depois de atualizar o Piloto ou com a escala do Windows (adota a janela que já está aberta).",
         "Aba Caçar: hunt em que o pokémon morre antes de terminar um abate sai do ranking (ex.: Larvitar Nv 20 na Ledyba Nv 230), e com \"Evitar risco\" as arriscadas ficam depois das seguras.",
         "Na primeira vez, o Piloto já abre no idioma do navegador (português, inglês ou espanhol); o seletor PT · EN · ES continua no painel.",

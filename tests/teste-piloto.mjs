@@ -77,9 +77,14 @@ await caso('cofre: preço desconhecido não compra; abaixo da reserva não compr
   const r = PIH.pedir({ t: 'shop.buy', kind: 'ball', id: 1, qty: 100 }, 'teste');
   assert.equal(r.ok, true);
   assert.equal(PIH.cofre.gastoHoje() - antes, 1000);
-  // ouro abaixo da reserva
+  // ouro abaixo da reserva: o Mercado respeita a reserva inteira (5 mi)
   msg({ t: 'estado', estado: { gold: 5_000_500 } });
-  assert.match(PIH.pedir({ t: 'shop.buy', kind: 'ball', id: 1, qty: 100 }, 'teste').motivo, /reserva/);
+  assert.ok(PIH.cofre.livre('mercado') <= 500, `Mercado: só o que passa da reserva (${PIH.cofre.livre('mercado')})`);
+  // 1.33: a reposição (bola, poção, revive) só guarda 10% do saldo — conta nova compra o primeiro lote
+  assert.equal(PIH.pedir({ t: 'shop.buy', kind: 'ball', id: 1, qty: 100 }, 'teste').ok, true, 'reposição com 5 mi: guarda 10%');
+  msg({ t: 'estado', estado: { gold: 1000 } });
+  assert.match(PIH.pedir({ t: 'shop.buy', kind: 'ball', id: 1, qty: 100 }, 'teste').motivo, /reserva/, 'gastaria tudo: abaixo de 10% do saldo');
+  assert.equal(PIH.pedir({ t: 'shop.buy', kind: 'ball', id: 1, qty: 90 }, 'teste').ok, true, '900 de 1.000: deixa os 10%');
   msg({ t: 'estado', estado: { gold: 49_000_000 } });
 });
 
@@ -474,6 +479,7 @@ await caso('reposição 1.25.1: pouco ouro não vai todo em bola — revive e po
   const A = PIH.auto._interno;
   const c = A.cfg();
   c.repor.ligado = true;
+  c.repor.kitAuto = false; // aqui: os mínimos e alvos fixos do Manual
   msg({ t: 'estado', estado: { automation: { ballIds: [1], potionIds: [201], reviveIds: [205] }, balls: { 1: 0 }, items: { 300: 3 } } });
   const ouro = Number(estados.at(-1).gold);
   c.repor.reservaOuro = ouro - 30_000; // 30 mil livres
@@ -489,6 +495,52 @@ await caso('reposição 1.25.1: pouco ouro não vai todo em bola — revive e po
   const cheio = Object.fromEntries(A.comprasPendentes().map((x) => [x.chave, x.qty]));
   assert.deepEqual(cheio, { i205: 100, i201: 1000, b1: 9999 });
   c.repor.ligado = false; c.repor.reservaOuro = 5_000_000;
+});
+
+await caso('1.33.2: Mercado pelo capital em giro (não pelo teto do dia) e o freio do "Devagar aí"', async () => {
+  // 100 mi no saldo, 20 mi em estoque do radar: livre = metade de 120 mi − 20 mi = 40 mi
+  msg({ t: 'estado', estado: { gold: 100_000_000 } });
+  doc.dispatchEvent(new CustomEvent('piloto:radar-estoque', { detail: JSON.stringify({ valor: 20_000_000 }) }));
+  const livre = PIH.cofre.livre('mercado');
+  assert.ok(livre > 39_000_000 && livre <= 40_000_000, `livre do Mercado ${livre}`);
+  // o teto do dia não segura o Mercado, e o gasto do Mercado não come o teto da reposição
+  // o servidor reclama: as leituras caem pela metade a cada aviso (rajadas de 2 s contam como um)
+  const antes = PIH.freio().taxaLeitura;
+  msg({ t: 'erro', msg: 'Devagar aí — muitas mensagens.' });
+  await sleep(50);
+  const depois = PIH.freio().taxaLeitura;
+  assert.ok(depois <= antes / 2 + 1e-9, `taxa ${antes} → ${depois}`);
+  msg({ t: 'erro', msg: 'Devagar aí — muitas mensagens.' });
+  await sleep(50);
+  assert.equal(PIH.freio().taxaLeitura, depois, 'a mesma rajada não freia duas vezes');
+  msg({ t: 'estado', estado: { gold: 49_000_000 } });
+});
+
+await caso('reposição 1.33: conta nova compra o primeiro lote e as quantidades vêm do gasto da conta', async () => {
+  const A = PIH.auto._interno;
+  const c = A.cfg();
+  c.repor.ligado = true; c.repor.kitAuto = true; c.repor.reservaOuro = 0; c.repor.alvos = {};
+  // conta nova: 2.000 de ouro, nada na mochila (o cofre guarda 10% do saldo para a reposição)
+  msg({ t: 'estado', estado: { gold: 2000, huntSlug: 'rattata_1', noCentro: false, automation: { ballIds: [1], potionIds: [201], reviveIds: [205] }, balls: { 1: 0 }, items: {} } });
+  const q = Object.fromEntries(A.comprasPendentes().map((x) => [x.chave, x.qty]));
+  assert.ok(q.i205 >= 3 && q.i201 >= 20, `revive e poção no mínimo: ${JSON.stringify(q)}`);
+  const gasto = A.comprasPendentes().reduce((s, x) => s + x.qty * x.preco, 0);
+  assert.ok(gasto > 0 && gasto <= 1800, `cabe nos 1.800 livres: ${gasto}`);
+  // o gasto medido: 120 poções em 1 h caçando → mínimo 120, alvo 720
+  const t0 = Date.now() - 3_600_000;
+  for (let i = 0; i <= 120; i++) A.registrarConsumo({ huntSlug: 'rattata_1', noCentro: false, balls: { 1: 50 }, items: { 201: 500 - i, 205: 10 } }, t0 + i * 30_000);
+  const taxa = A.consumoPorHora('i201', t0 + 120 * 30_000);
+  assert.ok(taxa > 100 && taxa < 140, `taxa medida ${taxa}`);
+  const alvo = A.alvoAuto({ chave: 'i201', cat: 'pocao' });
+  assert.ok(alvo.min >= 100 && alvo.alvo >= 6 * 100, `mínimo ${alvo.min}, alvo ${alvo.alvo}`);
+  // compra na mochila (subiu) não conta como gasto
+  A.registrarConsumo({ huntSlug: 'rattata_1', noCentro: false, balls: { 1: 50 }, items: { 201: 2000, 205: 10 } }, t0 + 121 * 30_000);
+  assert.ok(Math.abs(A.consumoPorHora('i201', t0 + 121 * 30_000) - taxa) < 5, 'compra não vira gasto');
+  // número posto no Manual vale mais que o automático
+  c.repor.alvos.i201 = { min: 7, alvo: 9 };
+  assert.deepEqual([PIH.auto.alvoDe({ chave: 'i201', cat: 'pocao' }).min, PIH.auto.alvoDe({ chave: 'i201', cat: 'pocao' }).alvo], [7, 9]);
+  c.repor.alvos = {}; c.repor.ligado = false;
+  msg({ t: 'estado', estado: { gold: 49_000_000 } });
 });
 
 await caso('Centro 1.25.1: parado no Centro, o Piloto cura, espera o time levantar e volta para a última hunt', async () => {

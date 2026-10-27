@@ -31,6 +31,9 @@
     } catch { return { ligado: false, recorte: 'topo', alvos: [], vistos: [], desde: 0, fim: null }; }
   };
   let cfg = ler();
+  // 1.33 (o André: "um pokémon ser pulado por falta de hunt segura é impossível"): o "pulado para
+  // sempre" acabou. Quem foi pulado antes volta para a fila e é tentado de novo agora.
+  for (const a of cfg.alvos) if (a && a.semHunt) { delete a.semHunt; a.espera = { em: 0, nivel: 0 }; }
   const gravar = () => { try { localStorage.setItem(CHAVE, JSON.stringify(cfg)); } catch { /* sem armazenamento */ } };
   const diario = (txt, tipo) => PIH.cofre?.diario?.(`meta: ${txt}`, tipo);
 
@@ -72,7 +75,7 @@
       // a mesma família pode aparecer duas vezes na comp (ex.: Charizard e Mega Charizard): cada vaga precisa do seu
       const usados = new Set(alvos.map((x) => x.capturadoId).filter(Boolean));
       const tenho = meus().filter((p) => PIH.meta.familia.serve(p, { speciesId: a.speciesId, nome: a.nome }) && !usados.has(p.id)).sort((x, y) => poderDe(y) - poderDe(x))[0] || null;
-      alvos.push({ meta: a.nome, metaId: a.speciesId, raiz: raizId, membros, capturadoId: tenho ? tenho.id : null, tinhaId: tenho ? tenho.id : null, tinha: !!tenho, semHunt: false });
+      alvos.push({ meta: a.nome, metaId: a.speciesId, raiz: raizId, membros, capturadoId: tenho ? tenho.id : null, tinhaId: tenho ? tenho.id : null, tinha: !!tenho, espera: null, semHuntNoJogo: false });
     }
     cfg = { ...cfg, ligado: true, alvos, vistos: meus().map((p) => p.id), desde: Date.now(), fim: null };
     gravar();
@@ -197,14 +200,25 @@
     const time = meus().filter((p) => p.slot != null && p.stats && podeUsar(p) && !(p.hp != null && Number(p.hp) <= 0));
     return time.sort((a, b) => poderDe(b) - poderDe(a))[0] || null;
   }
-  async function escolherHunt(alvo, pk) {
-    // 1.31 (o André: "pokémon da Outland não evolui, tem que ser os normais dos campos normais"):
-    // a Outland fica de fora, a não ser que a própria espécie do meta seja uma variante Outland.
+  // 1.33: quem caça é escolhido junto com a hunt — cada pokémon do time que pode lutar é testado em
+  // cada hunt da família (antes só o mais forte), e fica a dupla com mais encontros por hora com o
+  // alvo, sempre dentro do corte de risco. O mais forte nem sempre é o que mata ali com segurança
+  // (tipo, imunidade, golpe que tira muito HP).
+  function cacadores() {
+    return meus().filter((p) => p.slot != null && p.stats && podeUsar(p) && !(p.hp != null && Number(p.hp) <= 0)).sort((a, b) => poderDe(b) - poderDe(a));
+  }
+  function huntsDaFamilia(alvo) {
     const F = PIH.meta && PIH.meta.familia;
     const ehOutland = (id) => (F && F.ehOutland ? F.ehOutland(id) : Number(id) >= 2001 && Number(id) < 2100);
     const soOutland = alvo.membros.length > 0 && alvo.membros.every((m) => ehOutland(m.id));
     const huntOutland = (h) => h.area === 'outland' || h.regiao === 'outland' || /outland/i.test(String(h.slug || ''));
     const hunts = ((welcome && welcome.hunts) || []).filter((h) => (soOutland || !huntOutland(h)) && (h.especies || []).some((e) => alvo.membros.some((m) => m.id === e.pokeId) && (soOutland || !ehOutland(e.pokeId))));
+    return { hunts, ehOutland, soOutland };
+  }
+  async function escolherHunt(alvo, pkSo = null) {
+    // 1.31 (o André: "pokémon da Outland não evolui, tem que ser os normais dos campos normais"):
+    // a Outland fica de fora, a não ser que a própria espécie do meta seja uma variante Outland.
+    const { hunts, ehOutland, soOutland } = huntsDaFamilia(alvo);
     if (!hunts.length) return null;
     const jogo = await PIH.carregarJogo();
     const ctx = {
@@ -212,26 +226,34 @@
       consts: { tabelaTipos: welcome.tabelaTipos, ampliacaoHunt: welcome.ampliacaoHunt, multHpSelvagem: welcome.multHpSelvagem, multDanoSelvagem: welcome.multDanoSelvagem, tiposBoost: welcome.tiposBoost },
       eu, geo: (slug) => (PIH.geo ? PIH.geo.daHunt(slug) : null), ritmoMedido: () => null,
     };
-    let linhas = [];
-    try { linhas = PIH.engine.analisar(pk, ctx, { soLiberadas: true, comPocao: true }).linhas || []; } catch { linhas = []; }
     let melhor = null;
-    for (const l of linhas) {
-      if (!l || l.inviavel || l.umHit || l.mortesH >= 0.2 || l.hitPct >= 0.5) continue; // 1.32.2: o mesmo corte de risco da Troca de hunt e do rodízio
-      const h = hunts.find((x) => x.slug === l.slug);
-      if (!h) continue;
-      const total = (h.especies || []).reduce((s, e) => s + (Number(e.pontos) || 0), 0) || 1;
-      let nota = 0;
-      let qual = null;
-      for (const e of h.especies || []) {
-        const m = alvo.membros.find((x) => x.id === e.pokeId);
-        if (!m || (!soOutland && ehOutland(e.pokeId))) continue;
-        const v = (Number(l.kph) || 0) * ((Number(e.pontos) || 0) / total) * (1 + 0.25 * m.estagio);
-        if (v > nota) { nota = v; qual = m; }
+    for (const pk of (pkSo ? [pkSo] : cacadores())) {
+      let linhas = [];
+      try { linhas = PIH.engine.analisar(pk, ctx, { soLiberadas: true, comPocao: true }).linhas || []; } catch { linhas = []; }
+      for (const l of linhas) {
+        if (!l || l.inviavel || PIH.engine.arriscada(l)) continue; // o mesmo corte de risco da Troca de hunt e do rodízio (1.33: uma regra só, no engine)
+        const h = hunts.find((x) => x.slug === l.slug);
+        if (!h) continue;
+        const total = (h.especies || []).reduce((s, e) => s + (Number(e.pontos) || 0), 0) || 1;
+        let nota = 0;
+        let qual = null;
+        for (const e of h.especies || []) {
+          const m = alvo.membros.find((x) => x.id === e.pokeId);
+          if (!m || (!soOutland && ehOutland(e.pokeId))) continue;
+          const v = (Number(l.kph) || 0) * ((Number(e.pontos) || 0) / total) * (1 + 0.25 * m.estagio);
+          if (v > nota) { nota = v; qual = m; }
+        }
+        if (nota > 0 && (!melhor || nota > melhor.nota)) melhor = { slug: h.slug, nome: h.nome, nota, especie: qual, pkId: pk.id, pkNome: pk.nome, porHora: (Number(l.kph) || 0) * ((h.especies.find((e) => e.pokeId === qual.id)?.pontos || 0) / total) };
       }
-      if (nota > 0 && (!melhor || nota > melhor.nota)) melhor = { slug: h.slug, nome: h.nome, nota, especie: qual, porHora: (Number(l.kph) || 0) * ((h.especies.find((e) => e.pokeId === qual.id)?.pontos || 0) / total) };
     }
     return melhor;
   }
+  // 1.33: sem hunt segura AGORA não é "pulado": o alvo espera e é tentado de novo quando o treinador
+  // sobe de nível (abre hunt nova, o time fica mais forte) ou a cada 30 min. Enquanto todos os que
+  // faltam esperam, o time farma na melhor hunt de XP (sobe de nível) e o modo continua ligado.
+  // Só fica de fora a família que não aparece em NENHUMA hunt do jogo (lendário: vem de boss/ovo).
+  const ESPERA_MS = 30 * 60_000;
+  const podeTentar = (a) => !a.espera || (Number(eu && eu.level) || 0) > (Number(a.espera.nivel) || 0) || Date.now() - (Number(a.espera.em) || 0) > ESPERA_MS;
 
   // ---- o relógio --------------------------------------------------------------------------------
   let andando = false;
@@ -242,22 +264,31 @@
     try {
       await conferirCapturas();
       await alinhar();
-      const falta = cfg.alvos.filter((a) => !(a.capturadoId && porId(a.capturadoId)) && !a.semHunt);
+      const falta = cfg.alvos.filter((a) => !(a.capturadoId && porId(a.capturadoId)) && !a.semHuntNoJogo);
       if (!falta.length) return concluir();
-      const pk = cacador();
-      if (!pk) { st.motivo = 'nenhum pokémon do time pode lutar'; return; }
-      // o mais forte luta (o rodízio fica parado enquanto este modo estiver ligado)
-      if (eu.activeId !== pk.id && Date.now() - st.ultimaTroca > 60_000) { st.ultimaTroca = Date.now(); PIH.pedir({ t: 'team.active', pokemonId: pk.id }, 'metacaca'); diario(`${pk.nome} (⚔ ${nf.format(poderDe(pk))}) entra para caçar`); }
-      const alvo = falta[0];
+      if (!cacador()) { st.motivo = 'nenhum pokémon do time pode lutar'; return; }
+      const prontos = falta.filter(podeTentar);
+      if (!prontos.length) return farmarEsperando(falta);
+      const alvo = prontos[0];
       if (!st.escolha || st.escolha.alvo !== alvo.raiz || Date.now() - st.escolha.em > ESCOLHA_VALE_MS) {
-        const h = await escolherHunt(alvo, pk);
-        if (!h) {
-          alvo.semHunt = true; gravar();
-          diario(`${alvo.meta}: nenhuma hunt liberada onde a família aparece e o ${pk.nome} mate com segurança — pulando`, 'aviso');
+        if (!huntsDaFamilia(alvo).hunts.length) {
+          alvo.semHuntNoJogo = true; gravar();
+          diario(`${alvo.meta}: a família não aparece em nenhuma hunt do jogo (vem de boss ou ovo) — fica fora da caça`, 'aviso');
           return;
         }
+        const h = await escolherHunt(alvo);
+        if (!h) {
+          alvo.espera = { em: Date.now(), nivel: Number(eu.level) || 0 }; gravar();
+          st.escolha = null;
+          diario(`${alvo.meta}: nenhuma hunt liberada onde a família aparece e um pokémon do time mate com segurança — tento de novo quando o treinador subir de nível ou em 30 min`, 'aviso');
+          return;
+        }
+        if (alvo.espera) { alvo.espera = null; gravar(); }
         st.escolha = { alvo: alvo.raiz, em: Date.now(), ...h };
       }
+      // quem caça é o escolhido junto com a hunt (o rodízio fica parado enquanto este modo estiver ligado)
+      const pk = porId(st.escolha.pkId) || cacador();
+      if (eu.activeId !== pk.id && Date.now() - st.ultimaTroca > 60_000) { st.ultimaTroca = Date.now(); PIH.pedir({ t: 'team.active', pokemonId: pk.id }, 'metacaca'); diario(`${pk.nome} (⚔ ${nf.format(poderDe(pk))}) entra para caçar`); }
       st.alvoAtual = alvo;
       const e = st.escolha;
       if (eu.huntSlug !== e.slug || eu.noCentro) {
@@ -274,6 +305,20 @@
       st.motivo = `caçando ${e.especie.nome} em ${e.nome} · ~${e.porHora >= 1 ? nf.format(e.porHora) : '<1'} por hora${semBola ? ' · ligue a Pokébola automática!' : ''}`;
     } catch (err) { st.motivo = 'não consegui calcular'; console.warn('[piloto] metacaca:', err); } finally { andando = false; }
   }
+  // 1.33: todos os que faltam esperam hunt segura — o mais forte farma na melhor hunt de XP dele
+  // (o mesmo 👑 da aba Caçar) para o treinador e o time subirem; a cada 30 min (ou nível novo) tenta de novo.
+  let farmEm = 0;
+  async function farmarEsperando(falta) {
+    st.escolha = null;
+    const pk = cacador();
+    const nomes = falta.map((a) => a.meta).join(', ');
+    st.motivo = `esperando hunt segura para ${nomes} · farmando XP enquanto isso (tenta de novo quando o treinador subir de nível ou em 30 min)`;
+    if (!pk || !PIH.auto || PIH.auto.rotinaAtual() || Date.now() - farmEm < IR_A_CADA_MS) return;
+    farmEm = Date.now();
+    if (eu.activeId !== pk.id) { PIH.pedir({ t: 'team.active', pokemonId: pk.id }, 'metacaca'); return; }
+    const m = PIH.auto.melhorHuntPara ? await PIH.auto.melhorHuntPara(pk.id) : null;
+    if (m && m.slug && (eu.huntSlug !== m.slug || eu.noCentro)) { const r = PIH.auto.irParaHunt(m.slug); if (r && r.ok) diario(`esperando hunt segura para ${nomes}: ${pk.nome} vai farmar XP em ${m.nome}`); }
+  }
   // 1.26 (pedido do André): completou → o "Montar o time principal sozinho" passa a usar os do meta
   // que você tem (sem cadeado: se aparecer um melhor da família, ele entra), no campo e no PvP, e a
   // Troca de hunt volta a ligar para farmar com esse time.
@@ -286,6 +331,8 @@
     if (PIH.time && PIH.time.usarMeta) PIH.time.usarMeta('o Caçar o meta completou o time', null, { huntDepois: true });
     else religarHunt();
     diario(`time do meta completo: ${ids.map((id) => porId(id)?.nome).join(', ')} — agora o Piloto vai ao Centro trocar o time (campo e PvP) e depois religa a Troca de hunt.`, 'ok');
+    const fora = cfg.alvos.filter((x) => x.semHuntNoJogo && !(x.capturadoId && porId(x.capturadoId))).map((x) => x.meta);
+    if (fora.length) diario(`fora do time do meta (não aparecem em hunt): ${fora.join(', ')}`, 'aviso');
   }
   function religarHunt() {
     try { if (PIH.auto && PIH.auto._interno && !PIH.auto._interno.cfg().hunt.ligado) { PIH.auto.definir('hunt.ligado', true); diario('Troca de hunt ligada de novo (farm com o time do meta)'); } } catch { /* sem auto */ }
@@ -323,7 +370,8 @@
       const p = ok(a) ? porId(a.capturadoId) : null;
       const atual = cfg.ligado && st.alvoAtual && st.alvoAtual.raiz === a.raiz;
       const estado = p ? `<span class="plt-meta-tem on">${p.id === a.tinhaId ? 'já tinha' : 'capturado'}: ${esc(p.nome)} Nv ${nf.format(p.level || 0)}</span>`
-        : a.semHunt ? '<span class="plt-meta-tem plt-meta-falta">sem hunt: pulado</span>'
+        : a.semHuntNoJogo ? '<span class="plt-meta-tem plt-meta-falta">não aparece em hunt</span>'
+          : a.espera && !podeTentar(a) ? '<span class="plt-meta-tem plt-meta-falta">esperando hunt segura</span>'
           : atual ? `<span class="plt-meta-tem plt-meta-cacando">caçando${st.escolha ? ` ${esc(st.escolha.especie.nome)} em ${esc(nomeHunt(st.escolha.slug))}` : ''}</span>` : '<span class="plt-meta-tem">na fila</span>';
       return `<div class="plt-an-l"><span class="plt-an-arte">${arte({ speciesId: a.metaId, shiny: false, nome: a.meta }, 34, `caca:${a.raiz}`)}</span><span class="plt-an-nome"><b>${esc(a.meta)}</b><small>${esc(a.membros.map((m) => m.nome).join(' → '))}</small></span><span class="plt-an-acoes">${estado}</span></div>`;
     }).join('');
@@ -338,5 +386,5 @@
     return null;
   }
 
-  PIH.metaCaca = { html, definir, desligar, religarRodizio, ativo: () => cfg.ligado, protegidos, especiesAlvo, _interno: { cfg: () => cfg, st, tique, escolherHunt, conferirCapturas, sanear, refazer: () => { saneado = false; } } };
+  PIH.metaCaca = { html, definir, desligar, religarRodizio, ativo: () => cfg.ligado, protegidos, especiesAlvo, _interno: { cfg: () => cfg, st, tique, escolherHunt, podeTentar, conferirCapturas, sanear, refazer: () => { saneado = false; } } };
 })(globalThis);

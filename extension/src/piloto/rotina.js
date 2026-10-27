@@ -281,7 +281,7 @@
           try {
             const r = PIH.engine.analisar(prox, ctx, { soLiberadas: false, comPocao: true });
             const l = r.linhas[0];
-            if (!l || l.inviavel || l.umHit || l.mortesH >= 0.2 || l.hitPct >= 0.5) continue;
+            if (!l || l.inviavel || PIH.engine.arriscada(l)) continue;
           } catch { continue; }
         }
         if (comecar) { marcas.rodizioComecar = false; gravar(); }
@@ -295,7 +295,7 @@
       try {
         const r = PIH.engine.analisar(pk, ctx, { soLiberadas: false, comPocao: true });
         const l = r.linhas[0];
-        if (l && !l.inviavel && !l.umHit && l.mortesH < 0.2 && l.hitPct < 0.5) linhas.push({ pk, l });
+        if (l && !l.inviavel && !PIH.engine.arriscada(l)) linhas.push({ pk, l });
       } catch { /* sem dados desse pokémon */ }
     }
     if (!linhas.length) return false;

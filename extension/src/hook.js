@@ -541,6 +541,31 @@
   // saldo pode ficar negativo, o que segura o piloto até a conta voltar ao normal.
   function gastarFicha(t) { const b = baldeDe(t); encher(b); b.fichas = Math.max(-3, b.fichas - 1); }
   function temFicha(t) { const b = baldeDe(t); encher(b); return b.fichas >= 1; }
+  // 1.33.2 (o André: "Devagar aí — muitas mensagens" a cada ~15 s): o servidor passou a reclamar
+  // com o radar a ~1 leitura/s. O limitador agora aprende: cada "Devagar aí" corta pela metade o
+  // ritmo das leituras (e das escritas) da extensão, até 1 a cada 8 s; 3 min sem reclamação, sobe
+  // 25% de volta, até o teto de antes (2/s). O jogo continua com o balde dele inteiro.
+  const TETO_TAXA = { leitura: 2, escrita: 1 };
+  const PISO_TAXA = { leitura: 0.125, escrita: 0.25 };
+  let ultimaReclamacao = 0;
+  let freioInfo = { leitura: TETO_TAXA.leitura, reclamacoes: 0 };
+  function frear() {
+    const n = agora();
+    if (n - ultimaReclamacao < 2000) return; // a mesma rajada vem em vários avisos
+    ultimaReclamacao = n;
+    for (const k of ['leitura', 'escrita']) { const b = BALDES[k]; encher(b); b.taxa = Math.max(PISO_TAXA[k], b.taxa / 2); b.fichas = Math.min(b.fichas, 0); }
+    freioInfo = { leitura: BALDES.leitura.taxa, reclamacoes: freioInfo.reclamacoes + 1 };
+    if (n - ultimoAvisoFreio > 600_000) {
+      ultimoAvisoFreio = n;
+      try { PIH.cofre && PIH.cofre.diario && PIH.cofre.diario(`o servidor pediu calma ("Devagar aí"): as leituras do radar e do Piloto caem para ${Math.round(BALDES.leitura.taxa * 60)}/min e voltam a subir aos poucos`, 'aviso'); } catch { /* nada */ }
+    }
+  }
+  let ultimoAvisoFreio = 0;
+  setInterval(() => {
+    if (agora() - ultimaReclamacao < 180_000) return;
+    for (const k of ['leitura', 'escrita']) { const b = BALDES[k]; encher(b); b.taxa = Math.min(TETO_TAXA[k], b.taxa * 1.25); }
+    freioInfo = { ...freioInfo, leitura: BALDES.leitura.taxa };
+  }, 60_000);
 
   // ---- lista fechada do piloto ---------------------------------------------------------------
   const int = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
@@ -664,7 +689,9 @@
       if (!b || b.compravel === false || !(Number(b.priceGold) > 0) || /beast|master/i.test(String(b.nome || ''))) return null;
       // as poções e revives que o NPC vende (assets/items.json do jogo, 2026-10-27): Small, Great,
       // Ultra, Hyper e Ultimate Potion; Revive e Max Revive. A Medicine (sem preço) fica de fora.
-      if (![200, 201, 202, 203, 204].includes(pocao) || ![205, 206].includes(revive)) return null;
+      // 1.33: e a Golden Potion (cura em %), que vem no welcome (itensNossos) — só se o jogo a vende em ouro
+      const nossa = (Array.isArray(w.itensNossos) ? w.itensNossos : []).some((i) => i && Number(i.id) === pocao && i.category === 'heal' && Number(i.healPct) > 0 && Number(i.priceGold) > 0);
+      if ((![200, 201, 202, 203, 204].includes(pocao) && !nossa) || ![205, 206].includes(revive)) return null;
       return { ...e.automation, t: 'auto.set', ballIds: [bola], potionIds: [pocao], reviveIds: [revive] };
     },
   };
@@ -698,8 +725,24 @@
   // Compatível com o /hunt (que esperava true/false).
   PIH.enviar = (obj, origem = 'hunt') => PIH.pedir(obj, origem).ok;
   // 1.20: só leitura, para a Saúde conferir quais mensagens do jogo chegaram (uma cópia).
+  // 1.33.2 (o André: "Devagar aí — muitas mensagens" toda hora): quanto sai por minuto, de quem
+  // (o jogo, o Piloto, o radar) e de que tipo, mais os avisos de erro que o servidor manda — no
+  // localStorage do pokeidle.io ('piloto:diag:envios'), para conferir pela página /terms.
+  const diagEnv = { baldes: [], erros: [] };
+  function diagEnvio(fonte, t) {
+    try {
+      const m = Math.floor(Date.now() / 60000);
+      let b = diagEnv.baldes[diagEnv.baldes.length - 1];
+      if (!b || b.m !== m) { b = { m, jogo: {}, piloto: {}, radar: {} }; diagEnv.baldes.push(b); while (diagEnv.baldes.length > 15) diagEnv.baldes.shift(); }
+      b[fonte][t] = (b[fonte][t] || 0) + 1;
+    } catch { /* nada */ }
+  }
+  setInterval(() => {
+    try { localStorage.setItem('piloto:diag:envios', JSON.stringify({ em: Date.now(), taxaLeitura: BALDES.leitura.taxa, freio: freioInfo, baldes: diagEnv.baldes, erros: diagEnv.erros.slice(-30) })); } catch { /* sem espaço */ }
+  }, 20000);
+  PIH.freio = () => ({ taxaLeitura: BALDES.leitura.taxa, taxaEscrita: BALDES.escrita.taxa, reclamacoes: freioInfo.reclamacoes });
   PIH.contagemDoJogo = () => ({ in: { ...st.contagem.in }, out: { ...st.contagem.out }, conectado: !!st.atual, ultimaEntrada: st.ultimaEntrada || 0 });
-  for (const k of ['on', 'emit', 'pedir', 'enviar', 'registrarCofre', 'itensReservados', 'BLOQUEADOS', 'COMANDOS_DO_PILOTO', 'hookInstalado', 'contagemDoJogo']) {
+  for (const k of ['on', 'emit', 'pedir', 'enviar', 'registrarCofre', 'itensReservados', 'BLOQUEADOS', 'COMANDOS_DO_PILOTO', 'hookInstalado', 'contagemDoJogo', 'freio']) {
     Object.defineProperty(PIH, k, { value: PIH[k], writable: false, configurable: false, enumerable: true });
   }
 
@@ -729,6 +772,7 @@
     const texto = JSON.stringify(proximo.pedido);
     try {
       Reflect.apply(sendNativo, ws, [texto]);
+      diagEnvio('piloto', `${proximo.pedido.t}:${proximo.origem}`);
       gastarFicha(proximo.pedido.t);
       // 1.25: o perfil que o Piloto lê (aba Meta) não pode abrir a janela do perfil na tela do jogo
       if (proximo.pedido.t === 'ranking.perfil') perfisDoPiloto.set(String(proximo.pedido.nick).toLowerCase(), agora() + 60000);
@@ -810,6 +854,12 @@
 
   function tratar(dir, texto, quando, sid) {
     const t = tipoRapido(texto);
+    // 1.33.2: o diagnóstico de envios (tudo o que sai pela página) e dos avisos do servidor
+    if (dir === 'out') diagEnvio('jogo', t);
+    else if (typeof texto === 'string' && texto.length < 600 && (t === 'erro' || /devagar|muitas mensagens|rate.?limit|slow down/i.test(texto))) {
+      try { diagEnv.erros.push({ em: Date.now(), t, txt: texto.slice(0, 240), taxa: BALDES.leitura.taxa }); if (diagEnv.erros.length > 60) diagEnv.erros.shift(); } catch { /* nada */ }
+      if (/devagar a[ií]|muitas mensagens|slow down|too many/i.test(texto)) frear();
+    }
 
     if (dir === 'out') {
       if (!st.gravando) return;
@@ -1095,6 +1145,7 @@
     const texto = JSON.stringify(pedido);
     try {
       Reflect.apply(sendNativo, ws, [texto]);
+      diagEnvio('radar', pedido.t);
     } catch (e) {
       erro(e);
       return responder(ref, false, 'falha ao enviar');

@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const require = createRequire(import.meta.url);
 const AQUI = path.dirname(new URL(import.meta.url).pathname);
+const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -254,5 +254,15 @@ globalThis.__aoMsg = async (o) => {
   recusar = false;
 }
 r.erros = erros.filter((e) => /error|Error/.test(e) && !/404/.test(e));
+// 1.32.2: o rodízio religado começa pelo mais fraco e deixa o mais forte por último
+r.rodComeco = await page.evaluate(() => {
+  const P = window.__pokeidleHunt; let e = null; P.on('estado', (x) => { e = x; });
+  P.rotina.definir('rodizio.ligado', false); P.rotina.definir('rodizio.ligado', true);
+  const f = P.rotina.filaRodizio();
+  const poder = (id) => (e.pokemons.find((p) => p.id === id) || {}).poder || 0;
+  const ps = (f && f.fila || []).map((x) => poder(x.id));
+  return { ordem: ps, crescente: ps.every((v, i) => i === 0 || v >= ps[i - 1]), comecar: P.rotina._interno.marcas().rodizioComecar === true, emMs0: f && f.fila[0] && f.fila[0].emMs };
+});
+console.log(r.rodComeco.crescente && r.rodComeco.comecar && r.rodComeco.emMs0 === 0 ? 'ok   rodízio religado: do mais fraco ao mais forte, começa já' : 'FALHOU rodízio religado ' + JSON.stringify(r.rodComeco));
 console.log(JSON.stringify(r));
 setTimeout(() => process.exit(0), 500); await ctx.close();

@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const require = createRequire(import.meta.url);
 const AQUI = path.dirname(new URL(import.meta.url).pathname);
+const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -172,6 +172,7 @@ await page.locator('#modal-fake').screenshot({ path: `${SAIDA}/plateia-banner.pn
 // 1.31: o Manual (aba Caçar com os ajustes)
 await page.evaluate(() => document.getElementById('modal-fake')?.remove());
 await page.locator('button.plt-barra').click(); await sleep(1200);
+await page.locator('.plt-janela [data-sup="bug-fechar"]').click().catch(() => {}); await sleep(300);
 await page.locator('.plt-janela .plt-modo-bt[data-modo="manual"]').click(); await sleep(1500);
 await page.locator('.plt-cats [data-aba="hunts"]').click(); await sleep(2500);
 { const b = await J().boundingBox(); await page.screenshot({ path: `${SAIDA}/manual-hunt-tab.png`, clip: { x: b.x, y: b.y, width: b.width, height: Math.min(b.height, 820) } }); }

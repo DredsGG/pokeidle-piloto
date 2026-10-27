@@ -20,6 +20,12 @@ Todos os caminhos são relativos a esta pasta. Requer Node 22.
 - `idioma-scan.mjs` — lista os textos que ficaram sem tradução em EN/ES.
 - `navegadores.mjs` — o fundo como service worker (Chromium) e como página de eventos (Firefox), o manifest único, o arquivo certo do Release em cada navegador e o aviso de permissão no Firefox.
 - `guia.mjs` — o guia de primeiro uso (instalação nova) e as Novidades (uma vez por versão), Esc e X.
+- `aviso-solto.mjs` — guia, Novidades e "Nova versão" sozinhos no meio da página do jogo, sem abrir o painel (instalação nova, atualização simulada, Release mais novo simulado em PT/EN/ES, Atualizar, X).
+- `idioma-inicial.mjs` — idioma da primeira abertura pelo navegador (pt, en, es; outro → inglês); a escolha salva vale mais.
+- `ranking.mjs` — ranking da aba Caçar: hunt em que o pokémon morre antes de um abate sai do ranking (Larvitar Nv 20 × Ledyba Nv 230); gasto de poção e XP do desmaio.
+- `conta-nova.mjs` — conta nova: marca o kit na hora, compra o primeiro lote, só os itens do kit, guarda 10% do saldo.
+- `torneio.mjs` — inscrição nos torneios assim que abrem, nível mínimo, sem cancelar.
+- `changelog.mjs` — gera/confere o `extension/changelog.json` a partir dos textos das Novidades (`node changelog.mjs ../extension --conferir`).
 - `kit.mjs` — a bola, a poção e o revive escolhidos pela conta e o gancho aceitando só isso.
 - `so-meta.mjs` — só os do meta entram no time; a comp que o time segue muda depois de 24 h.
 - `outland-meta.mjs` — pokémon da Outland não contam para o meta e as hunts da Outland ficam de fora.

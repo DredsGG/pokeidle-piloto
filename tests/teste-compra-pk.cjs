@@ -1,5 +1,3 @@
-import path from 'node:path';
-const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const assert = require('assert');
 const Pk = require(process.argv[2]);
 const cfg = { compraAutomaticaPokemon: true, gastoMaximoPokemon: 20_000_000, gastoMaximoDia: 0, calibrada: true };

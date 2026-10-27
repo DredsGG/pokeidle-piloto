@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const require = createRequire(import.meta.url);
 const AQUI = path.dirname(new URL(import.meta.url).pathname);
+const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -95,10 +95,38 @@ await page.locator('.plt-janela .plt-modo-bt[data-modo="automatico"]').click(); 
 // 1. ao entrar no jogo (Piloto ligado, Plateia instalada, Twitch e Kick vinculadas): abre as duas salas uma vez
 await sleep(14000);
 r.janelasAntes = await ctx.serviceWorkers()[0].evaluate(async () => (await chrome.windows.getAll()).length);
-r.salasAbertas = await ctx.serviceWorkers()[0].evaluate(async () => { const s = await chrome.storage.session.get(null); const out = []; for (const p of ['twitch', 'kick']) { const id = s[`plateia:janela:${p}`]; if (typeof id === 'number') { const w = await chrome.windows.get(id, { populate: true }).catch(() => null); out.push(p + ':' + (w ? w.type + ':' + (w.focused ? 'foco' : 'sem-foco') : 'sumiu')); } } return out; });
+r.salasAbertas = await ctx.serviceWorkers()[0].evaluate(async () => { const s = await chrome.storage.local.get(null); const out = []; for (const p of ['twitch', 'kick']) { const id = s[`plateia:janela:${p}`]; if (typeof id === 'number') { const w = await chrome.windows.get(id, { populate: true }).catch(() => null); out.push(p + ':' + (w ? w.type + ':' + (w.focused ? 'foco' : 'sem-foco') : 'sumiu')); } } return out; });
 // recarregar o jogo não abre de novo (uma vez por sessão do Chrome)
 await page.reload(); await sleep(14000);
 r.depoisDoF5 = await ctx.serviceWorkers()[0].evaluate(async () => (await chrome.windows.getAll()).length);
+// 1.32.2: a extensão recarregou (o storage.session zera) e o jogo voltou: as salas abertas continuam valendo
+await ctx.serviceWorkers()[0].evaluate(() => chrome.storage.session.clear());
+await page.reload(); await sleep(14000);
+r.depoisDeRecarregarExtensao = await ctx.serviceWorkers()[0].evaluate(async () => (await chrome.windows.getAll()).length);
+// fechou a sala da Kick: só ela abre de novo
+await ctx.serviceWorkers()[0].evaluate(async () => { const { 'plateia:janela:kick': id } = await chrome.storage.local.get('plateia:janela:kick'); await chrome.windows.remove(id); });
+await sleep(500);
+const antesKick = await ctx.serviceWorkers()[0].evaluate(async () => (await chrome.windows.getAll()).length);
+await page.reload(); await sleep(14000);
+r.soAFaltante = (await ctx.serviceWorkers()[0].evaluate(async () => (await chrome.windows.getAll()).length)) - antesKick;
+// atualização vinda da 1.32.1 (ids no storage.session, que zerou) com a escala do Windows: as janelas
+// das salas existem, mas o Piloto não conhece os ids e o tamanho não é 1440×900 → adota, não abre outra
+await ctx.serviceWorkers()[0].evaluate(async () => {
+  const s = await chrome.storage.local.get(null);
+  for (const p of ['twitch', 'kick']) { const id = s[`plateia:janela:${p}`]; if (typeof id === 'number') await chrome.windows.update(id, { width: 1200, height: 760 }).catch(() => {}); }
+  await chrome.storage.local.remove(['plateia:janela:twitch', 'plateia:janela:kick']); await chrome.storage.session.clear();
+});
+const antesMigr = await ctx.serviceWorkers()[0].evaluate(async () => (await chrome.windows.getAll()).length);
+await page.reload(); await sleep(14000);
+r.migracao = (await ctx.serviceWorkers()[0].evaluate(async () => (await chrome.windows.getAll()).length)) - antesMigr;
+r.migracaoIds = await ctx.serviceWorkers()[0].evaluate(async () => { const s = await chrome.storage.local.get(['plateia:janela:twitch', 'plateia:janela:kick']); return Object.values(s).filter((x) => typeof x === 'number').length; });
+let falhasP = 0;
+const okP = (c, m) => { console.log(`${c ? 'ok  ' : 'FALHOU'} ${m}`); if (!c) falhasP++; };
+okP(r.depoisDoF5 === r.janelasAntes, `F5 no jogo não abre de novo (${r.janelasAntes} → ${r.depoisDoF5})`);
+okP(r.depoisDeRecarregarExtensao === r.janelasAntes, `extensão recarregada não abre de novo (${r.depoisDeRecarregarExtensao})`);
+okP(r.soAFaltante === 1, `fechou a Kick: só ela volta (+${r.soAFaltante})`);
+okP(r.migracao === 0 && r.migracaoIds === 2, `depois de atualizar (ids perdidos, janela de outro tamanho): adota as abertas, não abre outra (+${r.migracao}, ${r.migracaoIds} adotadas)`);
+if (falhasP) process.exitCode = 1;
 // 2. a faixa na janela do bônus da Twitch do jogo
 await page.evaluate(() => { const m = document.createElement('div'); m.className = 'modal-caixa'; m.innerHTML = '<div class="vt-modal tw-modal" id="tw-corpo">canais...</div>'; document.body.append(m); });
 await sleep(800);

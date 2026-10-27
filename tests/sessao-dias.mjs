@@ -3,8 +3,8 @@ import path from 'node:path';
 // a prancheta "Sessão" do pokeidle.io (mesmo HTML e CSS do vão do TEMPO do jogo 1.374.0).
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
-const require = createRequire(import.meta.url);
 const AQUI = path.dirname(new URL(import.meta.url).pathname);
+const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -35,9 +35,9 @@ function prancheta(tempo) {
   <section class="ss-sec"><h4>SHINY · HUNT</h4><div class="cartoes"><div><b>2</b><br><small>vistos</small></div><div><b>0</b><br><small>capturados</small></div></div></section></div></div>`;
 }
 
-const ctx = await chromium.launchPersistentContext('', {
-  channel: 'chromium', headless: true, locale: 'pt-BR', viewport: { width: 560, height: 420 }, deviceScaleFactor: 2,
-  args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`, '--lang=pt-BR'],
+const ctx = await chromium.launchPersistentContext('', { locale: 'pt-BR',
+  channel: 'chromium', headless: true, viewport: { width: 560, height: 420 }, deviceScaleFactor: 2,
+  args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
 });
 await ctx.route('https://pokeidle.io/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: PAGINA }));
 const page = ctx.pages()[0] || await ctx.newPage();

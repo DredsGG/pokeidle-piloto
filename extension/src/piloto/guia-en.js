@@ -30,7 +30,14 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
-      '1.32.3': [
+      '1.33.3': [
+        "Automatic Market buying now follows your money: it buys what's profitable while the radar's stock plus the purchase stays under half of what you have; once it sells, room opens again. It left the daily cap.",
+        "When the game says \"Devagar aí — muitas mensagens\" (too many messages), the radar and the Pilot slow down on their own and speed back up slowly.",
+        "The ball takes your balance into account: an account with lots of gold uses the Ultra Ball even while leveling a weak Pokémon.",
+        "Restock for new accounts: the Pilot ticks one ball, one potion and one revive right away and buys the first batch as soon as there is gold (it keeps only 10% of the balance).",
+        "Restock amounts come from what your account actually uses (1 h minimum, 6 h target), and the potion is the one with the lowest gold per HP it really heals.",
+        "Hunt tab: gold/h already takes potions off, and a hunt where fainting costs more XP than it gives is flagged as risky.",
+        "Hunt the meta no longer skips anyone: it tries every team Pokémon and, with no safe hunt, waits while farming XP until the trainer levels up.",
         "Plateia also stops opening a duplicate room after a Piloto update or with Windows display scaling (it adopts the window that is already open).",
         "Hunt tab: a hunt where your Pokémon dies before finishing a single kill leaves the ranking (e.g. Larvitar Lv 20 at Ledyba Lv 230), and with \"Avoid risk\" the risky ones come after the safe ones.",
         "The first time, the Pilot opens in your browser language (Portuguese, English or Spanish); the PT · EN · ES picker is still in the panel.",

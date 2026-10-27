@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const require = createRequire(import.meta.url);
 const AQUI = path.dirname(new URL(import.meta.url).pathname);
+const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -277,4 +277,4 @@ r.offTravado = await page.evaluate(() => [...document.querySelectorAll('.plt-jan
 
 r.erros = erros;
 console.log(JSON.stringify(r, null, 2));
-await ctx.close();
+setTimeout(() => process.exit(0), 3000); await ctx.close();

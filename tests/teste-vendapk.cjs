@@ -1,5 +1,3 @@
-import path from 'node:path';
-const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const assert = require('assert');
 const R = require(process.argv[2]);
 const card = (o = {}) => ({ acao: 'anunciar', ficha: { moeda: 'gold', shiny: false }, custo: null, sugestao: { n: 6, p25: 6e6, preco: 6e6 }, ...o });

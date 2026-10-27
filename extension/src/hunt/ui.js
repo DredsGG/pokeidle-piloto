@@ -845,6 +845,10 @@
 
   function risco(l) {
     if (l.umHit) return '<span class="pih-perigo" title="Um golpe do selvagem passa do seu HP">☠ 1 hit</span>';
+    // 1.33: os desmaios levam mais XP do treinador (10% do nível cada) do que a hunt dá
+    if (l.perdeXp) return `<span class="pih-perigo" title="Perde ${curto(l.xpPerdidoH)} de XP do treinador por hora em desmaios (10% do nível cada) e ganha ${curto(l.xpTreinadorBrutoH)}">☠ XP</span>`;
+    // 1.33: gasta mais em poção do que a hunt rende em ouro
+    if (l.prejuizo) return `<span class="pih-perigo" title="Gasta ${curto(l.custoPocaoH)} de ouro/h em poção (${num(Math.round(l.pocoesH))} por hora) e a hunt rende ${curto(l.ouroBrutoH)}">💸 poção</span>`;
     if (l.mortesH >= 0.5) return `<span class="pih-perigo" title="Mortes estimadas por hora">☠ ${l.mortesH.toFixed(1).replace('.', ',')}/h</span>`;
     const pct = Math.round(l.hitPct * 100);
     const oque = l.engajados > 1.2
@@ -901,7 +905,7 @@
     // risco primeiro; as arriscadas (☠ 1 hit, mortes, golpe de 50%+) depois; as inviáveis no fim.
     // Antes uma hunt ☠ 1 hit aparecia em 1º com o 👑 em outra linha.
     const evitar = cfgAuto()?.hunt?.evitarRisco !== false;
-    const arriscada = (l) => l.umHit || l.mortesH >= 0.2 || l.hitPct >= 0.5;
+    const arriscada = (l) => PIH.engine.arriscada(l);
     const grupo = (l) => (l.inviavel ? 2 : evitar && arriscada(l) ? 1 : 0);
     const linhas = r.linhas.map((l, i) => [l, i]).sort((a, b) => (grupo(a[0]) - grupo(b[0])) || (a[1] - b[1])).map((x) => x[0]);
     if (!linhas.length) return '<div class="pih-erro">Nenhuma hunt liberada para o seu nível de treinador.</div>';

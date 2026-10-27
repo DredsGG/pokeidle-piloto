@@ -1998,6 +1998,42 @@
     publicarEstado();
   }
 
+  // 1.33.2: o "Em estoque" da aba Lucro (o que o radar comprou e ainda não vendeu, a custo) vai para o
+  // cofre a cada 2 min: é com ele que o cofre mede o capital em giro da compra automática.
+  async function publicarEstoque() {
+    try {
+      if (!ponte.temJogo || !ponte.temJogo()) return;
+      const r = await sw({ tipo: 'lucro:resumo' });
+      const v = r && r.totais ? Number(r.totais.emEstoque) : NaN;
+      if (Number.isFinite(v) && v >= 0) document.dispatchEvent(new CustomEvent('piloto:radar-estoque', { detail: JSON.stringify({ valor: Math.round(v) }) }));
+    } catch (e) { erro(e); }
+  }
+  setInterval(() => { publicarEstoque(); }, 2 * 60000);
+  setTimeout(() => { publicarEstoque(); }, 8000);
+
+  // 1.33.1: um retrato do radar no localStorage do pokeidle.io ('piloto:diag:radar'), a cada 1 min,
+  // para conferir pela página /terms (sem abrir o /app) por que um item foi ou não comprado,
+  // anunciado ou teve o preço mudado. Fica só neste navegador; não vai a lugar nenhum.
+  setInterval(() => {
+    try {
+      if (!ponte.temJogo || !ponte.temJogo()) return;
+      const prim = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v === null || typeof v !== 'object'));
+      const cfg = configDoAutomatico();
+      const v = s.ultimaVitrine;
+      const linhas = v ? Vitrine.linhasDoMercado({ amostras: v.amostras, historico: v.historico, conferidos: s.conferidos, catalogo: s.catalogo, config: cfg, agora: Date.now() }) : [];
+      const { meus, sugestoes } = calcularSugestoes();
+      localStorage.setItem('piloto:diag:radar', JSON.stringify({
+        em: Date.now(), motivo: s.motivo || null, ultimoCiclo: s.ultimoCiclo || null, ultimaRevendaAuto: s.ultimaRevendaAuto || null,
+        config: prim(cfg), categorias: cfg.categorias, bloqueados: cfg.itensBloqueados, liberadosAMao: cfg.itensLiberados,
+        catalogo: s.catalogo.size, liberados: liberados().map((i) => i.id), vitrineEm: v ? v.em : null,
+        linhas: linhas.map(prim).slice(0, 60),
+        sugestoes: sugestoes.map((sg) => ({ ...prim(sg), doRadar: !!(sg.custo && sg.custo.doRadar), custoUn: sg.custo ? sg.custo.porUnidade : null, espera: emEspera(sg.itemId), auto: cartaoAutomatico(sg) })),
+        abertos: meus.length,
+        gastoAutoHoje: Auto.gastoDeHoje(s.gastoDia, Date.now()),
+      }));
+    } catch { /* sem espaço ou sem dados ainda */ }
+  }, 60000);
+
   async function iniciar() {
     const st = ponte.storage();
     if (!st) return;

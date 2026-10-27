@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const require = createRequire(import.meta.url);
 const AQUI = path.dirname(new URL(import.meta.url).pathname);
+const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -102,21 +102,28 @@ const kit = (o) => page.evaluate(async (o) => {
   const P = window.__pokeidleHunt;
   let e = null; P.on('estado', (x) => { e = x; });
   if (o.hp) for (const p of e.pokemons) if (p.slot != null) p.maxHp = o.hp;
-  const k = P.auto._interno.escolherKit({ ouroH: o.ouroH });
+  const k = P.auto._interno.escolherKit({ ouroH: o.ouroH, ...(o.livre != null ? { livre: o.livre } : {}), ...(o.saldo != null ? { saldo: o.saldo } : {}), ...(o.lanc != null ? { lancamentosH: o.lanc } : {}) });
   return k && { bola: k.bola.nome, pocao: k.pocao.name, revive: k.revive.name };
 }, o);
 await page.locator('button.plt-barra').click(); await sleep(1000);
 await page.locator('.plt-janela .plt-modo-bt[data-modo="automatico"]').click(); await sleep(2500);
 await page.keyboard.press('Escape');
 await page.evaluate(() => window.__pokeidleHunt.auto._interno.cfg().repor.kitAuto !== false);
-let k = await kit({ hp: 700, ouroH: 0 });
-ok(k && k.bola === 'Poke Ball' && k.pocao === 'Ultra Potion' === false && k.revive === 'Revive', `conta nova: ${JSON.stringify(k)}`);
-ok(k.pocao === 'Great Potion', `HP 700, limiar 50%: Great Potion (cura 150 ≤ 350) → ${k.pocao}`);
+let k = await kit({ hp: 700, ouroH: 0, saldo: 3000 });
+ok(k && k.bola === 'Poke Ball' && k.revive === 'Revive', `conta nova: Poke Ball e Revive (${JSON.stringify(k)})`);
+// 1.33: a de menor ouro por HP que cura de verdade (falta 350): Great 10/150 = 0,067; Ultra 22/350 = 0,063
+ok(k.pocao === 'Ultra Potion', `HP 700, limiar 50%: Ultra Potion (menor ouro por HP útil) → ${k.pocao}`);
+k = await kit({ hp: 900, ouroH: 0, livre: 300 }); ok(k.pocao === 'Great Potion', `só 300 de ouro livre: o primeiro lote de Ultra (20 × 22) não cabe → ${k.pocao}`);
+k = await kit({ hp: 900, ouroH: 0, livre: 50 }); ok(k.pocao === 'Small Potion', `50 de ouro: a mais barata → ${k.pocao}`);
 k = await kit({ hp: 900, ouroH: 0 }); ok(k.pocao === 'Ultra Potion', `HP 900: Ultra Potion (400 ≤ 450) → ${k.pocao}`);
 k = await kit({ hp: 8000, ouroH: 2_000_000 }); ok(k.pocao === 'Ultimate Potion' && k.revive === 'Revive', `HP 8000: Ultimate e ainda Revive → ${JSON.stringify(k)}`);
 k = await kit({ hp: 20000, ouroH: 2_000_000 }); ok(k.revive === 'Max Revive', `HP 20000: Max Revive vale mais que 50% em poção → ${k.revive}`);
 k = await kit({ hp: 900, ouroH: 2_000_000 }); ok(k.bola !== 'Beast Ball', `nunca Beast Ball (${k.bola})`);
 ok(['Great Ball', 'Super Ball', 'Ultra Ball'].includes(k.bola), `com 2 mi/h a bola sobe (${k.bola})`);
+// 1.33.2: conta rica subindo um pokémon fraco (5 mil de ouro/h, 2 lançamentos/h) — o saldo manda
+k = await kit({ hp: 900, ouroH: 5000, saldo: 162_000_000, lanc: 2 }); ok(k.bola === 'Ultra Ball', `162 mi no saldo: Ultra Ball → ${k.bola}`);
+k = await kit({ hp: 900, ouroH: 5000, saldo: 0, lanc: 2 }); ok(k.bola === 'Great Ball', `sem saldo, 5 mil/h e 2 lançamentos/h: Great (125 por bola) → ${k.bola}`);
+k = await kit({ hp: 900, ouroH: 5000, saldo: 162_000_000, lanc: 600 }); ok(k.bola === 'Super Ball', `162 mi e 600 lançamentos/h: Super (225 por bola) → ${k.bola}`);
 // manda o auto.set (um de cada) e o gancho aceita
 const antes = recebidos.length;
 await page.evaluate(async () => { const P = window.__pokeidleHunt; let e = null; P.on('estado', (x) => { e = x; }); for (const p of e.pokemons) if (p.slot != null) p.maxHp = 900; P.auto._interno.cfg().repor.ligado = true; await P.auto._interno.conferirKit(true); });
