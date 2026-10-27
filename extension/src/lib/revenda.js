@@ -27,8 +27,9 @@
   // registro: as linhas do registro do radar; historico: market.historicoCompras.linhas.
   // Devolve [{ nome, qtd, bruto, em, doRadar }].
   function juntarCompras(registro, historico) {
+    // 1.33.9: compra com clique (automatica === false) é SUA, não do radar — fica fora do "doRadar"
     const doRadar = (registro || [])
-      .filter((a) => a && (a.resultado === 'ganhou' || a.resultado === 'confirmado') && positivo(a.preco))
+      .filter((a) => a && a.automatica !== false && (a.resultado === 'ganhou' || a.resultado === 'confirmado') && positivo(a.preco))
       .map((a) => {
         const qtd = positivo(a.qtdPedida) ? a.qtdPedida : a.qtd;
         return { nome: a.nome, qtd, bruto: a.preco * qtd, em: numero(a.concluidoEm) ?? numero(a.em), doRadar: true };
@@ -159,8 +160,66 @@
     return lista.sort((a, b) => Number(b.custo.doRadar) - Number(a.custo.doRadar) || (b.lucro ?? -Infinity) - (a.lucro ?? -Infinity));
   }
 
+  // ---- 1.33.9 (pedido do André): o que você comprou À MÃO nunca é revendido sozinho ------------
+  // O livro dos "comprados à mão": cada linha de "Suas compras" do jogo que NÃO foi uma compra
+  // automática do radar entra uma vez (pela id da linha) e protege aquela quantidade do item, ou o
+  // pokémon inteiro. Item: a proteção nunca passa do que você tem; se você usou ou vendeu na mão,
+  // ela baixa junto. O que veio sozinho (drop, prêmio, compra automática do radar) segue na revenda.
+  function livroManualVazio() { return { itens: {}, pokemons: [], vistos: [] }; }
+  function ehCompraDoRadar(l, registroAuto) {
+    const pid = Number(l.pokemonId);
+    if (Number.isInteger(pid) && pid > 0) return registroAuto.some((a) => Number(a.pokemonId) === pid);
+    const c = Pessoal.normalizarHistorico([l], 'compra')[0];
+    if (!c) return false;
+    return registroAuto.some((r) => r.nome === c.nome && r.qtd === c.qtd && Math.abs((r.em ?? 0) - (c.em ?? 0)) <= MESMA_COMPRA_MS);
+  }
+  function atualizarManuais(livro, { registro, historico, inventarioPorNome }) {
+    const l0 = livro && typeof livro === 'object' ? livro : livroManualVazio();
+    const out = { itens: { ...(l0.itens || {}) }, pokemons: [...new Set((l0.pokemons || []).map(Number).filter(Number.isInteger))], vistos: [...(l0.vistos || [])] };
+    const vistos = new Set(out.vistos.map(String));
+    const registroAuto = (registro || []).filter((a) => a && a.automatica !== false && (a.resultado === 'ganhou' || a.resultado === 'confirmado'))
+      .map((a) => ({ nome: a.nome, qtd: positivo(a.qtdPedida) ? a.qtdPedida : a.qtd, em: numero(a.concluidoEm) ?? numero(a.em), pokemonId: a.pokemonId }));
+    let mudou = false;
+    for (const l of historico || []) {
+      if (!l || l.id == null) continue;
+      const id = String(l.id);
+      if (vistos.has(id)) continue;
+      vistos.add(id); out.vistos.push(id); mudou = true;
+      if (ehCompraDoRadar(l, registroAuto)) continue;
+      const pid = Number(l.pokemonId);
+      if (Number.isInteger(pid) && pid > 0) { if (!out.pokemons.includes(pid)) out.pokemons.push(pid); continue; }
+      const c = Pessoal.normalizarHistorico([l], 'compra')[0];
+      if (!c || !c.nome || !positivo(c.qtd)) continue;
+      out.itens[c.nome] = (Number(out.itens[c.nome]) || 0) + c.qtd;
+    }
+    // nunca protege mais do que você tem (o que usou ou vendeu na mão sai da proteção)
+    if (inventarioPorNome) {
+      for (const [nome, q] of Object.entries(out.itens)) {
+        const tem = Math.max(0, Math.floor(Number(inventarioPorNome[nome]) || 0));
+        if (q > tem) { out.itens[nome] = tem; mudou = true; }
+        if (!out.itens[nome]) delete out.itens[nome];
+      }
+    }
+    if (out.vistos.length > 600) out.vistos = out.vistos.slice(-600);
+    if (out.pokemons.length > 2000) out.pokemons = out.pokemons.slice(-2000);
+    return { livro: out, mudou };
+  }
+  // O inventário que a revenda pode usar: o que você tem menos o comprado à mão e menos as pedras
+  // que o time vai gastar para evoluir.
+  function inventarioRevendavel(inventario, catalogo, { manuais, pedrasDoTime } = {}) {
+    const out = {};
+    for (const [id, q] of Object.entries(inventario || {})) {
+      const item = catalogo && catalogo.get(Number(id));
+      const nome = item && item.nome;
+      const mao = nome && manuais && manuais.itens ? Number(manuais.itens[nome]) || 0 : 0;
+      const time = pedrasDoTime ? Number(pedrasDoTime[id]) || 0 : 0;
+      out[id] = Math.max(0, Math.floor(Number(q) || 0) - mao - time);
+    }
+    return out;
+  }
+
   // O número da aba: cartões com algo a fazer e lucro.
   const comAcao = (s) => (s.acao === 'anunciar' || s.acao === 'mudar-preco') && s.lucro > 0;
 
-  return { TAXA, PRECO_MINIMO, MAX_ANUNCIOS, juntarCompras, custoMedio, pisoDe, filaDeOutros, liquidoDe, sugerir, montarSugestoes, comAcao };
+  return { TAXA, PRECO_MINIMO, MAX_ANUNCIOS, juntarCompras, custoMedio, pisoDe, filaDeOutros, liquidoDe, sugerir, montarSugestoes, comAcao, livroManualVazio, atualizarManuais, inventarioRevendavel };
 });

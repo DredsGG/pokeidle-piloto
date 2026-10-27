@@ -30,6 +30,10 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.33.9': [
+        "Automatic resale: what you buy by hand (on the Market, with a click in the Radar, or a Pokémon) is never listed on its own; only what came by itself (drops or the Radar's automatic buys) goes to resale.",
+        "The stone your team will spend to evolve stays out of resale while it's needed.",
+      ],
       '1.33.7': [
         "In the field: a golden \"+N\" next to the level shows how many levels the Pokémon gained this rotation turn (only if it leveled up; it starts over when it comes back).",
       ],

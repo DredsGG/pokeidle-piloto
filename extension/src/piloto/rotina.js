@@ -413,12 +413,26 @@
   // a mesma pedra só é pedida de novo depois de 30 min.
   const pedidoPedra = new Map(); // itemId -> quando pediu
   async function tarefaPedraDoTime() {
-    if (!cfg.evoluir.ligado || cfg.evoluir.comprarPedra === false || !venceu('pedraTime', 2 * 60_000)) return false;
+    if (!cfg.evoluir.ligado || !venceu('pedraTime', 2 * 60_000)) return false;
     marcar('pedraTime');
     const m = await modulos();
     const { porId, jogo } = await catalogoEvolucao();
     const noXpShare = new Set();
     for (const c of (eu.casa && eu.casa.lista) || []) for (const id of c.postos || []) if (id) noXpShare.add(id);
+    // 1.33.9 (o André viu a pedra comprada para evoluir ir para a revenda): avisa o Radar de TODAS as
+    // pedras que o time vai gastar (de quem já pode evoluir), para a revenda automática não vendê-las.
+    const precisa = {};
+    for (const pk of equipe()) {
+      if (pk.shiny || pk.speciesId >= 2000 || pk.starter || pk.skin || pk.heldItemId != null || noXpShare.has(pk.id)) continue;
+      const esp = porId.get(pk.speciesId);
+      if (!esp || !esp.evolvesToId) continue;
+      const dest = m.ramif.destinosDeEvolucao(esp, (id) => porId.get(id)).filter((d) => d.temArte && (pk.level || 0) >= d.nivel);
+      if (!dest.length || (dest.length > 1 && !cfg.evoluir.ramificada)) continue;
+      const pd = pedraDe(m.ramif.tipoDaPedraDeEvolucao(esp, dest[0].especie), jogo);
+      if (pd) precisa[pd.itemId] = (precisa[pd.itemId] || 0) + 1;
+    }
+    document.dispatchEvent(new CustomEvent('piloto:pedras-do-time', { detail: JSON.stringify({ itens: precisa }) }));
+    if (cfg.evoluir.comprarPedra === false) return false;
     for (const pk of equipe()) {
       if (pk.shiny || pk.speciesId >= 2000 || pk.starter || pk.skin || pk.heldItemId != null || noXpShare.has(pk.id)) continue;
       if (Object.values(pk.refino || {}).some((v) => Number(v) > 0) || Number(pk.refinoTotal) > 0) continue;

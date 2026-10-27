@@ -43,6 +43,8 @@
   const INTERVALO_PEDIDO_TELA_MS = 10000;
   const CHAVE_GASTO = 'radar:gastoDia';
   const CHAVE_AUTO_DESLIGADA = 'radar:autoDesligada'; // { em, motivo }: o painel mostra por quê
+  const CHAVE_MANUAIS = 'revenda:manuais:v1'; // 1.33.9: o que você comprou à mão (nunca revende sozinho)
+  const CHAVE_PEDRAS_TIME = 'revenda:pedrasDoTime:v1'; // 1.33.9: as pedras que o time vai gastar
   // Na vigia contínua a pausa entre leituras cai para 0,5 s: quem segura o ritmo é o limitador do
   // gancho (2 leituras/s), não um intervalo fixo.
   const pausaEntrePedidos = () => (s.config.vigiaContinua ? 500 : PAUSA_ENTRE_PEDIDOS_MS);
@@ -1142,14 +1144,15 @@
   const pedrasDoTime = new Map(); // itemId -> { em, nome, para }
   const PEDRA_FORA_DA_REVENDA_MS = 2 * 3_600_000;
   const pedraGuardada = (itemId) => { const p = pedrasDoTime.get(Number(itemId)); return !!p && Date.now() - p.em < PEDRA_FORA_DA_REVENDA_MS; };
-  function calcularSugestoes() {
+  function calcularSugestoes({ auto = false } = {}) {
     const v = s.ultimaVitrine;
     const resumo = {};
     for (const a of (v && v.amostras) || []) resumo[a.itemId] = { media7d: a.mediaGold, volume7d: a.volume7d };
     const meus = Pessoal.normalizarMeus((s.revenda.meus && s.revenda.meus.linhas) || [], agoraServidor());
     const compras = Rv.juntarCompras(s.revenda.registro || [], (s.revenda.historico && s.revenda.historico.linhas) || []);
     // 1.27: a pedra comprada para o time evoluir não entra na revenda
-    const sugestoes = Rv.montarSugestoes({ inventario: s.conta.itens || {}, catalogo: s.catalogo, config: s.config, livros: s.livros, meus, compras, resumo, meuId: s.conta.id, ocultos: s.revenda.ocultos, agora: agoraServidor() }).filter((sg) => !pedraGuardada(sg.itemId));
+    const inventario = auto ? Rv.inventarioRevendavel(s.conta.itens || {}, s.catalogo, { manuais: s.revenda.manuais, pedrasDoTime: pedrasDoTimeAgora() }) : (s.conta.itens || {});
+    const sugestoes = Rv.montarSugestoes({ inventario, catalogo: s.catalogo, config: s.config, livros: s.livros, meus, compras, resumo, meuId: s.conta.id, ocultos: s.revenda.ocultos, agora: agoraServidor() }).filter((sg) => !pedraGuardada(sg.itemId));
     return { meus, sugestoes };
   }
 
@@ -1204,19 +1207,22 @@
 
   async function revendaAutomatica() {
     if (!s.config.revendaAutomatica || s.parado || !s.socketAberto || s.revenda.autoRodando) return;
+    if (!s.revenda.manuaisProntos) return; // 1.33.9: sem o livro dos comprados à mão, não revende nada
     if (Date.now() - (s.ultimaRevendaAuto || 0) < REVENDA_AUTO_MS) return;
     s.ultimaRevendaAuto = Date.now();
     s.revenda.autoRodando = true;
     try {
       await pedirRevenda({});
+      if (!s.revenda.manuaisEm) { try { atualizarLivroManual(); } catch (e) { erro(e); } }
+      if (!s.revenda.manuaisEm) return; // ainda sem "Suas compras" lido: não arrisca
       // Anúncio com espera conhecida (editavelEm): anota para não tentar antes da hora.
-      for (const sg of calcularSugestoes().sugestoes) {
+      for (const sg of calcularSugestoes({ auto: true }).sugestoes) {
         if (sg.acao === 'espera-editar' && typeof sg.esperaEditarMs === 'number') segurar(sg.itemId, sg.esperaEditarMs);
       }
       const feitos = new Set();
       for (let n = 0; n < MAX_ACOES_POR_VOLTA; n++) {
         if (!s.config.revendaAutomatica || !s.socketAberto) break;
-        const atual = calcularSugestoes();
+        const atual = calcularSugestoes({ auto: true });
         abertosAgora = atual.meus.filter((m) => m && (m.estado === null || m.estado === 'aberto')).length;
         const candidato = atual.sugestoes.find((sg) => !feitos.has(sg.itemId) && cartaoAutomatico(sg));
         if (!candidato) break;
@@ -1228,7 +1234,7 @@
           const dados = await pedir({ t: 'market.item', itemId: candidato.itemId, moeda: 'gold' }, casaItem(candidato.itemId));
           if (dados) s.livros.set(candidato.itemId, { linhas: dados.linhas || [], em: Date.now() });
         }
-        const alvo = calcularSugestoes().sugestoes.find((sg) => sg.itemId === candidato.itemId);
+        const alvo = calcularSugestoes({ auto: true }).sugestoes.find((sg) => sg.itemId === candidato.itemId);
         if (!alvo || !cartaoAutomatico(alvo)) continue;
         const tipo = alvo.acao === 'anunciar' ? 'criar' : 'editar';
         await acaoDeRevenda({ tipo, itemId: alvo.itemId, qtd: alvo.qtdCartao, preco: alvo.preco, anuncioId: alvo.meuAnuncio ? alvo.meuAnuncio.id : undefined, auto: true });
@@ -1474,7 +1480,10 @@
       if (!s.revenda.meus || Date.now() - (s.revenda.meusEm || 0) > 5 * 60000) { await esperar(pausaEntrePedidos()); await lerMeus(); }
       const abertos = ((s.revenda.meus && s.revenda.meus.linhas) || []).filter((l) => l && (!l.estado || l.estado === 'aberto')).length;
       const vagas = abertos < Rv.MAX_ANUNCIOS - 2;
-      const pode = (c) => c.ficha && c.ficha.moeda === 'gold' && !c.ficha.shiny && !emEsperaPk(c.pokemonId)
+      const manuaisPk = new Set(((s.revenda.manuais && s.revenda.manuais.pokemons) || []).map(Number));
+      if (s.revenda.manuaisProntos && !s.revenda.manuaisEm) { await pedirRevenda({}); try { atualizarLivroManual(); } catch (e) { erro(e); } }
+      if (!s.revenda.manuaisProntos || !s.revenda.manuaisEm) return; // 1.33.9: sem o livro, não anuncia
+      const pode = (c) => c.ficha && c.ficha.moeda === 'gold' && !c.ficha.shiny && !emEsperaPk(c.pokemonId) && !manuaisPk.has(Number(c.pokemonId)) && !(c.custo && c.custo.fonte === 'jogo')
         && (c.grupo === 'mudar' || (vagas && !g.ids.has(c.pokemonId)));
       // Mudar o preço primeiro (já está à venda); depois os comprados pelo radar e a maior nota.
       const fila = cartoesPk().filter(pode).sort((x, y) => Number(y.grupo === 'mudar') - Number(x.grupo === 'mudar'));
@@ -1567,10 +1576,33 @@
     else marcarAcao(voo.itemId, fase, texto);
   }
 
+  // 1.33.9: o livro dos comprados à mão. Só atualiza com o registro do radar já lido (senão uma
+  // compra automática pareceria sua) — e, na dúvida, protege: nunca o contrário.
+  function atualizarLivroManual() {
+    if (!s.revenda.manuaisProntos || !s.revenda.registroEm || !s.revenda.historico) return;
+    const porNome = {};
+    for (const [id, q] of Object.entries(s.conta.itens || {})) { const it = s.catalogo.get(Number(id)); if (it && it.nome) porNome[it.nome] = (porNome[it.nome] || 0) + (Number(q) || 0); }
+    const r = Rv.atualizarManuais(s.revenda.manuais, { registro: s.revenda.registro || [], historico: s.revenda.historico.linhas || [], inventarioPorNome: porNome });
+    s.revenda.manuais = r.livro;
+    s.revenda.manuaisEm = Date.now();
+    if (r.mudou) { const st = ponte.storage(); if (st) st.set({ [CHAVE_MANUAIS]: r.livro }).catch(erro); }
+  }
+  // as pedras que o time vai gastar (a Rotina avisa a cada 2 min): valem 15 min sem aviso novo
+  const pedrasDoTimeAgora = () => { const p = s.revenda.pedrasDoTime; return p && Date.now() - (p.em || 0) < 15 * 60_000 ? (p.itens || {}) : null; };
+  document.addEventListener('piloto:pedras-do-time', (ev) => {
+    try {
+      const d = JSON.parse(ev.detail);
+      const itens = {};
+      for (const [id, q] of Object.entries((d && d.itens) || {})) { const n = Math.floor(Number(q)); if (Number.isInteger(Number(id)) && n > 0 && n < 1000) itens[Number(id)] = n; }
+      s.revenda.pedrasDoTime = { em: Date.now(), itens };
+      const st = ponte.storage(); if (st) st.set({ [CHAVE_PEDRAS_TIME]: s.revenda.pedrasDoTime }).catch(erro);
+    } catch (e) { erro(e); }
+  });
+
   function guardarPessoal(aba, dados) {
     if (!dados) return;
     if (aba === 'meus') { s.revenda.meus = dados; s.revenda.meusEm = Date.now(); }
-    if (aba === 'historicoCompras') { s.revenda.historico = dados; s.revenda.historicoEm = Date.now(); }
+    if (aba === 'historicoCompras') { s.revenda.historico = dados; s.revenda.historicoEm = Date.now(); try { atualizarLivroManual(); } catch (e) { erro(e); } }
     // Lucro realizado (0.9.0): as suas vendas, sem quem comprou, e a diária dos seus anúncios de pokémon.
     if (aba === 'historico') {
       s.ultimoHistoricoVendas = Date.now();
@@ -1603,6 +1635,7 @@
       if (forcar || agora - s.revenda.registroEm > MEUS_VALE_MS) {
         s.revenda.registro = (await sw({ tipo: 'alertas:listar', limite: 500 })) || [];
         s.revenda.registroEm = Date.now();
+        try { atualizarLivroManual(); } catch (e) { erro(e); }
       }
       if (forcar || agora - s.revenda.meusEm > MEUS_VALE_MS) await lerMeus();
       if (forcar || agora - s.revenda.historicoEm > HISTORICO_VALE_MS) {
@@ -2040,8 +2073,11 @@
   async function iniciar() {
     const st = ponte.storage();
     if (!st) return;
-    const salvo = await st.get([Config.CHAVE, CHAVE_GASTO]);
+    const salvo = await st.get([Config.CHAVE, CHAVE_GASTO, CHAVE_MANUAIS, CHAVE_PEDRAS_TIME]);
     s.gastoDia = salvo[CHAVE_GASTO] || null;
+    s.revenda.manuais = salvo[CHAVE_MANUAIS] || Rv.livroManualVazio();
+    s.revenda.pedrasDoTime = salvo[CHAVE_PEDRAS_TIME] || null;
+    s.revenda.manuaisProntos = true;
     aplicarConfig(salvo[Config.CHAVE]);
     // Depois de recarregar a aba, não repete aviso nem quase aviso das últimas 24 h.
     const recentes = (await sw({ tipo: 'alertas:recentes' })) || {};

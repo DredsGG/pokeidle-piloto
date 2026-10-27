@@ -30,6 +30,10 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.33.9': [
+        "Revenda automática: o que você compra à mão (no Mercado, com clique no Radar ou pokémon) nunca é anunciado sozinho; só entra na revenda o que veio sozinho (drop ou compra automática do Radar).",
+        "A pedra que o time vai gastar para evoluir fica fora da revenda enquanto ele precisar dela.",
+      ],
       '1.33.7': [
         "Em campo: um \"+N\" dourado ao lado do nível mostra quantos níveis o pokémon subiu neste turno do rodízio (só aparece se subiu; recomeça quando ele volta).",
       ],

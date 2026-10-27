@@ -1,5 +1,19 @@
 {
   "versoes": {
+    "1.33.9": {
+      "pt": [
+        "Revenda automática: o que você compra à mão (no Mercado, com clique no Radar ou pokémon) nunca é anunciado sozinho; só entra na revenda o que veio sozinho (drop ou compra automática do Radar).",
+        "A pedra que o time vai gastar para evoluir fica fora da revenda enquanto ele precisar dela."
+      ],
+      "en": [
+        "Automatic resale: what you buy by hand (on the Market, with a click in the Radar, or a Pokémon) is never listed on its own; only what came by itself (drops or the Radar's automatic buys) goes to resale.",
+        "The stone your team will spend to evolve stays out of resale while it's needed."
+      ],
+      "es": [
+        "Reventa automática: lo que compras a mano (en el Mercado, con un clic en el Radar o un pokémon) nunca se anuncia solo; solo entra en la reventa lo que llegó solo (drops o compras automáticas del Radar).",
+        "La piedra que el equipo va a gastar para evolucionar queda fuera de la reventa mientras la necesite."
+      ]
+    },
     "1.33.7": {
       "pt": [
         "Em campo: um \"+N\" dourado ao lado do nível mostra quantos níveis o pokémon subiu neste turno do rodízio (só aparece se subiu; recomeça quando ele volta)."
