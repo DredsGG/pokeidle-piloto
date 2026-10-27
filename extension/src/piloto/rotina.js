@@ -171,6 +171,47 @@
     }
     return pedir({ t: 'team.active', pokemonId: prox.id }, `${txt}${huntAuto ? ' — a Troca de hunt leva para a melhor hunt dele' : ''}`);
   }
+  // 1.33.4 (o André viu o Larvitar Nv 44 ficar 1h51 na hunt do Pichu Nv 260 com o turno vencido): a
+  // válvula de escape. A troca do rodízio espera a brecha de combate (3 s sem dano) para ir ao Centro;
+  // numa hunt acima do Nv 150 o jogo repõe cada selvagem na hora, e um pokémon fraco, que mata
+  // devagar, nunca fica 3 s sem apanhar — a fila desistia aos 10 min e o rodízio tentava de novo,
+  // para sempre. Agora, 2 min sem brecha: o próximo da fila (o mesmo, a ordem não muda) entra ali
+  // mesmo, se luta com segurança nessa hunt. Ele limpa o campo, a brecha aparece, a ida ao Centro
+  // segue e ele sai de lá para a melhor hunt dele. Se o próximo não aguenta essa hunt, entra uma
+  // PONTE (o mais forte do time que aguenta) só para limpar: ela não conta como turno (não perde o
+  // lugar na fila) e, no Centro, o próximo da fila assume como sempre. Nunca usa o "Desistir do
+  // Combate" do jogo: ele custa 10% do XP do nível do treinador.
+  const VALVULA_MS = 2 * 60_000;
+  const vivoRod = (p) => !!(p && p.stats && !(p.hp != null && Number(p.hp) <= 0));
+  async function valvula(r) {
+    const at = ativo();
+    const h = huntAtual();
+    if (!at || !h || !welcome || at.id === r.proxId) return;
+    const jogo = await PIH.carregarJogo();
+    const ctx = {
+      mod: jogo.mod, especies: jogo.especies, precoItem: jogo.precoItem, hunts: [h],
+      consts: { tabelaTipos: welcome.tabelaTipos, ampliacaoHunt: welcome.ampliacaoHunt, multHpSelvagem: welcome.multHpSelvagem, multDanoSelvagem: welcome.multDanoSelvagem, tiposBoost: welcome.tiposBoost },
+      eu, geo: (slug) => (PIH.geo ? PIH.geo.daHunt(slug) : null), ritmoMedido: () => null,
+    };
+    const aguenta = (pk) => {
+      try { const l = PIH.engine.analisar(pk, ctx, { soLiberadas: false, comPocao: true }).linhas[0]; return !!l && !l.inviavel && !PIH.engine.arriscada(l); } catch { return false; }
+    };
+    const prox = equipe().find((p) => p.id === r.proxId);
+    if (vivoRod(prox) && aguenta(prox)) {
+      pedir({ t: 'team.active', pokemonId: prox.id }, `rodízio: 2 min sem brecha de combate — ${prox.nome} entra aqui mesmo para limpar a hunt, depois vai ao Centro e segue para a melhor hunt dele`);
+      return;
+    }
+    const ponte = equipe()
+      .filter((p) => p.id !== at.id && p.id !== r.proxId && vivoRod(p) && (p.starter || (p.level || 0) <= (eu.level || 0) + 5) && aguenta(p))
+      .sort((a, b) => poderRod(b) - poderRod(a))[0];
+    if (ponte) {
+      if (PIH.time && PIH.time.marcarPonte) PIH.time.marcarPonte(ponte.id);
+      r.ponte = ponte.id;
+      pedir({ t: 'team.active', pokemonId: ponte.id }, `rodízio: 2 min sem brecha de combate — ${ponte.nome} entra só para limpar a hunt (não conta como turno); no Centro ${r.nome} assume`);
+      return;
+    }
+    diario('rodízio: 2 min sem brecha de combate e ninguém do time luta com segurança aqui — continuo esperando', 'aviso');
+  }
   let rodAndando = false;
   async function andarRodCentro() {
     const r = rodCentro;
@@ -182,7 +223,9 @@
       if (agora - r.desde > 12 * 60_000) return sair('rodízio: a troca no Centro passou de 12 min — voltando', 'aviso');
       if (r.etapa === 'indo') {
         if (eu.noCentro) { r.etapa = 'trocar'; r.em = 0; return; }
-        if (!PIH.auto.rotinaAtual()) { rodCentro = null; marcas.rodizio = Date.now() - cfg.rodizio.intervaloMin * 60_000 + 2 * 60_000; diario('rodízio: não cheguei ao Centro — tento de novo em 2 min', 'aviso'); return; }
+        const rot = PIH.auto.rotinaAtual();
+        if (!rot) { rodCentro = null; marcas.rodizio = Date.now() - cfg.rodizio.intervaloMin * 60_000 + 2 * 60_000; diario('rodízio: não cheguei ao Centro — tento de novo em 2 min', 'aviso'); return; }
+        if (!r.valvula && rot.etapa === 'esperar' && naHunt() && agora - r.desde > VALVULA_MS) { r.valvula = true; await valvula(r); }
         return;
       }
       if (r.etapa === 'trocar') {
@@ -746,5 +789,5 @@
       gravar();
     }
   } catch { /* sem armazenamento */ }
-  PIH.rotina = { html, linhasCaca, ligar, aplicar, definir, proximoRodizio, filaRodizio, resumoAutoColecao: () => resumoRegra(ultimaRegra), pvpTime: () => (Array.isArray(pvp.time) ? pvp.time.slice() : null), equipePvpAlvo: () => (eu ? equipeAlvo(Array.isArray(pvp.time) ? pvp.time : []).map((p) => p.id) : []), _interno: { cfg: () => cfg, tique, TAREFAS, marcas: () => marcas } };
+  PIH.rotina = { html, linhasCaca, ligar, aplicar, definir, proximoRodizio, filaRodizio, resumoAutoColecao: () => resumoRegra(ultimaRegra), pvpTime: () => (Array.isArray(pvp.time) ? pvp.time.slice() : null), equipePvpAlvo: () => (eu ? equipeAlvo(Array.isArray(pvp.time) ? pvp.time : []).map((p) => p.id) : []), _interno: { cfg: () => cfg, tique, TAREFAS, marcas: () => marcas, rodCentro: () => rodCentro, andarRodCentro, VALVULA_MS } };
 })(globalThis);

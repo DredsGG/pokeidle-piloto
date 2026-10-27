@@ -30,7 +30,10 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
-      '1.33.3': [
+      '1.33.4': [
+        "Rotation: when the hunt never gives a break in combat (the weak Pokémon keeps getting hit), after 2 min the next one in line comes in right there, clears the hunt and goes on to the Center and its best hunt. The order doesn't change.",
+        "If the next one in line can't handle that hunt, the team's strongest comes in only to clear it; it doesn't count as a turn or lose its place in line.",
+        "No VIP: the automatic Poké Ball keeps throwing with the window minimized (Chrome was slowing the clock to once a minute).",
         "Automatic Market buying now follows your money: it buys what's profitable while the radar's stock plus the purchase stays under half of what you have; once it sells, room opens again. It left the daily cap.",
         "When the game says \"Devagar aí — muitas mensagens\" (too many messages), the radar and the Pilot slow down on their own and speed back up slowly.",
         "The ball takes your balance into account: an account with lots of gold uses the Ultra Ball even while leveling a weak Pokémon.",

@@ -472,6 +472,7 @@
   // o corpo do mapa no mesmo tick do arremesso, acerte ou não: uma bola por corpo.
   const corposPih = new Map();
   let ultimoArremessoPih = 0;
+  let ultimaBolaNoFio = 0;
   function anotarCorpos(tipo, m) {
     if (tipo === 'campo.init') corposPih.clear();
     const n = agora();
@@ -746,8 +747,13 @@
     Object.defineProperty(PIH, k, { value: PIH[k], writable: false, configurable: false, enumerable: true });
   }
 
+  // 1.33.4: com a janela minimizada há mais de 5 min o Chrome segura um relógio encadeado por até
+  // 1 min. Pedido novo (que vem de uma mensagem do jogo) com o relógio atrasado: troca por um novo.
+  let filaPihEm = 0;
   function agendarFilaPih() {
-    if (filaPihTimer) return;
+    if (filaPihTimer && agora() < filaPihEm + 1000) return;
+    if (filaPihTimer) clearTimeout(filaPihTimer);
+    filaPihEm = agora() + 150;
     filaPihTimer = agendar(processarFilaPih, 150);
   }
   function processarFilaPih() {
@@ -762,7 +768,15 @@
       return;
     }
     if (agora() < st.avisoLivreAte || !temFicha(proximo.pedido.t)) { agendarFilaPih(); return; }
+    // 1.33.4: a fila (o freio de ritmo) podia soltar duas bolas juntas — 151 ms entre elas no teste.
+    // No fio, nunca mais rápido que o lançamento do VIP: 1,2 s entre bolas, contado na SAÍDA.
+    if (proximo.pedido.t === 'ball.throw' && agora() - ultimaBolaNoFio < 1200) {
+      if (agora() - proximo.em > 5000) { filaPih.shift(); cofreRef.estornar(proximo.reserva); } // o corpo já sumiu
+      agendarFilaPih();
+      return;
+    }
     filaPih.shift();
+    if (proximo.pedido.t === 'ball.throw') ultimaBolaNoFio = agora();
     // Desligou o piloto (ou o disjuntor do módulo caiu) com o pedido na fila: não sai.
     if (!Object.hasOwn(PIH_PERMITIDOS, proximo.pedido.t) || BLOQUEADOS.has(proximo.pedido.t) || !cofreRef.liberado(proximo.origem)) {
       cofreRef.estornar(proximo.reserva);

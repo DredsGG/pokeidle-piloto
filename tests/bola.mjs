@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const require = createRequire(import.meta.url);
+const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -81,6 +81,13 @@ await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
   setInterval(() => ws.send(JSON.stringify({ t: 'estado', estado: { servidorAgora: Date.now() } })), 1000);
 });
 
+// 1.33.4: imita a janela minimizada há mais de 5 min — o Chrome freia o relógio repetido de 250 ms
+// para um por minuto. A bola tem de sair mesmo assim (pela mensagem do campo).
+await ctx.addInitScript(() => {
+  const orig = window.setInterval;
+  window.__freados = 0;
+  window.setInterval = function (fn, ms, ...a) { if (ms === 250) { window.__freados++; return orig.call(window, fn, 60_000, ...a); } return orig.call(window, fn, ms, ...a); };
+});
 await ctx.addInitScript(() => { try { localStorage.setItem('piloto:dev:manual', '1'); localStorage.setItem('piloto:dev:semGuia', '1'); } catch {} });
 const page = await ctx.newPage();
 page.on('console', (m) => { if (m.type() === 'error' || /radar|piloto/i.test(m.text())) erros.push(m.type() + ': ' + m.text().slice(0, 300)); });
@@ -103,6 +110,16 @@ const antes = recebidos.length;
 srv({ t: 'campo', mobs: [{ s: 77, x: 1, xr: 30000, n: 'Rattata', nv: 5, sh: 0, lt: 19 }] });
 await sleep(2500);
 r.bola = recebidos.slice(antes).filter((m) => m.t === 'ball.throw').map(({ t, ballId, slot }) => ({ t, ballId, slot }));
+// dois corpos juntos: a segunda bola espera o intervalo mínimo (1,3 s) e sai sem o relógio repetido
+await page.evaluate(() => { window.__envios = []; window.__pokeidleHunt.on('piloto.enviado', (m) => { if (m && m.t === 'ball.throw') window.__envios.push({ slot: m.slot, em: Date.now() }); }); });
+const antes2 = recebidos.length;
+srv({ t: 'campo', mobs: [{ s: 78, x: 1, xr: 30000, n: 'Rattata', nv: 5, sh: 0, lt: 19 }, { s: 79, x: 1, xr: 30000, n: 'Rattata', nv: 6, sh: 0, lt: 19 }] });
+for (let k = 0; k < 16 && recebidos.slice(antes2).filter((m) => m.t === 'ball.throw').length < 2; k++) await sleep(500);
+const th = recebidos.slice(antes2).filter((m) => m.t === 'ball.throw');
+r.freados = await page.evaluate(() => window.__freados);
+r.envios = await page.evaluate(() => window.__envios); r.capSt = await page.evaluate(() => { const c = window.__pokeidleHunt.captura; return { st: c.status(), corpos: [...c._interno.corpos.keys()] }; }); r.diag = await page.evaluate(() => JSON.parse(localStorage.getItem("piloto:diag:envios") || "null"));
+r.minimizada = { bolas: th.map((m) => m.slot), gap: r.envios.length > 1 ? r.envios[1].em - r.envios[0].em : null };
+console.log(r.freados > 0 && r.bola.length === 1 && th.length === 2 && r.minimizada.gap >= 1250 ? 'ok   janela minimizada: a bola sai pela mensagem do campo, com o intervalo mínimo' : 'FALHOU minimizada ' + JSON.stringify({ f: r.freados, b: r.bola, m: r.minimizada }));
 await sleep(1200);
 await page.locator('.plt-janela').screenshot({ path: `${SAIDA}/1-auto-cacar.png` });
 await page.locator('.plt-cats [data-aba="resumo"]').click(); await sleep(1200);

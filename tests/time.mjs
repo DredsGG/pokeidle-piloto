@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const require = createRequire(import.meta.url);
+const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -209,6 +209,7 @@ globalThis.__aoMsg = async (o) => {
   }
   if (o.t === 'centro.ir') srv({ t: 'estado', estado: { noCentro: true } });
   if (o.t === 'hunt.select') srv({ t: 'estado', estado: { noCentro: false, huntSlug: o.slug } });
+  if (o.t === 'team.active') srv({ t: 'estado', estado: { activeId: o.pokemonId } });
   if (o.t === 'colecao.mover') {
     const col = await page.evaluate(() => { let e = null; window.__pokeidleHunt.on('estado', (x) => { e = x; }); return (e.automation && e.automation.pokemonTravado) || []; });
     srv({ t: 'estado', estado: { automation: { pokemonTravado: [...new Set([...col, o.pokemonId])] } } });
@@ -264,5 +265,46 @@ r.rodComeco = await page.evaluate(() => {
   return { ordem: ps, crescente: ps.every((v, i) => i === 0 || v >= ps[i - 1]), comecar: P.rotina._interno.marcas().rodizioComecar === true, emMs0: f && f.fila[0] && f.fila[0].emMs };
 });
 console.log(r.rodComeco.crescente && r.rodComeco.comecar && r.rodComeco.emMs0 === 0 ? 'ok   rodízio religado: do mais fraco ao mais forte, começa já' : 'FALHOU rodízio religado ' + JSON.stringify(r.rodComeco));
+// 1.33.4: a válvula de escape — hunt sem brecha (o fraco nunca sai de combate): em 2 min o próximo
+// da fila entra ali mesmo, limpa a hunt e a ida ao Centro segue; a ordem do rodízio não muda.
+for (let i = 0; i < 30 && await page.evaluate(() => !!window.__pokeidleHunt.auto.rotinaAtual() || !!window.__pokeidleHunt.rotina._interno.rodCentro()); i++) await sleep(1000);
+srv({ t: 'estado', estado: { noCentro: false, huntSlug: 'rattata_1', centroLivreEm: Date.now() + 3_600_000 } });
+await sleep(1200);
+const antesV = recebidos.length;
+r.valvulaPrep = await page.evaluate(async () => {
+  const P = window.__pokeidleHunt; const R = P.rotina;
+  let e = null; P.on('estado', (x) => { e = x; });
+  R._interno.marcas().rodizioComecar = false; R._interno.marcas().rodizio = 0;
+  const T = P.time._interno.turnos(); if (T.atual) { T.atual.inicio = Date.now() - 2 * 3_600_000; T.atual.desde = T.atual.inicio; }
+  P.auto._interno.cfg().hunt.ligado = true;
+  const fila = R.filaRodizio();
+  await R._interno.TAREFAS.find((f) => f.name === 'tarefaRodizio')();
+  return { ativo: e.activeId, prox: fila && fila.fila[0] && fila.fila[0].id, rod: R._interno.rodCentro() && R._interno.rodCentro().proxId, etapa: P.auto.rotinaAtual() && P.auto.rotinaAtual().etapa };
+});
+await sleep(2500);
+r.valvulaAntes = recebidos.slice(antesV).filter((m) => m.t === 'team.active').length; // ainda em combate: ninguém troca antes dos 2 min
+await page.evaluate(async () => { const R = window.__pokeidleHunt.rotina._interno; const rc = R.rodCentro(); if (rc) rc.desde = Date.now() - R.VALVULA_MS - 1000; await R.andarRodCentro(); });
+await sleep(1500);
+r.valvulaTroca = recebidos.slice(antesV).filter((m) => m.t === 'team.active').map((m) => m.pokemonId);
+r.valvulaNaHunt = !recebidos.slice(antesV).some((m) => m.t === 'centro.ir');
+// o novo limpa o campo: a brecha aparece, ele vai ao Centro e sai para a melhor hunt dele
+srv({ t: 'estado', estado: { centroLivreEm: 0 } });
+for (let i = 0; i < 20 && !recebidos.slice(antesV).some((m) => m.t === 'hunt.select'); i++) await sleep(1000);
+r.valvulaSeq = recebidos.slice(antesV).filter((m) => ['centro.ir', 'team.active', 'hunt.select'].includes(m.t)).map((m) => m.t + ':' + (m.pokemonId ?? m.slug ?? ''));
+r.valvulaDiario = await page.evaluate(() => (window.__pokeidleHunt.cofre.diarioLista ? window.__pokeidleHunt.cofre.diarioLista() : []).map((d) => d.txt || d).filter((t) => /brecha/.test(t)).slice(0, 2));
+const vOk = r.valvulaPrep.rod === r.valvulaPrep.prox && r.valvulaAntes === 0 && r.valvulaTroca[0] === r.valvulaPrep.prox && r.valvulaNaHunt && r.valvulaSeq.includes('centro.ir:') && r.valvulaSeq.some((x) => x.startsWith('hunt.select:'));
+console.log(vOk ? 'ok   válvula: 2 min sem brecha, o próximo da fila entra ali mesmo e a ida ao Centro segue' : 'FALHOU válvula ' + JSON.stringify({ p: r.valvulaPrep, a: r.valvulaAntes, t: r.valvulaTroca, h: r.valvulaNaHunt, s: r.valvulaSeq }));
+// a ponte não conta como turno: não perde o lugar na fila e o turno dela é curto
+r.ponte = await page.evaluate(async () => {
+  const P = window.__pokeidleHunt; let e = null; P.on('estado', (x) => { e = x; });
+  const outro = e.pokemons.find((p) => p.slot != null && p.id !== e.activeId);
+  const antes = P.time.ultimaVez(outro.id);
+  P.time.marcarPonte(outro.id);
+  P.pedir({ t: 'team.active', pokemonId: outro.id }, 'rotina');
+  await new Promise((res) => setTimeout(res, 1500));
+  const t = P.time.turnoAtual();
+  return { eh: t && t.pkId === outro.id, ponte: t && t.ponte, curto: t && t.desmaio, mesmaVez: P.time.ultimaVez(outro.id) === antes };
+});
+console.log(r.ponte.eh && r.ponte.ponte && r.ponte.curto && r.ponte.mesmaVez ? 'ok   ponte: não conta turno e não perde o lugar na fila' : 'FALHOU ponte ' + JSON.stringify(r.ponte));
 console.log(JSON.stringify(r));
 setTimeout(() => process.exit(0), 500); await ctx.close();

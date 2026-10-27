@@ -58,6 +58,10 @@
   const gravarTurnos = () => { try { localStorage.setItem(CHAVE_TURNOS, JSON.stringify(turnos)); } catch { /* sem armazenamento */ } };
   let envioAtivo = null; // o último team.active que o Piloto mandou: { pokemonId, origem, em }
   PIH.on('piloto.enviado', (m) => { if (m && m.t === 'team.active') envioAtivo = { pokemonId: m.pokemonId, origem: m.origem, em: m.em || Date.now() }; });
+  // 1.33.4: a ponte da válvula do rodízio (piloto/rotina.js) — entra só para limpar a hunt e não
+  // conta como turno: não perde o lugar na fila e, se ficar ativa, o turno dela é curto (2 min).
+  let ponteMarcada = null; // { pkId, em }
+  function marcarPonte(pkId) { ponteMarcada = { pkId, em: Date.now() }; }
   function motivoDaTroca(novoId) {
     const e = envioAtivo;
     if (e && e.pokemonId === novoId && Date.now() - e.em < 60_000) return { rotina: 'rodízio', metacaca: 'Caçar o meta', time: 'troca do time' }[e.origem] || e.origem || 'Piloto';
@@ -82,7 +86,10 @@
     const desmaio = !!(a && a.pkId !== e.activeId && /^o jogo/.test(motivo || '') && antes && antes.hp != null && Number(antes.hp) <= 0);
     // mesmo pokémon (mudou de hunt ou foi ao Centro): o turno dele continua de onde estava
     const inicio = a && a.pkId === e.activeId ? (a.inicio ?? a.desde) : agora;
-    turnos.atual = { pkId: e.activeId, nome: pk ? pk.nome : `#${e.activeId}`, onde, desde: agora, inicio, motivo, desmaio: a && a.pkId === e.activeId ? !!a.desmaio : desmaio };
+    const mesmo = !!(a && a.pkId === e.activeId);
+    const ponte = mesmo ? !!a.ponte : !!(ponteMarcada && ponteMarcada.pkId === e.activeId && agora - ponteMarcada.em < 60_000);
+    if (ponte && !mesmo) { motivo = 'ponte do rodízio'; ponteMarcada = null; }
+    turnos.atual = { pkId: e.activeId, nome: pk ? pk.nome : `#${e.activeId}`, onde, desde: agora, inicio, motivo, desmaio: mesmo ? !!a.desmaio : desmaio, ...(ponte ? { ponte: true } : {}) };
     if (turnos.hist.length > 150) turnos.hist.splice(0, turnos.hist.length - 150);
     gravarTurnos();
   }
@@ -110,11 +117,11 @@
   // e a última vez que cada um lutou.
   function turnoAtual() {
     const a = turnos.atual;
-    return a ? { pkId: a.pkId, desde: a.inicio ?? a.desde, desmaio: !!a.desmaio } : null;
+    return a ? { pkId: a.pkId, desde: a.inicio ?? a.desde, desmaio: !!a.desmaio || !!a.ponte, ponte: !!a.ponte } : null;
   }
   function ultimaVez(pkId) {
-    if (turnos.atual && turnos.atual.pkId === pkId) return Date.now();
-    for (let i = turnos.hist.length - 1; i >= 0; i--) if (turnos.hist[i].pkId === pkId) return turnos.hist[i].ate;
+    if (turnos.atual && turnos.atual.pkId === pkId && !turnos.atual.ponte) return Date.now();
+    for (let i = turnos.hist.length - 1; i >= 0; i--) if (turnos.hist[i].pkId === pkId && !turnos.hist[i].ponte) return turnos.hist[i].ate;
     return null;
   }
   function chipsTurno(p) {
@@ -891,5 +898,5 @@
     cfg.aba = aba; gravar();
     if (!janela) alternar(); else pintar(true);
   }
-  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), compEstavel: (r) => compEstavel(r || "topo").map((a) => a.speciesId), _cfgTime: () => cfg, campoAuto, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
+  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, marcarPonte, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), compEstavel: (r) => compEstavel(r || "topo").map((a) => a.speciesId), _cfgTime: () => cfg, campoAuto, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
 })(globalThis);

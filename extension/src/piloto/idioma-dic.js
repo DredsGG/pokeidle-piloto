@@ -543,6 +543,10 @@
 
   // Frases com partes variáveis (a primeira que casar vale).
   const regras = [
+    // ---- 1.33.4: a válvula de escape do rodízio (onda que nunca acaba) ----
+    [/^(rotina: )?([Rr])odízio: 2 min sem brecha de combate — (.+?) entra aqui mesmo para limpar a hunt, depois vai ao Centro e segue para a melhor hunt dele(.*)$/u, (m) => `${m[1] ? 'routine: ' : ''}${m[2] === 'R' ? 'R' : 'r'}otation: 2 min with no break in combat — ${m[3]} comes in right here to clear the hunt, then goes to the Center and on to its best hunt${m[4].replace(' — recusado: ', ' — refused: ')}`, (m) => `${m[1] ? 'rutina: ' : ''}${m[2] === 'R' ? 'R' : 'r'}otación: 2 min sin pausa de combate — ${m[3]} entra aquí mismo para limpiar la hunt, luego va al Centro y sigue a su mejor hunt${m[4].replace(' — recusado: ', ' — rechazado: ')}`],
+    [/^(rotina: )?([Rr])odízio: 2 min sem brecha de combate — (.+?) entra só para limpar a hunt \(não conta como turno\); no Centro (.+?) assume(.*)$/u, (m) => `${m[1] ? 'routine: ' : ''}${m[2] === 'R' ? 'R' : 'r'}otation: 2 min with no break in combat — ${m[3]} comes in only to clear the hunt (doesn't count as a turn); at the Center ${m[4]} takes over${m[5].replace(' — recusado: ', ' — refused: ')}`, (m) => `${m[1] ? 'rutina: ' : ''}${m[2] === 'R' ? 'R' : 'r'}otación: 2 min sin pausa de combate — ${m[3]} entra solo para limpiar la hunt (no cuenta como turno); en el Centro ${m[4]} toma el relevo${m[5].replace(' — recusado: ', ' — rechazado: ')}`],
+    [/^(rotina: )?([Rr])odízio: 2 min sem brecha de combate e ninguém do time luta com segurança aqui — continuo esperando$/u, (m) => `${m[1] ? 'routine: ' : ''}${m[2] === 'R' ? 'R' : 'r'}otation: 2 min with no break in combat and nobody on the team fights safely here — still waiting`, (m) => `${m[1] ? 'rutina: ' : ''}${m[2] === 'R' ? 'R' : 'r'}otación: 2 min sin pausa de combate y nadie del equipo lucha seguro aquí — sigo esperando`],
     // ---- 1.33: Caçar o meta sem pulo, risco por XP e poção ----
     [/^o servidor pediu calma \("Devagar aí"\): as leituras do radar e do Piloto caem para (\d+)\/min e voltam a subir aos poucos$/u, 'the server asked to slow down ("Devagar aí"): radar and Pilot reads drop to $1/min and climb back slowly', 'el servidor pidió calma ("Devagar aí"): las lecturas del radar y del Piloto bajan a $1/min y vuelven a subir de a poco'],
     [/^capital em giro: o estoque do radar mais esta compra passaria de metade do que você tem \(livre (.+)\)$/u, 'working capital: the radar stock plus this purchase would go over half of what you have (free $1)', 'capital en giro: el stock del radar más esta compra pasaría de la mitad de lo que tienes (libre $1)'],
@@ -847,6 +851,7 @@
     ['Turnos · quem lutou, onde e por quanto tempo', 'Turns · who fought, where and for how long', 'Turnos · quién luchó, dónde y cuánto tiempo'],
     ['lutou há', 'fought', 'luchó hace'],
     ['o jogo ou você (desmaiou?)', 'the game or you (fainted?)', 'el juego o tú (¿se debilitó?)'],
+    ['ponte do rodízio', 'rotation bridge', 'puente de la rotación'],
     ['trocou de hunt', 'changed hunt', 'cambió de hunt'],
     ['foi ao Centro', 'went to the Center', 'fue al Centro'],
     ['troca do time', 'team swap', 'cambio del equipo'],

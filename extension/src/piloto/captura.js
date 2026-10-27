@@ -50,7 +50,7 @@
     for (const s of (m && m.fora) || []) corpos.delete(s);
   }
   PIH.on('campo.init', (m) => { corpos.clear(); anotar(m); });
-  PIH.on('campo', anotar);
+  PIH.on('campo', (m) => { anotar(m); tique(); acordar(400, true); });
 
   const st = { hoje: '', lancadas: 0, ultima: null, motivo: 'desligado' };
   const diaDe = (t) => new Date(t - 3 * 3600_000).toISOString().slice(0, 10); // dia de Brasília
@@ -71,6 +71,21 @@
   }
 
   let proximaEm = 0;
+  // 1.33.4 (pergunta de um amigo do André sem VIP: funciona com a janela minimizada?): com a aba
+  // escondida há mais de 5 min o Chrome passa os relógios repetidos (setInterval) para uma vez por
+  // MINUTO — e o corpo some do chão em segundos. Agora a bola sai também na hora em que o servidor
+  // manda o campo (a mensagem do socket chega mesmo com a janela minimizada): um setTimeout curto
+  // disparado pela mensagem não entra na regra de um por minuto (só no alinhamento de 1 s).
+  let acordarT = null;
+  let acordarEm = Infinity;
+  // forcar: chamado pela mensagem do servidor — sempre um relógio novo (fora da cadeia que o Chrome freia)
+  function acordar(ms, forcar = false) {
+    const em = Date.now() + Math.max(0, ms);
+    if (!forcar && acordarT && acordarEm <= em) return;
+    clearTimeout(acordarT);
+    acordarEm = em;
+    acordarT = setTimeout(() => { acordarT = null; acordarEm = Infinity; tique(); }, Math.max(0, ms));
+  }
   function tique() {
     const n = Date.now();
     for (const [s, c] of corpos) if (c.ate <= n) corpos.delete(s);
@@ -79,8 +94,14 @@
     if (!eu || !catalogo.length) { st.motivo = 'esperando o jogo'; return; }
     if (temVip()) { st.motivo = 'VIP ativo: quem lança é o jogo'; return; }
     const alvos = [...corpos].filter(([, c]) => c.ate - n > 700 && n - c.desde >= 350 && (cfg.modo === 'todos' || c.shiny));
-    if (!alvos.length) { st.motivo = 'esperando um corpo no chão'; return; }
-    if (n < proximaEm) return;
+    if (!alvos.length) {
+      st.motivo = 'esperando um corpo no chão';
+      // corpo novo ainda nos 350 ms de espera: volta a olhar quando eles passarem
+      const novo = [...corpos.values()].filter((c) => c.ate - n > 700).map((c) => c.desde + 350 - n).filter((ms) => ms > 0);
+      if (novo.length) acordar(Math.min(...novo) + 20);
+      return;
+    }
+    if (n < proximaEm) { acordar(proximaEm - n + 20); return; }
     const ballId = bolaDaVez();
     if (ballId == null) { st.motivo = cfg.guardar ? `sem bola de ouro acima das ${cfg.guardar} guardadas` : 'sem bola de ouro na mochila'; return; }
     // shiny primeiro; depois o que vai sumir antes
@@ -89,6 +110,7 @@
     proximaEm = n + MIN_MS + Math.floor(Math.random() * 400);
     const r = PIH.pedir({ t: 'ball.throw', ballId, slot }, 'captura');
     corpos.delete(slot);
+    if (corpos.size) acordar(proximaEm - n + 20); // ainda tem corpo: a próxima bola no intervalo mínimo
     if (!r.ok) { st.motivo = r.motivo || 'recusado'; return; }
     const d = diaDe(n);
     if (st.hoje !== d) { st.hoje = d; st.lancadas = 0; }
