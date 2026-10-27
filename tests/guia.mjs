@@ -155,8 +155,11 @@ ok(!(await aberto()), 'novidades só uma vez por versão');
   await page.reload(); await sleep(4500);
   await page.locator('button.plt-barra').click(); await sleep(1800);
   const n = await page.locator('.plt-guia-lista li').count();
-  ok(n === (cl[atual].pt || []).length, `da v${anteriores[0]} para a v${atual}: só as ${n} linhas desta versão`);
-  await page.locator('.plt-guia [data-guia="fechar"]').click(); await sleep(400);
+  const esperado = (cl[atual] && cl[atual].pt) || [];
+  if (esperado.length) {
+    ok(n === esperado.length, `da v${anteriores[0]} para a v${atual}: só as ${n} linhas desta versão`);
+    await page.locator('.plt-guia [data-guia="fechar"]').click(); await sleep(400);
+  } else ok(!(await aberto()), `v${atual} sem novidade para quem usa: o quadro não abre`);
 }
 // 5) inglês: os textos vêm do arquivo do idioma
 await page.click('.plt-idiomas [data-idioma="en"]'); await sleep(600);

@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.33.7': [
+        "In the field: a golden \"+N\" next to the level shows how many levels the Pokémon gained this rotation turn (only if it leveled up; it starts over when it comes back).",
+      ],
       '1.33.6': [
         "What's new now shows only what changed since the last version you saw (6 lines at most).",
       ],

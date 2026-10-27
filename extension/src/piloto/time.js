@@ -71,7 +71,11 @@
     if (!e || e.activeId == null) return;
     const onde = e.noCentro ? 'centro' : (e.huntSlug || null);
     const a = turnos.atual;
-    if (a && a.pkId === e.activeId && a.onde === onde) return;
+    if (a && a.pkId === e.activeId && a.onde === onde) {
+      // 1.33.7: turno aberto antes desta versão: o ganho de nível conta daqui
+      if (a.nivelInicio == null) { const p0 = (e.pokemons || []).find((p) => p && p.id === e.activeId); if (p0 && Number.isFinite(Number(p0.level))) { a.nivelInicio = Number(p0.level); gravarTurnos(); } }
+      return;
+    }
     const agora = Date.now();
     let motivo = null;
     if (a) {
@@ -89,7 +93,9 @@
     const mesmo = !!(a && a.pkId === e.activeId);
     const ponte = mesmo ? !!a.ponte : !!(ponteMarcada && ponteMarcada.pkId === e.activeId && agora - ponteMarcada.em < 60_000);
     if (ponte && !mesmo) { motivo = 'ponte do rodízio'; ponteMarcada = null; }
-    turnos.atual = { pkId: e.activeId, nome: pk ? pk.nome : `#${e.activeId}`, onde, desde: agora, inicio, motivo, desmaio: mesmo ? !!a.desmaio : desmaio, ...(ponte ? { ponte: true } : {}) };
+    // 1.33.7 (pedido do André): o nível com que o pokémon entrou no turno, para o "+N" no Em campo
+    const nivelInicio = mesmo && a.nivelInicio != null ? a.nivelInicio : (pk && Number.isFinite(Number(pk.level)) ? Number(pk.level) : null);
+    turnos.atual = { pkId: e.activeId, nome: pk ? pk.nome : `#${e.activeId}`, onde, desde: agora, inicio, motivo, desmaio: mesmo ? !!a.desmaio : desmaio, nivelInicio, ...(ponte ? { ponte: true } : {}) };
     if (turnos.hist.length > 150) turnos.hist.splice(0, turnos.hist.length - 150);
     gravarTurnos();
   }
@@ -716,6 +722,57 @@
       el.classList.toggle('agora', !!(t && t.agora));
     }
   }
+  // ---- 1.33.7 (pedido do André): "+N" ao lado do nível no Em campo — os níveis que o pokémon subiu
+  // NESTE turno do rodízio. Saiu e voltou: conta de novo. Só XP, sem nível: não mostra nada.
+  function ganhoDeNivel() {
+    const a = turnos.atual;
+    if (!eu || !a || a.pkId !== eu.activeId || a.nivelInicio == null) return null;
+    const pk = (eu.pokemons || []).find((p) => p && p.id === eu.activeId);
+    const nv = pk ? Number(pk.level) : NaN;
+    if (!Number.isFinite(nv)) return null;
+    return { ganho: nv - a.nivelInicio, de: a.nivelInicio, para: nv };
+  }
+  let ganhoAntes = 0;
+  function pintarGanhoNivel() {
+    const card = document.getElementById('ativo-card');
+    if (!card) return;
+    const g = ganhoDeNivel();
+    let el = card.querySelector('.plt-lv-ganho');
+    if (!g || g.ganho <= 0) { if (el) el.remove(); ganhoAntes = 0; return; }
+    const ref = card.querySelector('.ativo-nome .pl-lv') || card.querySelector('.ativo-nome');
+    if (!ref) return;
+    if (!el) {
+      el = document.createElement('span');
+      el.className = 'plt-lv-ganho';
+      el.setAttribute('role', 'status');
+    }
+    if (ref.nextElementSibling !== el) ref.after(el);
+    const txt = `+${g.ganho}`;
+    if (el.textContent !== txt) {
+      el.textContent = txt;
+      if (g.ganho > ganhoAntes && ganhoAntes > 0) { el.classList.remove('subiu'); void el.offsetWidth; el.classList.add('subiu'); }
+    }
+    const titulo = `+${g.ganho} ${g.ganho === 1 ? 'nível' : 'níveis'} neste turno (Nv ${g.de} → Nv ${g.para})`;
+    if (el.title !== titulo) { el.title = titulo; el.setAttribute('aria-label', titulo); }
+    ganhoAntes = g.ganho;
+  }
+  let obsAtivo = null;
+  let obsAtivoAlvo = null;
+  let pintandoAtivo = 0;
+  function vigiarAtivo() {
+    const painel = document.getElementById('p-ativo') || document.getElementById('ativo-card');
+    if (painel && painel !== obsAtivoAlvo) {
+      if (obsAtivo) obsAtivo.disconnect();
+      obsAtivoAlvo = painel;
+      obsAtivo = new MutationObserver(() => { if (!pintandoAtivo) pintandoAtivo = requestAnimationFrame(() => { pintandoAtivo = 0; try { pintarGanhoNivel(); } catch { /* tenta no próximo */ } }); });
+      obsAtivo.observe(painel, { childList: true, subtree: true });
+    }
+    try { pintarGanhoNivel(); } catch { /* tenta no próximo */ }
+  }
+  PIH.on('estado', () => { if (!pintandoAtivo) pintandoAtivo = requestAnimationFrame(() => { pintandoAtivo = 0; try { pintarGanhoNivel(); } catch { /* nada */ } }); });
+  setInterval(vigiarAtivo, 15_000);
+  setTimeout(vigiarAtivo, 2000);
+
   let obsEquipe = null;
   let obsAlvo = null;
   let pintandoEquipe = 0;
@@ -898,5 +955,5 @@
     cfg.aba = aba; gravar();
     if (!janela) alternar(); else pintar(true);
   }
-  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, marcarPonte, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), compEstavel: (r) => compEstavel(r || "topo").map((a) => a.speciesId), _cfgTime: () => cfg, campoAuto, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
+  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, marcarPonte, ganhoDeNivel, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), compEstavel: (r) => compEstavel(r || "topo").map((a) => a.speciesId), _cfgTime: () => cfg, campoAuto, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
 })(globalThis);

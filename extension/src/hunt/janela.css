@@ -395,6 +395,11 @@ html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { backgrou
 .plt-turno-h { font-variant-numeric: tabular-nums; }
 
 /* 1.28.1: timer no painel Equipe do jogo */
+/* 1.33.7: "+N" níveis no turno, ao lado do Nv do Em campo (o dourado do Piloto) */
+#ativo-card .plt-lv-ganho { display: inline-block; margin-left: 5px; padding: 0 5px; border-radius: 5px; border: 1px solid #8a5a12; background: linear-gradient(#ffe48a, #f0b429); color: #3a2208; font-family: inherit; font-weight: 800; font-size: 11px; line-height: 16px; letter-spacing: .02em; vertical-align: 1px; box-shadow: 0 1px 0 rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .5); text-shadow: none; cursor: default; }
+#ativo-card .plt-lv-ganho.subiu { animation: plt-lv-sobe .9s ease-out; }
+@keyframes plt-lv-sobe { 0% { transform: translateY(3px) scale(.85); box-shadow: 0 0 0 0 rgba(255, 215, 106, .9); } 40% { transform: translateY(-2px) scale(1.12); box-shadow: 0 0 0 5px rgba(255, 215, 106, 0); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { #ativo-card .plt-lv-ganho.subiu { animation: none; } }
 #time .plt-eq-turno { display: flex; align-items: center; gap: 5px; margin-top: 2px; font: 600 10.5px/1.25 "Barlow", sans-serif; color: rgba(255, 255, 255, .66); white-space: nowrap; min-width: 0; }
 #time .plt-eq-turno.agora { color: #ffd76a; }
 #time .plt-eq-txt { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -489,3 +494,14 @@ html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { backgrou
 .plt-guia-msg { margin: 12px 0 0; padding: 9px 11px; border-radius: 6px; font: 500 13px/1.45 "Barlow", sans-serif; color: var(--vao-txt, #f3e6d8); background: rgba(0, 0, 0, .22); box-shadow: inset 0 0 0 1px var(--mad-linha, rgba(255, 255, 255, .15)); }
 .plt-guia .plt-guia-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 .plt-guia .cfg-escala-bt:disabled { opacity: .5; cursor: progress; }
+
+/* 1.33.8 (build de teste): o registro do respondedor do Dúvidas */
+.plt-tdu { display: grid; gap: 6px; margin-top: 8px; max-height: 360px; overflow: auto; }
+.plt-tdu-l { display: grid; grid-template-columns: 44px 1fr; gap: 2px 8px; padding: 6px 8px; border-radius: 8px; background: rgba(0, 0, 0, .18); font: 500 12px/1.35 "Barlow", sans-serif; }
+.plt-tdu-h { grid-row: span 3; opacity: .6; }
+.plt-tdu-a { font-weight: 700; opacity: .8; }
+.plt-tdu-respondi .plt-tdu-a { color: #7fe08a; opacity: 1; }
+.plt-tdu-sem-resposta .plt-tdu-a { color: #ffd76a; }
+.plt-tdu-p, .plt-tdu-r { overflow-wrap: anywhere; }
+.plt-tdu-r { color: #bfe3ff; }
+.plt-tdu-vazio { opacity: .7; margin: 6px 0; }

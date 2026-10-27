@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.33.7': [
+        "En campo: un \"+N\" dorado junto al nivel muestra cuántos niveles subió el pokémon en este turno de la rotación (solo aparece si subió; empieza de nuevo cuando vuelve).",
+      ],
       '1.33.6': [
         "Las novedades muestran solo lo que cambió desde la última versión que viste (máximo 6 líneas).",
       ],

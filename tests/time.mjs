@@ -306,5 +306,33 @@ r.ponte = await page.evaluate(async () => {
   return { eh: t && t.pkId === outro.id, ponte: t && t.ponte, curto: t && t.desmaio, mesmaVez: P.time.ultimaVez(outro.id) === antes };
 });
 console.log(r.ponte.eh && r.ponte.ponte && r.ponte.curto && r.ponte.mesmaVez ? 'ok   ponte: não conta turno e não perde o lugar na fila' : 'FALHOU ponte ' + JSON.stringify(r.ponte));
+// 1.33.7: "+N" ao lado do nível no Em campo — níveis subidos NESTE turno; sem nível, nada
+r.ganho = await page.evaluate(async () => {
+  const P = window.__pokeidleHunt; let e = null; P.on('estado', (x) => { e = x; });
+  const espera = (ms) => new Promise((res) => setTimeout(res, ms));
+  const txt = () => (document.querySelector('#ativo-card .plt-lv-ganho') || {}).textContent || null;
+  const at = e.pokemons.find((p) => p.id === e.activeId);
+  const out = { inicio: P.time._interno.turnos().atual.nivelInicio, nivel: at.level };
+  // só XP: nada
+  out.soXp = txt();
+  return out;
+});
+// sobe 2 níveis no mesmo turno
+{
+  const ps = await lista(); const at = await page.evaluate(() => { let e = null; window.__pokeidleHunt.on('estado', (x) => { e = x; }); return e.activeId; });
+  for (const p of ps) if (p.id === at) p.level = (p.level || 1) + 2;
+  srv({ t: 'estado', estado: { pokemons: ps } }); await sleep(1500);
+  r.ganho.depois = await page.evaluate(() => { const el = document.querySelector('#ativo-card .plt-lv-ganho'); return el && { t: el.textContent, title: el.title }; });
+  // troca o ativo (novo turno): some
+  const outro = ps.find((p) => p.slot != null && p.id !== at);
+  srv({ t: 'estado', estado: { activeId: outro.id } }); await sleep(1500);
+  r.ganho.novoTurno = await page.evaluate(() => (document.querySelector('#ativo-card .plt-lv-ganho') || {}).textContent || null);
+  // volta o mesmo de antes: começa do zero
+  srv({ t: 'estado', estado: { activeId: at } }); await sleep(1500);
+  r.ganho.voltou = await page.evaluate(() => (document.querySelector('#ativo-card .plt-lv-ganho') || {}).textContent || null);
+}
+const gOk = r.ganho.soXp === null && r.ganho.depois && r.ganho.depois.t === '+2' && /\+2 (níveis neste turno|levels this turn)/.test(r.ganho.depois.title) && r.ganho.novoTurno === null && r.ganho.voltou === null;
+console.log(gOk ? 'ok   Em campo: +2 ao lado do nível no turno; troca de turno zera; só XP não mostra' : 'FALHOU ganho de nível ' + JSON.stringify(r.ganho));
+await page.locator('#ativo-card').screenshot({ path: `${SAIDA}/9-ganho-nivel.png` }).catch(() => {});
 console.log(JSON.stringify(r));
 setTimeout(() => process.exit(0), 500); await ctx.close();

@@ -414,7 +414,7 @@
   }
   // O que vem do SERVIDOR (estado, welcome, campo, erro) só o hook publica: a página não pode
   // fingir um saldo maior para o cofre aprovar (auditoria de 2026-10-19, caso C2).
-  const TIPOS_DO_SERVIDOR = new Set(['welcome', 'estado', 'campo.init', 'campo', 'erro', 'pvp', 'perfil', 'piloto.enviado', 'campeonato', 'showdown']);
+  const TIPOS_DO_SERVIDOR = new Set(['welcome', 'estado', 'campo.init', 'campo', 'erro', 'pvp', 'perfil', 'piloto.enviado', 'campeonato', 'showdown', 'chat', 'chat.mute']);
   PIH.emit = (tipo, dado) => { if (!TIPOS_DO_SERVIDOR.has(tipo)) emitirInterno(tipo, dado); };
 
   // O cofre se registra UMA vez (o primeiro script da extensão, em document_start, antes de
@@ -483,6 +483,7 @@
   const corposPih = new Map();
   let ultimoArremessoPih = 0;
   let ultimaBolaNoFio = 0;
+  let ultimaFalaPih = 0;
   function anotarCorpos(tipo, m) {
     if (tipo === 'campo.init') corposPih.clear();
     const n = agora();
@@ -506,6 +507,10 @@
     else if (cab.includes('"t":"perfil"')) tipo = 'perfil'; // 1.23: o perfil público (ranking.perfil), para a aba Meta
     else if (cab.includes('"t":"campeonato"')) tipo = 'campeonato'; // 1.32: torneios (Mundial e Amador)
     else if (cab.includes('"t":"showdown"')) tipo = 'showdown'; // 1.32: o Showdown semanal
+    // 1.33.8 (build de teste do André): o chat, para o respondedor do Dúvidas. Fica no mundo da página
+    // (TIPOS_DO_SERVIDOR: não sai para a ponte nem para o fundo).
+    else if (cab.includes('"t":"chat"')) tipo = 'chat';
+    else if (cab.includes('"t":"chat.mute"')) tipo = 'chat.mute';
     if (!tipo) return;
     let m;
     try { m = JSON.parse(texto); } catch { return; }
@@ -598,6 +603,17 @@
       return { t: 'chocadeira.colocar', slot: p.slot, ovo: p.ovo };
     },
     'oferenda.tudo': () => ({ t: 'oferenda.tudo' }),
+    // 1.33.8 (build de teste): uma fala no canal Dúvidas. Só esse canal, sem link, até 240 letras e
+    // no mínimo 4 min entre falas, contados aqui (o módulo segura 5 min; isto é a trava de baixo).
+    'chat.send': (p) => {
+      const n = agora();
+      if (p.canal !== 'duvidas' || !['pt', 'en', 'es'].includes(p.idioma) || typeof p.texto !== 'string') return null;
+      const texto = p.texto.replace(/[\u0000-\u001f]/g, ' ').trim();
+      if (texto.length < 2 || texto.length > 240 || /https?:|www\.|\.(com|io|gg|net|org)\b/i.test(texto)) return null;
+      if (n - ultimaFalaPih < 4 * 60_000) return null;
+      ultimaFalaPih = n;
+      return { t: 'chat.send', canal: 'duvidas', idioma: p.idioma, texto };
+    },
     // 1.18: as regras do Auto Coleção do jogo (o "Salvar" do painel Market → Vender). Só a forma que
     // o jogo aceita: seis linhas com liga/desliga, P2–P5, qualidade 1,1/1,3/1,5/1,6, IV 1–32, nota 0–10.
     'shop.autoColecao': (p) => {

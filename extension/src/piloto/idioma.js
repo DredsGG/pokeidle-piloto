@@ -10,7 +10,7 @@
   const IDIOMAS = ['pt', 'en', 'es'];
   const NOMES = { pt: 'Português', en: 'English', es: 'Español' };
   const ATRIBUTOS = ['title', 'aria-label', 'placeholder'];
-  const RAIZES = '.plt-janela, .plt-painel, .plt-barra, .plt-mini-pilha, .plt-bandeja, .plt-pop, .plt-toast, .plt-voto, .pih-aviso, .plt-plateia-faixa, .plt-eq-turno, .plt-eqc, .plt-ss-tempo, .plt-guia';
+  const RAIZES = '.plt-janela, .plt-painel, .plt-barra, .plt-mini-pilha, .plt-bandeja, .plt-pop, .plt-toast, .plt-voto, .pih-aviso, .plt-plateia-faixa, .plt-eq-turno, .plt-lv-ganho, .plt-eqc, .plt-ss-tempo, .plt-guia';
   const HOSTS = ['radar-mercado-tela', 'radar-mercado-barra'];
 
   // 1.32.2 (regra 13 do hub): na primeira vez, o idioma do navegador/sistema — português e espanhol

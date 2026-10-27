@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.33.7": {
+      "pt": [
+        "Em campo: um \"+N\" dourado ao lado do nível mostra quantos níveis o pokémon subiu neste turno do rodízio (só aparece se subiu; recomeça quando ele volta)."
+      ],
+      "en": [
+        "In the field: a golden \"+N\" next to the level shows how many levels the Pokémon gained this rotation turn (only if it leveled up; it starts over when it comes back)."
+      ],
+      "es": [
+        "En campo: un \"+N\" dorado junto al nivel muestra cuántos niveles subió el pokémon en este turno de la rotación (solo aparece si subió; empieza de nuevo cuando vuelve)."
+      ]
+    },
     "1.33.6": {
       "pt": [
         "As novidades mostram só o que mudou desde a última versão que você viu (no máximo 6 linhas)."
