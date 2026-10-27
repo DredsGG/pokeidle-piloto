@@ -13,8 +13,19 @@
   const RAIZES = '.plt-janela, .plt-painel, .plt-barra, .plt-mini-pilha, .plt-bandeja, .plt-pop, .plt-toast, .plt-voto, .pih-aviso, .plt-plateia-faixa, .plt-eq-turno, .plt-eqc, .plt-ss-tempo, .plt-guia';
   const HOSTS = ['radar-mercado-tela', 'radar-mercado-barra'];
 
+  // 1.32.2 (regra 13 do hub): na primeira vez, o idioma do navegador/sistema — português e espanhol
+  // pelo prefixo; qualquer outro, inglês. Depois vale a escolha salva (as bandeirinhas).
+  const doNavegador = () => {
+    const lista = (() => { try { return [...(navigator.languages || []), navigator.language].filter(Boolean); } catch { return []; } })();
+    for (const l of lista) { const b = String(l).toLowerCase().slice(0, 2); if (b === 'pt' || b === 'es' || b === 'en') return b; }
+    return 'en';
+  };
   let atual = 'pt';
-  try { const v = localStorage.getItem(CHAVE); if (IDIOMAS.includes(v)) atual = v; } catch { /* sem armazenamento */ }
+  try {
+    const v = localStorage.getItem(CHAVE);
+    if (IDIOMAS.includes(v)) atual = v;
+    else { atual = doNavegador(); localStorage.setItem(CHAVE, atual); }
+  } catch { atual = doNavegador(); }
 
   // ---- dicionário ---------------------------------------------------------------------------
   const dic = PIH.idiomaDic || { exato: {}, regras: [], trocarTrechos: (x) => x };
@@ -212,7 +223,7 @@
     es: '<rect width="20" height="14" fill="#aa151b"/><rect y="3.5" width="20" height="7" fill="#f1bf00"/>',
   };
   const bandeira = (l) => `<svg class="plt-bandeira" viewBox="0 0 20 14" shape-rendering="crispEdges" aria-hidden="true">${BANDEIRA[l]}</svg>`;
-  const bandeiras = () => `<div class="plt-idiomas" role="group" aria-label="Idioma">${IDIOMAS.map((l) => `<button type="button" data-idioma="${l}" aria-pressed="${l === atual}" title="${NOMES[l]}" aria-label="${NOMES[l]}">${bandeira(l)}</button>`).join('')}</div>`;
+  const bandeiras = () => `<div class="plt-idiomas" role="group" aria-label="Idioma">${IDIOMAS.map((l) => `<button type="button" data-idioma="${l}" aria-pressed="${l === atual}" title="${NOMES[l]}" aria-label="${NOMES[l]}">${bandeira(l)}<b class="plt-idi-cod" aria-hidden="true">${l.toUpperCase()}</b></button>`).join('')}</div>`;
 
   // Começa já no idioma escolhido antes.
   if (atual !== 'pt') {

@@ -8,9 +8,18 @@
     ui: {
       comoUsar: 'Como usar o Piloto', pular: 'Pular', voltar: 'Voltar', proximo: 'Próximo', entendi: 'Entendi', fechar: 'Fechar (Esc)',
       passo: 'Passo {n} de {t}', novidades: 'Novidades da v{v}', verGuia: 'Ver o guia',
+      novaVersao: 'Nova versão v{v}', voceTem: 'Você está na v{v}. O que mudou:', atualizar: 'Atualizar', verNoGithub: 'Ver no GitHub',
+      updMsg: {
+        aplicando: 'Atualizando…',
+        baixado: 'O zip novo foi baixado (pasta Downloads). Extraia por cima da pasta do Piloto: em até 1 min ele se recarrega sozinho e as abas do jogo recarregam.',
+        firefox: 'O Firefox vai perguntar se quer instalar a versão nova: clique em Adicionar. As abas do jogo recarregam sozinhas.',
+        'firefox-temporario': 'O zip novo foi baixado. Em about:debugging, remova o Piloto e carregue o zip novo em "Carregar extensão temporária".',
+        loja: 'O navegador ainda não liberou a versão nova: tente de novo daqui a pouco.',
+        erro: 'Não deu para atualizar agora. Tente de novo pelo botão Procurar atualização, no painel.',
+      },
     },
     tutorial: [
-      { t: 'Bem-vindo ao Piloto', x: 'O Piloto joga por você aqui dentro do PokeIdle: escolhe a melhor hunt, repõe bolas e poções, cuida do time e do Mercado. Gasta só ouro e sempre dentro do Cofre; Gema e diamante, nunca.' },
+      { t: 'Bem-vindo ao Piloto', x: 'O Piloto joga por você aqui dentro do PokeIdle: escolhe a melhor hunt, repõe bolas e poções, cuida do time e do Mercado. Gasta só ouro e sempre dentro do Cofre; Gema e diamante, nunca. O botão Piloto fica logo acima do seu pokémon em campo: é por ele que o painel abre.' },
       { t: 'Off, Manual e Auto', x: 'Lá em cima fica o modo. Off: nada roda. Manual: você liga e ajusta cada automação. Auto: o Piloto liga tudo e calcula os números; cada linha continua com o seu ON/OFF.' },
       { t: 'O Cofre manda no gasto', x: 'Antes de ligar, abra a aba Cofre e confira a reserva (o ouro que nunca é gasto) e o teto do dia. Toda compra do Piloto passa por ele.' },
       { t: 'As abas', x: 'Caçar: troca de hunt, reposição e rodízio do time. Nível: quando cada um sobe. Rotina: Passe, XP Share, PvP e Depot. Mercado: o Radar avisa, compra e revende em ouro.' },
@@ -20,6 +29,16 @@
     novidades: {
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
+      ],
+      '1.32.3': [
+        "A Plateia também não abre sala repetida depois de atualizar o Piloto ou com a escala do Windows (adota a janela que já está aberta).",
+        "Aba Caçar: hunt em que o pokémon morre antes de terminar um abate sai do ranking (ex.: Larvitar Nv 20 na Ledyba Nv 230), e com \"Evitar risco\" as arriscadas ficam depois das seguras.",
+        "Na primeira vez, o Piloto já abre no idioma do navegador (português, inglês ou espanhol); o seletor PT · EN · ES continua no painel.",
+        "Versão nova, novidades e o guia aparecem sozinhos no meio da tela do jogo, sem abrir o painel. O X ou o Esc fecham.",
+        "As salas da Plateia não abrem de novo quando o jogo ou a extensão reinicia: só abre a que estiver faltando.",
+        "O rodízio religado começa pelo pokémon mais fraco e deixa o mais forte por último.",
+        "Caçar o meta desliga também o rodízio do time; ele volta junto com a Troca de hunt.",
+        "Torneios: o Piloto inscreve você sozinho no Mundial, no Amador e no Showdown assim que as inscrições abrem (aba Rotina).",
       ],
       '1.31.0': [
         'Agora funciona também no Edge, no Brave, no Opera GX e no Firefox.',

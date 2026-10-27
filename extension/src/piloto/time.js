@@ -369,7 +369,7 @@
     st.ultimaTroca = Date.now();
     if (falhou) st.sessaoFalhouEm = Date.now();
     try { PIH.auto && PIH.auto.liberarCentro && PIH.auto.liberarCentro(); } catch { /* sem auto */ }
-    if (s.huntDepois) { ligarHunt(true); if (!falhou) st.huntDepois = false; }
+    if (s.huntDepois) { ligarHunt(true); PIH.metaCaca?.religarRodizio?.(); if (!falhou) st.huntDepois = false; }
     st.motivo = txt;
     diario(`${txt}${s.huntDepois ? ' — voltando à hunt, Troca de hunt ligada' : ' — voltando à hunt'}`, tipo);
   }
@@ -416,7 +416,7 @@
     try {
       const alvoS = alvoPrincipal();
       const falta = alvoS.some((p) => p.slot == null);
-      if (!falta && st.huntDepois) { st.huntDepois = false; ligarHunt(true); diario('o time já é o do meta — Troca de hunt ligada'); }
+      if (!falta && st.huntDepois) { st.huntDepois = false; ligarHunt(true); PIH.metaCaca?.religarRodizio?.(); diario('o time já é o do meta — Troca de hunt ligada'); }
       if (falta && PIH.auto && PIH.auto.irAoCentroEFicar && Date.now() - (st.sessaoFalhouEm || 0) > 10 * 60_000 && Date.now() - st.ultimaTroca > 60_000) {
         if (iniciarSessao(st.huntDepois ? 'o time do meta está pronto' : 'o time principal mudou')) return;
       }

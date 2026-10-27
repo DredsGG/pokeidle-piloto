@@ -215,8 +215,18 @@
     if (t && at != null && t.pkId === at) return t.desde + (t.desmaio ? 2 * 60_000 : intervalo) - Date.now();
     return (Number(marcas.rodizio) || 0) + intervalo - Date.now();
   }
+  // 1.32.2 (pedido do André): quando o rodízio liga (e depois que o Caçar o meta o desliga e ele
+  // volta), o ciclo começa do zero: o MAIS FRACO entra primeiro para farmar e o mais forte fica por
+  // último. Depois disso, quem está há mais tempo sem lutar (neste ciclo) entra; empate, o mais fraco.
+  const poderRod = (p) => Number(p && p.poder) || 0;
+  const ultimaVezCiclo = (p) => {
+    const v = PIH.time && PIH.time.ultimaVez ? PIH.time.ultimaVez(p.id) : null;
+    return v == null || v < (Number(marcas.rodizioCiclo) || 0) ? -Infinity : v;
+  };
+  const ordemRodizio = (a, b) => (ultimaVezCiclo(a) - ultimaVezCiclo(b)) || (poderRod(a) - poderRod(b));
+  function comecarCiclo() { marcas.rodizioCiclo = Date.now(); marcas.rodizioComecar = true; gravar(); }
   // 1.29: a fila do rodízio para a tela (o painel Equipe do jogo): quem entra depois, na ordem, e
-  // quando — a mesma regra da escolha (quem está há mais tempo sem lutar; empate, a ordem do PvP).
+  // quando — a mesma regra da escolha.
   function filaRodizio() {
     const c = cfg.rodizio;
     if (!eu || !c.ligado) return null;
@@ -225,14 +235,16 @@
     const idx = (p) => { const i = ordemIds.indexOf(p.id); return i < 0 ? 99 + p.slot : i; };
     const ultimaVez = (p) => { const v = PIH.time && PIH.time.ultimaVez ? PIH.time.ultimaVez(p.id) : null; return v == null ? -Infinity : v; };
     const fila = equipe().filter((p) => p.id !== at && p.stats && (p.starter || (p.level || 0) <= (eu.level || 0) + 5))
-      .sort((a, b) => (ultimaVez(a) - ultimaVez(b)) || (idx(a) - idx(b)));
+      .sort(ordemRodizio);
+    void idx; void ultimaVez;
     const intervalo = c.intervaloMin * 60_000;
-    const falta = Math.max(0, faltaDoTurno());
+    const falta = marcas.rodizioComecar ? 0 : Math.max(0, faltaDoTurno());
     return { intervaloMin: c.intervaloMin, falta, modo: c.modo, fila: fila.map((p, i) => ({ id: p.id, nome: p.nome, pos: i + 1, emMs: falta + i * intervalo, desmaiado: p.hp != null && Number(p.hp) <= 0 })) };
   }
   async function tarefaRodizio() {
     const c = cfg.rodizio;
-    if (!c.ligado || !naHunt() || !PIH.engine || faltaDoTurno() > 0 || !venceu('rodizio', 3 * 60_000)) return false;
+    const comecar = !!marcas.rodizioComecar;
+    if (!c.ligado || !naHunt() || !PIH.engine || (!comecar && faltaDoTurno() > 0) || !venceu('rodizio', comecar ? 30_000 : 3 * 60_000)) return false;
     if (rodCentro || (PIH.auto && PIH.auto._interno.rotina())) return false; // a troca de hunt (ou a do Centro) está andando
     if (PIH.metaCaca && PIH.metaCaca.ativo()) return false; // 1.24: caçando o meta, quem luta é o mais forte
     if (PIH.time && PIH.time.emSessao && PIH.time.emSessao()) return false; // 1.26.3: trocando o time no Centro
@@ -258,8 +270,12 @@
       if (ordem.length < 2) return false;
       // 1.28.1 (pedido do André: "quem acabou de lutar vai por último"): entra quem está há mais
       // tempo sem lutar (nunca lutou = primeiro); empate, a ordem do PvP.
-      const ultimaVez = (p) => { const v = PIH.time && PIH.time.ultimaVez ? PIH.time.ultimaVez(p.id) : null; return v == null ? -Infinity : v; };
-      const fila = ordem.filter((p) => p.id !== at.id).sort((a, b) => (ultimaVez(a) - ultimaVez(b)) || (idx(a) - idx(b)));
+      // 1.32.2: começo do ciclo — se o ativo já é o mais fraco, ele fica e o ciclo segue daqui
+      if (comecar) {
+        const todos = [...ordem].sort(ordemRodizio);
+        if (todos[0] && todos[0].id === at.id) { marcas.rodizioComecar = false; gravar(); return false; }
+      }
+      const fila = ordem.filter((p) => p.id !== at.id).sort(ordemRodizio);
       for (const prox of fila) {
         if (!huntAuto) {
           try {
@@ -268,6 +284,7 @@
             if (!l || l.inviavel || l.umHit || l.mortesH >= 0.2 || l.hitPct >= 0.5) continue;
           } catch { continue; }
         }
+        if (comecar) { marcas.rodizioComecar = false; gravar(); }
         return trocarAtivo(prox, at, huntAuto);
       }
       return false;
@@ -679,8 +696,10 @@
 
   function setCaminho(caminho, v) {
     const [g, k] = caminho.split('.');
+    const antes = cfg[g][k];
     cfg[g][k] = v;
     gravar();
+    if (g === 'rodizio' && k === 'ligado' && v === true && antes !== true) comecarCiclo();
   }
   // Uma mudança vinda do painel (interruptor, escolha ou número). Números já chegam validados.
   function definir(caminho, v) {
@@ -700,7 +719,9 @@
   // Perfil do botão único: só as tarefas sem custo e reversíveis (Passe, XP Share, Outland).
   // Evoluir, chocadeira e Depot são irreversíveis e ficam como você deixou.
   function aplicar(m) {
+    const rodAntes = cfg.rodizio.ligado;
     for (const k of ['passe', 'xpshare', 'outland', 'rodizio']) if (m && k in m) cfg[k].ligado = !!m[k];
+    if (cfg.rodizio.ligado && !rodAntes) comecarCiclo();
     if (m && 'pvp' in m) { cfg.pvp.fila = !!m.pvp; cfg.pvp.time = !!m.pvp; }
     if (m && 'autoColecao' in m) cfg.autoColecao.ligado = !!m.autoColecao;
     if (m && m.depotVender && cfg.depot.modo === 'off') { cfg.depot.modo = 'vender'; cfg.depot.limiar = Math.min(cfg.depot.limiar, 50); cfg.depot.horas = Math.min(cfg.depot.horas, 1); }

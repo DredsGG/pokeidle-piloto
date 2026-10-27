@@ -312,6 +312,7 @@
       PIH.auto?.aplicar?.({ hunt: { ligado: true }, repor: { ligado: true } });
       PIH.rotina?.aplicar?.({ passe: true, xpshare: true, outland: true, pvp: true, depotVender: true, autoColecao: true, rodizio: true });
       PIH.time?.aplicar?.({ campoAuto: true });
+      PIH.torneio?.aplicar?.({ ligado: true });
     }
     // O Radar (outro mundo da extensão) muda o perfil dele: desligado, só avisar ou automático.
     document.dispatchEvent(new CustomEvent('piloto:modo', { detail: JSON.stringify({ modo }) }));
@@ -458,6 +459,8 @@
   const aoTeclar = (ev) => { if (ev.key === 'Escape') fecharPainel(); };
   const aoClicarFora = (ev) => {
     const caminho = ev.composedPath();
+    // 1.32.2: clicar no quadro solto do guia/novidades/versão nova (piloto/guia.js) não fecha o painel
+    if (caminho.some((el) => el && el.classList && el.classList.contains('plt-guia-solto'))) return;
     if (painel && !caminho.includes(painel) && !caminho.includes(botao)) fecharPainel();
   };
 
@@ -473,6 +476,7 @@
     else if (mod === 'captura') PIH.captura?.definir?.(caminho, valor);
     else if (mod === 'volta') PIH.volta?.definir?.(caminho, valor);
     else if (mod === 'plateia') PIH.plateia?.definir?.(caminho, valor);
+    else if (mod === 'torneio') PIH.torneio?.definir?.(caminho, valor);
     ultimoHtml = '';
     desenhar();
   }
@@ -512,6 +516,7 @@
     else if (acao === 'tema') { definirTema(temaAtual() === 'claro' ? 'escuro' : 'claro'); pintarBotaoTema(); }
     else if (acao === 'mais') { mostrando += POR_PAGINA; ultimoHtml = ''; desenhar(); }
     else if (acao === 'plateia-abrir') PIH.plateia?.abrirAgora?.();
+    else if (acao === 'torneio-conferir') PIH.torneio?.conferir?.();
     else if (acao.startsWith('religar:')) { PIH.cofre?.religar?.(acao.slice(8)); ultimoHtml = ''; desenhar(); }
     else if (PIH.auto?.acoes?.[acao]) Promise.resolve(PIH.auto.acoes[acao]()).finally(() => { ultimoHtml = ''; desenhar(); });
   }
@@ -878,7 +883,7 @@
     if (l.inviavel) {
       return `<tr class="${cls}"><td class="pih-pos">${i + 1}</td>
         <td class="pih-hunt"><b>${esc(l.nome)}</b><small>${regiao(l.regiao)} · Nv ${num(l.nivel)}</small></td>
-        <td colspan="5"><span class="pih-perigo">não mata o selvagem</span></td></tr>`;
+        <td colspan="5"><span class="pih-perigo">${l.motivo === 'morre antes de matar' ? 'morre antes de matar' : 'não mata o selvagem'}</span></td></tr>`;
     }
     return `<tr class="${cls}" title="${esc(golpe)}">
       <td class="pih-pos">${i + 1}</td>
@@ -892,7 +897,13 @@
   }
 
   function corpo(r, jogo, manual) {
-    const linhas = r.linhas;
+    // 1.32.2: com "Evitar risco" (o padrão), a lista segue a mesma regra da Troca de hunt — as sem
+    // risco primeiro; as arriscadas (☠ 1 hit, mortes, golpe de 50%+) depois; as inviáveis no fim.
+    // Antes uma hunt ☠ 1 hit aparecia em 1º com o 👑 em outra linha.
+    const evitar = cfgAuto()?.hunt?.evitarRisco !== false;
+    const arriscada = (l) => l.umHit || l.mortesH >= 0.2 || l.hitPct >= 0.5;
+    const grupo = (l) => (l.inviavel ? 2 : evitar && arriscada(l) ? 1 : 0);
+    const linhas = r.linhas.map((l, i) => [l, i]).sort((a, b) => (grupo(a[0]) - grupo(b[0])) || (a[1] - b[1])).map((x) => x[0]);
     if (!linhas.length) return '<div class="pih-erro">Nenhuma hunt liberada para o seu nível de treinador.</div>';
     // 1.18: o 👑 é o mesmo destino da Troca de hunt (top 1 liberado, sem risco se "Evitar risco")
     const top = (PIH.auto?.melhorDe ? PIH.auto.melhorDe(linhas, prefs.ordem === 'ouro' ? 'ouro' : 'xp') : null) || linhas.find((l) => !l.inviavel);
@@ -950,7 +961,7 @@
     if (aba !== 'mercado') soltarMercado();
     if (aba === 'mercado') { ultimaAba = 'mercado'; ultimoHtml = ''; montarMercado(alvo); return; }
     if (aba === 'resumo') { pintarSeMudou(alvo, aba, topo + blocoResumo()); return; }
-    if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '') + (PIH.plateia ? PIH.plateia.linha(layout) : '')); return; }
+    if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '') + (PIH.plateia ? PIH.plateia.linha(layout) : '') + (PIH.torneio ? PIH.torneio.linha(layout) : '')); return; }
     if (aba === 'cofre') { pintarSeMudou(alvo, aba, topo + (PIH.cofre ? PIH.cofre.html(layout) : '')); return; }
     const pk = pkAtivo();
     const linhasCaca = aba === 'hunts' ? `${PIH.auto ? PIH.auto.linhas(layout) : ''}${PIH.rotina && PIH.rotina.linhasCaca ? PIH.rotina.linhasCaca(layout) : ''}${PIH.captura ? PIH.captura.linha(layout) : ''}${PIH.volta ? PIH.volta.linha(layout) : ''}${K.grupo('Onde render mais')}` : '';

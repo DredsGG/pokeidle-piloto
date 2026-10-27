@@ -36,8 +36,8 @@ function prancheta(tempo) {
 }
 
 const ctx = await chromium.launchPersistentContext('', {
-  channel: 'chromium', headless: true, viewport: { width: 560, height: 420 }, deviceScaleFactor: 2,
-  args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
+  channel: 'chromium', headless: true, locale: 'pt-BR', viewport: { width: 560, height: 420 }, deviceScaleFactor: 2,
+  args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`, '--lang=pt-BR'],
 });
 await ctx.route('https://pokeidle.io/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: PAGINA }));
 const page = ctx.pages()[0] || await ctx.newPage();

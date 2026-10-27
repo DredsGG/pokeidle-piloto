@@ -8,9 +8,18 @@
     ui: {
       comoUsar: 'How to use the Pilot', pular: 'Skip', voltar: 'Back', proximo: 'Next', entendi: 'Got it', fechar: 'Close (Esc)',
       passo: 'Step {n} of {t}', novidades: "What's new in v{v}", verGuia: 'See the guide',
+      novaVersao: 'New version v{v}', voceTem: "You're on v{v}. What changed:", atualizar: 'Update', verNoGithub: 'See on GitHub',
+      updMsg: {
+        aplicando: 'Updating…',
+        baixado: 'The new zip was downloaded (Downloads folder). Extract it over the Pilot folder: within 1 min it reloads by itself and the game tabs reload.',
+        firefox: 'Firefox will ask whether to install the new version: click Add. The game tabs reload by themselves.',
+        'firefox-temporario': 'The new zip was downloaded. In about:debugging, remove the Pilot and load the new zip with "Load Temporary Add-on".',
+        loja: "The browser hasn't released the new version yet: try again in a little while.",
+        erro: "Couldn't update right now. Try again with the Check for updates button in the panel.",
+      },
     },
     tutorial: [
-      { t: 'Welcome to the Pilot', x: 'The Pilot plays for you right here in PokeIdle: it picks the best hunt, restocks balls and potions, and looks after your team and the Market. It only spends gold and always within the Vault; never gems or diamonds.' },
+      { t: 'Welcome to the Pilot', x: 'The Pilot plays for you right here in PokeIdle: it picks the best hunt, restocks balls and potions, and looks after your team and the Market. It only spends gold and always within the Vault; never gems or diamonds. The Pilot button sits right above your Pokémon in the field: that is where the panel opens.' },
       { t: 'Off, Manual and Auto', x: 'The mode is at the top. Off: nothing runs. Manual: you turn on and tune each automation. Auto: the Pilot turns everything on and works out the numbers; each row keeps its own ON/OFF.' },
       { t: 'The Vault controls spending', x: 'Before turning it on, open the Vault tab and check the reserve (the gold that is never spent) and the daily cap. Every purchase the Pilot makes goes through it.' },
       { t: 'The tabs', x: 'Hunt: hunt switching, restock and team rotation. Level: when each one levels up. Routine: Pass, XP Share, PvP and Depot. Market: the Radar alerts, buys and resells for gold.' },
@@ -20,6 +29,16 @@
     novidades: {
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
+      ],
+      '1.32.3': [
+        "Plateia also stops opening a duplicate room after a Piloto update or with Windows display scaling (it adopts the window that is already open).",
+        "Hunt tab: a hunt where your Pokémon dies before finishing a single kill leaves the ranking (e.g. Larvitar Lv 20 at Ledyba Lv 230), and with \"Avoid risk\" the risky ones come after the safe ones.",
+        "The first time, the Pilot opens in your browser language (Portuguese, English or Spanish); the PT · EN · ES picker is still in the panel.",
+        "New version, what is new and the guide show up by themselves in the middle of the game screen, without opening the panel. X or Esc closes them.",
+        "Plateia rooms no longer open again when the game or the extension restarts: only a missing one opens.",
+        "When the rotation is turned back on, it starts with the weakest Pokémon and leaves the strongest for last.",
+        "Hunt the meta also turns off the team rotation; it comes back together with Hunt switching.",
+        "Tournaments: the Pilot signs you up for the World, the Amateur and the Showdown as soon as registration opens (Routine tab).",
       ],
       '1.31.0': [
         'Now also works on Edge, Brave, Opera GX and Firefox.',

@@ -498,7 +498,9 @@ async function gravarUpd(patch) {
 }
 async function checarUpd() {
   const cur = versaoAtual();
-  const base = { checadoEm: Date.now(), atual: cur, instalacao: await tipoInstalacao() };
+  const instalacao = await tipoInstalacao();
+  // Firefox instalado pelo .xpi assinado atualiza sozinho pelo update_url: lá o aviso solto não aparece
+  const base = { checadoEm: Date.now(), atual: cur, instalacao, autoAtualiza: NO_FIREFOX && instalacao === 'normal' };
   try {
     const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -509,10 +511,26 @@ async function checarUpd() {
     // o mesmo zip serve para todos; no Firefox, o .xpi assinado pela Mozilla (instala com um clique)
     const zip = link(/\.zip$/i);
     const xpi = NO_FIREFOX ? link(/\.xpi$/i) : null;
-    return gravarUpd({ ...base, ultima, notas: String(j.body || '').slice(0, 4000), pagina: j.html_url || null, zip, xpi, disponivel: !!ultima && cmpVer(ultima, cur) > 0, erro: null });
+    const disponivel = !!ultima && cmpVer(ultima, cur) > 0;
+    return gravarUpd({ ...base, ultima, notas: String(j.body || '').slice(0, 4000), pagina: j.html_url || null, zip, xpi, disponivel, mudancas: disponivel ? await mudancasAte(ultima, cur) : null, erro: null });
   } catch (e) {
     return gravarUpd({ ...base, erro: String(e && e.message || e) });
   }
+}
+// 1.32.2 (regra 14): o que mudou, nos três idiomas, vem do changelog.json da tag do Release (o mesmo
+// texto do quadro de Novidades). Junta as versões entre a instalada e a nova, da mais nova para trás.
+// Release antigo sem o arquivo: null (o quadro usa as notas do Release).
+async function mudancasAte(ultima, cur) {
+  try {
+    const r = await fetch(`https://raw.githubusercontent.com/${REPO}/v${encodeURIComponent(ultima)}/extension/changelog.json`, { cache: 'no-store' });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const versoes = Object.keys(j && j.versoes || {}).filter((v) => cmpVer(v, cur) > 0 && cmpVer(v, ultima) <= 0).sort((a, b) => cmpVer(b, a));
+    if (!versoes.length) return null;
+    const out = {};
+    for (const idi of ['pt', 'en', 'es']) out[idi] = versoes.flatMap((v) => (Array.isArray(j.versoes[v][idi]) ? j.versoes[v][idi] : [])).map((x) => String(x).slice(0, 300)).slice(0, 8);
+    return out;
+  } catch { return null; }
 }
 async function aplicarUpd() {
   const st = (await chrome.storage.local.get(CHAVE_UPD))[CHAVE_UPD] || {};
@@ -607,20 +625,12 @@ const ACOES = {
   },
   // 1.29: as salas da Plateia, uma vez por sessão do Chrome (janela à parte, sem roubar o foco).
   // Se a janela aberta antes ainda existe, não abre outra.
-  'plateia:abrir': async (m) => {
-    const SALAS = { twitch: 'https://www.twitch.tv/drops/inventory#plateia', kick: 'https://kick.com/drops/claimed#plateia' };
-    const abertas = [];
-    for (const p of (Array.isArray(m.plataformas) ? m.plataformas : [])) {
-      if (!SALAS[p]) continue;
-      const chave = `plateia:janela:${p}`;
-      const { [chave]: antiga } = await chrome.storage.session.get(chave);
-      if (typeof antiga === 'number') { const ok = await chrome.windows.get(antiga).then(() => true).catch(() => false); if (ok) continue; }
-      const w = await chrome.windows.create({ url: SALAS[p], type: 'popup', focused: false, width: 1440, height: 900 })
-        .catch(() => chrome.windows.create({ url: SALAS[p], type: 'popup', width: 1440, height: 900 })).catch(() => null); // sem 'focused' se o navegador recusar
-      if (w && typeof w.id === 'number') { await chrome.storage.session.set({ [chave]: w.id }); abertas.push(p); }
-    }
-    return abertas;
-  },
+  // 1.32.2 (o André: "toda vez que o jogo ou a extensão reinicia, abre mais duas abas da Plateia"):
+  // o id da janela de cada sala fica no storage.LOCAL (o session apaga quando a extensão recarrega) e
+  // só abre a sala que estiver faltando. Depois de reiniciar o navegador o id muda: aí adota a janela
+  // popup da sala que o navegador restaurou (o tamanho 1440×900 com que o Piloto abre). Um pedido de
+  // cada vez (duas abas do jogo não abrem a mesma sala duas vezes).
+  'plateia:abrir': (m) => (filaPlateia = filaPlateia.then(() => abrirSalasPlateia(m)).catch((e) => { erro(e); return []; })),
   'upd:checar': () => checarUpd(),
   'upd:aplicar': () => aplicarUpd(),
   'upd:dispensar': async (m) => gravarUpd({ ...(m.limparAviso ? { acabouDe: null } : { dispensada: typeof m.versao === 'string' ? m.versao.slice(0, 20) : null }) }),
@@ -632,6 +642,48 @@ const ACOES = {
     return id;
   },
 };
+
+
+// ---- 1.32.2: as salas da Plateia, sem repetir -------------------------------------------------
+let filaPlateia = Promise.resolve();
+const SALAS_PLATEIA = { twitch: 'https://www.twitch.tv/drops/inventory#plateia', kick: 'https://kick.com/drops/claimed#plateia' };
+const janelaViva = async (id) => {
+  if (typeof id !== 'number') return false;
+  try { const w = await chrome.windows.get(id, { populate: true }); return !!w && (!Array.isArray(w.tabs) || w.tabs.length > 0); } catch { return false; }
+};
+async function abrirSalasPlateia(m) {
+  const pedidas = (Array.isArray(m && m.plataformas) ? m.plataformas : []).filter((p) => SALAS_PLATEIA[p]);
+  const chaves = pedidas.map((p) => `plateia:janela:${p}`);
+  const guardadas = chaves.length ? await chrome.storage.local.get(chaves) : {};
+  const vivas = new Set();
+  const faltam = [];
+  for (const p of pedidas) {
+    const id = guardadas[`plateia:janela:${p}`];
+    if (await janelaViva(id)) vivas.add(id); else faltam.push(p);
+  }
+  if (!faltam.length) return [];
+  // depois de reiniciar o navegador ou de atualizar a extensão: as janelas que já estão abertas têm id
+  // que o Piloto não conhece — adota as janelas popup de uma aba só (é assim que a sala abre).
+  // 1.32.2 (o André, depois da atualização: "abriu outras duas abas"): não exige mais o tamanho
+  // 1440×900 — com a escala do Windows (125%) a janela é encolhida para caber na tela e o tamanho muda.
+  // As mais parecidas com a sala vêm primeiro; janela com o jogo nunca é adotada.
+  let soltas = [];
+  try {
+    soltas = (await chrome.windows.getAll({ windowTypes: ['popup'], populate: true }))
+      .filter((w) => !vivas.has(w.id) && Array.isArray(w.tabs) && w.tabs.length === 1 && !/^https:\/\/pokeidle\.io\//.test(w.tabs[0].url || w.tabs[0].pendingUrl || ''))
+      .sort((a, b) => (Math.abs((a.width || 0) - 1440) + Math.abs((a.height || 0) - 900)) - (Math.abs((b.width || 0) - 1440) + Math.abs((b.height || 0) - 900)));
+  } catch { soltas = []; }
+  const abertas = [];
+  for (const p of faltam) {
+    const chave = `plateia:janela:${p}`;
+    const adotar = soltas.shift();
+    if (adotar) { await chrome.storage.local.set({ [chave]: adotar.id }); continue; }
+    const w = await chrome.windows.create({ url: SALAS_PLATEIA[p], type: 'popup', focused: false, width: 1440, height: 900 })
+      .catch(() => chrome.windows.create({ url: SALAS_PLATEIA[p], type: 'popup', width: 1440, height: 900 })).catch(() => null); // sem 'focused' se o navegador recusar
+    if (w && typeof w.id === 'number') { await chrome.storage.local.set({ [chave]: w.id }); abertas.push(p); }
+  }
+  return abertas;
+}
 
 chrome.runtime.onMessage.addListener((m, remetente, responder) => {
   const acao = m && ACOES[m.tipo];

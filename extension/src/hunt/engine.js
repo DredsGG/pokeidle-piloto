@@ -380,6 +380,14 @@
     const abatesPorVida = opcoes.comPocao
       ? (umHit ? hpPk / hitPior : 999)
       : hpPk / Math.max(1e-6, danoPorAbate);
+    // 1.32.2 (Larvitar Nv 20 com Ledyba Nv 230 no topo): quem morre antes de terminar UM abate não
+    // farma nada — ao desmaiar o selvagem não fica com o dano, você vai para o Centro e perde 10% do
+    // XP do nível. Antes o modelo somava pedaços de abate entre as mortes (0,04 abate por vida × 96
+    // mortes/h) e a hunt subia para o 1º lugar pelo XP alto do selvagem de nível alto.
+    if (abatesPorVida < 1) {
+      return { ...base, inviavel: true, motivo: 'morre antes de matar', ttk, umHit, hitPct: hitPior / hpPk, mortesH: Infinity, abatesPorVida,
+        xpPokemonH: 0, xpTreinadorH: 0, ouroH: 0, kph: 0, kphModelo: 0, xpKill, ouroKill };
+    }
     const dMed = dists.reduce((s, x) => s + x, 0) / dists.length;
     const tempoMorte = MEDIDO.respawnS + dMed * MEDIDO.heroiSPorTile;
     const vidaS = abatesPorVida * (kph > 0 ? 3600 / kph : 0);
@@ -463,7 +471,8 @@
       if (r) linhas.push(r);
     }
     const chave = op.ordem === 'ouro' ? 'ouroH' : 'xpPokemonH';
-    linhas.sort((a, b) => (b[chave] - a[chave]) || (a.nivel - b.nivel));
+    // as inviáveis (não mata / morre antes de matar) vão para o fim
+    linhas.sort((a, b) => (Number(!!a.inviavel) - Number(!!b.inviavel)) || (b[chave] - a[chave]) || (a.nivel - b.nivel));
     return {
       pokemon: poke,
       especie: esp,

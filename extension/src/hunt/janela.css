@@ -472,3 +472,20 @@ html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { backgrou
   .plt-guia .plt-guia-caixa { animation: plt-guia-entra .18s ease-out; }
   @keyframes plt-guia-entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 }
+
+/* ---- 1.32.2 (regra 13): o seletor mostra PT · EN · ES junto da bandeira ---- */
+.plt-cats .plt-idiomas button, .plt-nav .plt-idiomas button { gap: 5px; }
+.plt-idiomas .plt-idi-cod { font: 700 11px/1 "Barlow", sans-serif; letter-spacing: .04em; color: #f3e6d8; text-shadow: 0 1px 0 rgba(0, 0, 0, .45); }
+
+/* ---- 1.32.2 (regra 14): guia, novidades e versão nova soltos no meio da página do jogo ----
+   Sem fundo escuro e sem pegar clique fora da caixa: o jogo continua clicável em volta. */
+.plt-guia.plt-guia-solto {
+  position: fixed; inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2147482000;
+  display: block; width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0;
+  background: none; border-radius: 0; pointer-events: none;
+}
+.plt-guia.plt-guia-solto .plt-guia-caixa.modal-caixa { pointer-events: auto; width: 100%; max-height: calc(100vh - 32px); box-shadow: 0 16px 44px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .25); }
+.plt-guia-de { margin: 0 0 10px; font: 600 13px/1.4 "Barlow", sans-serif; color: rgba(255, 244, 232, .82); }
+.plt-guia-msg { margin: 12px 0 0; padding: 9px 11px; border-radius: 6px; font: 500 13px/1.45 "Barlow", sans-serif; color: var(--vao-txt, #f3e6d8); background: rgba(0, 0, 0, .22); box-shadow: inset 0 0 0 1px var(--mad-linha, rgba(255, 255, 255, .15)); }
+.plt-guia .plt-guia-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.plt-guia .cfg-escala-bt:disabled { opacity: .5; cursor: progress; }

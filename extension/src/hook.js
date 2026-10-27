@@ -414,7 +414,7 @@
   }
   // O que vem do SERVIDOR (estado, welcome, campo, erro) só o hook publica: a página não pode
   // fingir um saldo maior para o cofre aprovar (auditoria de 2026-10-19, caso C2).
-  const TIPOS_DO_SERVIDOR = new Set(['welcome', 'estado', 'campo.init', 'campo', 'erro', 'pvp', 'perfil', 'piloto.enviado']);
+  const TIPOS_DO_SERVIDOR = new Set(['welcome', 'estado', 'campo.init', 'campo', 'erro', 'pvp', 'perfil', 'piloto.enviado', 'campeonato', 'showdown']);
   PIH.emit = (tipo, dado) => { if (!TIPOS_DO_SERVIDOR.has(tipo)) emitirInterno(tipo, dado); };
 
   // O cofre se registra UMA vez (o primeiro script da extensão, em document_start, antes de
@@ -493,6 +493,8 @@
     else if (cab.includes('"t":"erro"')) tipo = 'erro';
     else if (cab.includes('"t":"pvp"')) tipo = 'pvp';
     else if (cab.includes('"t":"perfil"')) tipo = 'perfil'; // 1.23: o perfil público (ranking.perfil), para a aba Meta
+    else if (cab.includes('"t":"campeonato"')) tipo = 'campeonato'; // 1.32: torneios (Mundial e Amador)
+    else if (cab.includes('"t":"showdown"')) tipo = 'showdown'; // 1.32: o Showdown semanal
     if (!tipo) return;
     let m;
     try { m = JSON.parse(texto); } catch { return; }
@@ -622,6 +624,12 @@
     },
     // PvP Ranqueado (1.2.1): ler, montar a equipe (1 a 5 pokémon seus, sem repetir) e entrar na fila.
     'pvp.info': () => ({ t: 'pvp.info' }),
+    // 1.32 (pedido do André): torneios. Só ler a edição e se INSCREVER (de graça; nada de cancelar,
+    // nem equipe): Mundial e Amador (campeonato.*) e o Showdown da semana (showdown.*).
+    'campeonato.info': (p) => (typeof p.id === 'string' && /^[\w:.-]{1,40}$/.test(p.id) ? { t: 'campeonato.info', id: p.id } : null),
+    'campeonato.inscrever': (p) => (typeof p.id === 'string' && /^[\w:.-]{1,40}$/.test(p.id) ? { t: 'campeonato.inscrever', id: p.id } : null),
+    'showdown.info': (p) => (typeof p.id === 'string' && /^[\w:.-]{1,40}$/.test(p.id) ? { t: 'showdown.info', id: p.id } : null),
+    'showdown.inscrever': (p) => (typeof p.id === 'string' && /^[\w:.-]{1,40}$/.test(p.id) ? { t: 'showdown.inscrever', id: p.id } : null),
     // 1.23: o perfil público de um jogador (o mesmo clique no nick do placar), só leitura.
     'ranking.perfil': (p) => (typeof p.nick === 'string' && /^[\p{L}\p{N}_.\-]{1,30}$/u.test(p.nick) ? { t: 'ranking.perfil', nick: p.nick } : null),
     'pvp.fila.entrar': () => ({ t: 'pvp.fila.entrar' }),

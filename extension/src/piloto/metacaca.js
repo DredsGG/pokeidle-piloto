@@ -27,7 +27,7 @@
   const ler = () => {
     try {
       const c = JSON.parse(localStorage.getItem(CHAVE) || 'null') || {};
-      return { ligado: c.ligado === true, recorte: c.recorte === 'faixa' ? 'faixa' : 'topo', alvos: Array.isArray(c.alvos) ? c.alvos : [], vistos: Array.isArray(c.vistos) ? c.vistos : [], desde: Number(c.desde) || 0, fim: c.fim || null };
+      return { ligado: c.ligado === true, recorte: c.recorte === 'faixa' ? 'faixa' : 'topo', alvos: Array.isArray(c.alvos) ? c.alvos : [], vistos: Array.isArray(c.vistos) ? c.vistos : [], desde: Number(c.desde) || 0, fim: c.fim || null, rodizioDepois: c.rodizioDepois === true };
     } catch { return { ligado: false, recorte: 'topo', alvos: [], vistos: [], desde: 0, fim: null }; }
   };
   let cfg = ler();
@@ -78,6 +78,14 @@
     gravar();
     // os dois não andam juntos: a Troca de hunt levaria o Piloto para longe do alvo
     if (PIH.auto && PIH.auto._interno && PIH.auto._interno.cfg().hunt.ligado) { PIH.auto.definir('hunt.ligado', false); diario('Troca de hunt desligada (o Caçar o meta escolhe a hunt)'); }
+    // 1.32 (pedido do André): o rodízio também desliga, e só religa junto com a Troca de hunt
+    try {
+      if (PIH.rotina && PIH.rotina._interno && PIH.rotina._interno.cfg().rodizio.ligado) {
+        PIH.rotina.definir('rodizio.ligado', false);
+        cfg.rodizioDepois = true; gravar();
+        diario('Rodízio do time desligado (volta junto com a Troca de hunt)');
+      }
+    } catch { /* sem rotina */ }
     diario(`ligado — alvo: ${alvos.map((x) => x.meta).join(', ')}${alvos.some((x) => x.tinha) ? ` (já tem: ${alvos.filter((x) => x.tinha).map((x) => x.meta).join(', ')})` : ''}`, 'ok');
     st.escolha = null;
     return { ok: true };
@@ -87,6 +95,15 @@
     cfg.ligado = false;
     gravar();
     diario(`desligado${motivo ? ` (${motivo})` : ''}`);
+    // você religou a Troca de hunt na mão: o rodízio volta junto
+    if (motivo === 'a Troca de hunt foi ligada') religarRodizio();
+  }
+  // 1.32: o rodízio que o Caçar o meta desligou volta quando a Troca de hunt volta (no fim da troca
+  // do time no Centro, ou quando você religa a Troca de hunt).
+  function religarRodizio() {
+    if (!cfg.rodizioDepois) return;
+    cfg.rodizioDepois = false; gravar();
+    try { if (PIH.rotina && !PIH.rotina._interno.cfg().rodizio.ligado) { PIH.rotina.definir('rodizio.ligado', true); diario('Rodízio do time ligado de novo (junto com a Troca de hunt)'); } } catch { /* sem rotina */ }
   }
 
   // ---- capturas -------------------------------------------------------------------------------
@@ -199,7 +216,7 @@
     try { linhas = PIH.engine.analisar(pk, ctx, { soLiberadas: true, comPocao: true }).linhas || []; } catch { linhas = []; }
     let melhor = null;
     for (const l of linhas) {
-      if (!l || l.inviavel || l.umHit || l.mortesH >= 0.2) continue;
+      if (!l || l.inviavel || l.umHit || l.mortesH >= 0.2 || l.hitPct >= 0.5) continue; // 1.32.2: o mesmo corte de risco da Troca de hunt e do rodízio
       const h = hunts.find((x) => x.slug === l.slug);
       if (!h) continue;
       const total = (h.especies || []).reduce((s, e) => s + (Number(e.pontos) || 0), 0) || 1;
@@ -272,6 +289,7 @@
   }
   function religarHunt() {
     try { if (PIH.auto && PIH.auto._interno && !PIH.auto._interno.cfg().hunt.ligado) { PIH.auto.definir('hunt.ligado', true); diario('Troca de hunt ligada de novo (farm com o time do meta)'); } } catch { /* sem auto */ }
+    religarRodizio();
   }
   // 1.26: quem completou na 1.24/1.25 ficou com os 5 no cadeado e a Troca de hunt desligada. Uma vez:
   // solta o cadeado (o time segue os do meta), liga a Troca de hunt.
@@ -320,5 +338,5 @@
     return null;
   }
 
-  PIH.metaCaca = { html, definir, desligar, ativo: () => cfg.ligado, protegidos, especiesAlvo, _interno: { cfg: () => cfg, st, tique, escolherHunt, conferirCapturas, sanear, refazer: () => { saneado = false; } } };
+  PIH.metaCaca = { html, definir, desligar, religarRodizio, ativo: () => cfg.ligado, protegidos, especiesAlvo, _interno: { cfg: () => cfg, st, tique, escolherHunt, conferirCapturas, sanear, refazer: () => { saneado = false; } } };
 })(globalThis);

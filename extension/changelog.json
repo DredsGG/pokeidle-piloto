@@ -1,0 +1,79 @@
+{
+  "versoes": {
+    "1.32.3": {
+      "pt": [
+        "A Plateia também não abre sala repetida depois de atualizar o Piloto ou com a escala do Windows (adota a janela que já está aberta).",
+        "Aba Caçar: hunt em que o pokémon morre antes de terminar um abate sai do ranking (ex.: Larvitar Nv 20 na Ledyba Nv 230), e com \"Evitar risco\" as arriscadas ficam depois das seguras.",
+        "Na primeira vez, o Piloto já abre no idioma do navegador (português, inglês ou espanhol); o seletor PT · EN · ES continua no painel.",
+        "Versão nova, novidades e o guia aparecem sozinhos no meio da tela do jogo, sem abrir o painel. O X ou o Esc fecham.",
+        "As salas da Plateia não abrem de novo quando o jogo ou a extensão reinicia: só abre a que estiver faltando.",
+        "O rodízio religado começa pelo pokémon mais fraco e deixa o mais forte por último.",
+        "Caçar o meta desliga também o rodízio do time; ele volta junto com a Troca de hunt.",
+        "Torneios: o Piloto inscreve você sozinho no Mundial, no Amador e no Showdown assim que as inscrições abrem (aba Rotina)."
+      ],
+      "en": [
+        "Plateia also stops opening a duplicate room after a Piloto update or with Windows display scaling (it adopts the window that is already open).",
+        "Hunt tab: a hunt where your Pokémon dies before finishing a single kill leaves the ranking (e.g. Larvitar Lv 20 at Ledyba Lv 230), and with \"Avoid risk\" the risky ones come after the safe ones.",
+        "The first time, the Pilot opens in your browser language (Portuguese, English or Spanish); the PT · EN · ES picker is still in the panel.",
+        "New version, what is new and the guide show up by themselves in the middle of the game screen, without opening the panel. X or Esc closes them.",
+        "Plateia rooms no longer open again when the game or the extension restarts: only a missing one opens.",
+        "When the rotation is turned back on, it starts with the weakest Pokémon and leaves the strongest for last.",
+        "Hunt the meta also turns off the team rotation; it comes back together with Hunt switching.",
+        "Tournaments: the Pilot signs you up for the World, the Amateur and the Showdown as soon as registration opens (Routine tab)."
+      ],
+      "es": [
+        "La Plateia tampoco abre una sala repetida después de actualizar el Piloto o con la escala de Windows (adopta la ventana que ya está abierta).",
+        "Pestaña Cazar: la hunt donde el pokémon muere antes de terminar un abate sale del ranking (ej.: Larvitar Nv 20 en la Ledyba Nv 230), y con \"Evitar riesgo\" las arriesgadas quedan después de las seguras.",
+        "La primera vez, el Piloto abre en el idioma del navegador (portugués, inglés o español); el selector PT · EN · ES sigue en el panel.",
+        "Versión nueva, novedades y la guía aparecen solas en el medio de la pantalla del juego, sin abrir el panel. La X o el Esc las cierran.",
+        "Las salas de Plateia ya no se abren de nuevo cuando el juego o la extensión se reinicia: solo se abre la que falta.",
+        "La rotación, al volver a encenderse, empieza por el pokémon más débil y deja el más fuerte para el final.",
+        "Cazar el meta también apaga la rotación del equipo; vuelve junto con el Cambio de hunt.",
+        "Torneos: el Piloto te inscribe solo en el Mundial, el Amateur y el Showdown en cuanto abren las inscripciones (pestaña Rutina)."
+      ]
+    },
+    "1.31.1": {
+      "pt": [
+        "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem."
+      ],
+      "en": [
+        "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve."
+      ],
+      "es": [
+        "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan."
+      ]
+    },
+    "1.31.0": {
+      "pt": [
+        "Agora funciona também no Edge, no Brave, no Opera GX e no Firefox.",
+        "Modo Manual liberado: você liga e ajusta cada automação.",
+        "Rodízio do time por turno: no Manual você escolhe quanto dura o turno.",
+        "O TEMPO da Sessão do jogo ganhou um quadradinho com os dias.",
+        "Caçar o meta não vai mais para a Outland: os pokémon de lá não evoluem.",
+        "Este guia de primeiro uso e o quadro de novidades (botão ? lá em cima).",
+        "Reposição escolhe sozinha uma bola, uma poção e um revive pela sua conta e troca conforme ela sobe.",
+        "O time só recebe pokémon do meta; o meta que o time segue só muda depois de 24 h."
+      ],
+      "en": [
+        "Now also works on Edge, Brave, Opera GX and Firefox.",
+        "Manual mode is unlocked: you turn on and tune each automation.",
+        "Team rotation by turn: in Manual you choose how long a turn lasts.",
+        "The game's Session TIME now has a box with the days.",
+        "Hunt the meta no longer goes to the Outland: Pokémon from there don't evolve.",
+        "This first-run guide and the \"What's new\" box (? button at the top).",
+        "Restock picks one ball, one potion and one revive for your account and switches them as it grows.",
+        "The team only takes meta Pokémon; the meta it follows only changes after 24 h."
+      ],
+      "es": [
+        "Ahora también funciona en Edge, Brave, Opera GX y Firefox.",
+        "Modo Manual liberado: tú activas y ajustas cada automatización.",
+        "Rotación del equipo por turno: en Manual eliges cuánto dura el turno.",
+        "El TIEMPO de la Sesión del juego ganó un cuadro con los días.",
+        "Cazar el meta ya no va a la Outland: los pokémon de allí no evolucionan.",
+        "Esta guía de primer uso y el cuadro de novedades (botón ? de arriba).",
+        "La reposición elige sola una bola, una poción y un revivir según tu cuenta y los cambia a medida que sube.",
+        "El equipo solo recibe pokémon del meta; el meta que sigue solo cambia después de 24 h."
+      ]
+    }
+  }
+}

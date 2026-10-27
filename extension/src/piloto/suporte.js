@@ -172,5 +172,5 @@
     }
   }, true);
 
-  PIH.suporte = { relatorio, urlDoRelato, estado: () => ({ upd: { ...upd }, status, bugAberto }) };
+  PIH.suporte = { relatorio, urlDoRelato, itensDasNotas, estado: () => ({ upd: { ...upd }, status, bugAberto }) };
 })(globalThis);

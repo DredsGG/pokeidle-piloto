@@ -9,7 +9,7 @@ Hunt optimizer, market radar, team manager and daily routine in one browser exte
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
 ![Browsers](https://img.shields.io/badge/Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20GX%20·%20Firefox%20140+-works-6d4aff)
-![Version](https://img.shields.io/badge/version-1.31.1-e53935)
+![Version](https://img.shields.io/badge/version-1.32.3-e53935)
 ![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-2e7d32)
 
 <img src="docs/hunt-tab.png" width="80%" alt="The Piloto window in Automatic mode, Hunt tab: hunt switching, restock, team rotation, Outland tier, automatic Poké Ball and auto-reload, above the ranking of the best hunts">
@@ -53,7 +53,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 </p>
 
 - **One team for the field and PvP.** The Team window builds it: your locked Pokémon first, then **the meta species you already own** (your best of each family; Megas count as their base form and a Pupitar counts for Tyranitar). Nothing outside the meta joins the team, so a new account doesn't fill it with weak catches, and the meta the team follows only changes after a species has been out of it for 24 hours (the 5th place of the ladder moves all the time). The same team goes to Ranked with the strongest opening. Team changes happen at the Pokémon Center: it pauses the hunt switch, heals, swaps everyone in the game's own order and goes back to the hunt.
-- **Team rotation.** Each team member fights for one turn (60 min by default) and the one that has gone longest without fighting comes in next. With hunt switching on, the swap happens at the Center and the newcomer goes straight to its own best hunt.
+- **Team rotation.** Each team member fights for one turn (60 min by default) and the one that has gone longest without fighting comes in next; when you turn rotation back on, a new cycle starts with the weakest and leaves the strongest for last. While Hunt the meta runs, rotation is paused and comes back with the hunt switch. With hunt switching on, the swap happens at the Center and the newcomer goes straight to its own best hunt.
 - **Turn timer.** A ⏱ button on each row of the game's Team panel shows how long the active Pokémon has been fighting, the time left in its turn, the rotation queue with when each one comes in, and today's turns.
 - **Days in the session clock.** The game's Session panel shows the hunt time in hours only (252:58:16); the Piloto splits it into a days box and the rest in hours (10 days · 12:58:16).
 - **Meta tab.** Reads the Ranked ladder and the players' public profiles to show which species the top 20, or the players in your own bracket, are using, with daily ▲▼ changes and whether you own each one and have it on the team. When the meta shifts you get a small toast, never a pop-up.
@@ -71,6 +71,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 - **Deal alerts with the game's own art:** the Pokémon's animated sprite and the item icon at a crisp integer scale.
 
 **Daily routine**
+- **Tournaments.** Signs you up for every tournament as soon as registration opens (World and Amateur championships and the Showdown), waiting for the minimum level when there is one; it never cancels a registration.
 - Battle pass claims, XP Share (the furthest-behind team members in empty slots), highest unlocked Outland tier, Ranked queue, Auto Collection kept on Legendary · Shiny · P5+ · the market's minimum grade, and Depot cleaning (it first moves your team, shinies and top-potential Pokémon into the Collection).
 - **Irreversible actions are opt-in:** evolving (never shiny, Outland or Mega) and hatching eggs you own.
 
@@ -80,7 +81,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
   <img src="docs/plateia-banner.png" width="60%" alt="Banner on the game's Twitch bonus window: Farm this bonus with Plateia, with an Open the Twitch room button">
 </p>
 
-- If you also use [Plateia](https://github.com/DredsGG/plateia) (Twitch and Kick), opening the game opens its Twitch and/or Kick room in a separate window, once per browser session, for the platforms linked in your game account. The game's own Twitch/Kick bonus windows get an **Open the room** button, or a link to download Plateia if you don't have it.
+- If you also use [Plateia](https://github.com/DredsGG/plateia) (Twitch and Kick), opening the game opens its Twitch and/or Kick room in a separate window, once per browser session, for the platforms linked in your game account. It reuses a room window that's already open (also after the extension updates or the browser restores its windows) instead of opening duplicates. The game's own Twitch/Kick bonus windows get an **Open the room** button, or a link to download Plateia if you don't have it.
 
 **Support**
 
@@ -170,7 +171,7 @@ From a clone of this repo, load the `extension/` folder: it's the same code and 
 
 ## Languages
 
-Portuguese, English and Spanish (flags at the bottom of the menu), with light and dark themes.
+Portuguese, English and Spanish, with light and dark themes. The first run follows the browser language (anything else falls back to English) and the flag selector at the bottom of the menu switches it. The first-run guide, *What's new* and *New version vX.Y.Z* (with an **Update** button) show up by themselves in the middle of the game page, with no dark overlay: clicking outside goes to the game, X or Esc closes them.
 
 ## Known limitations
 
