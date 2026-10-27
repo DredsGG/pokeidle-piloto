@@ -87,7 +87,7 @@
     const st = procurando ? 'procurando…' : upd.disponivel ? `v${upd.ultima} disponível` : status === 'nenhuma' ? 'você está na última versão' : status === 'erro' || (status && upd.erro) ? 'não deu para procurar agora' : '';
     return `<div class="plt-sup-bts">
       <button type="button" class="plt-sup-bt" data-sup="bug" title="Relatar um bug para o Dreds" aria-expanded="${bugAberto}">${ICO_BUG}<span>${esc(tr('Relatar bug'))}</span></button>
-      <button type="button" class="plt-sup-bt${procurando ? ' gira' : ''}" data-sup="checar" title="Procurar versão nova no GitHub">${ICO_UPD}<span>${esc(tr('Atualização'))}</span></button>
+      <button type="button" class="plt-sup-bt${procurando ? ' gira' : ''}" data-sup="checar" title="Procurar versão nova no GitHub">${ICO_UPD}<span>${esc(tr('Procurar atualização'))}</span></button>
     </div>${st ? `<div class="plt-sup-st${upd.disponivel ? ' novo' : ''}">${esc(tr(st))}</div>` : ''}`;
   }
   function htmlCartoes() {

@@ -703,7 +703,7 @@
       Reflect.apply(sendNativo, ws, [texto]);
       gastarFicha(proximo.pedido.t);
       // 1.25: o perfil que o Piloto lê (aba Meta) não pode abrir a janela do perfil na tela do jogo
-      if (proximo.pedido.t === 'ranking.perfil') perfisDoPiloto.set(proximo.pedido.nick, agora() + 15000);
+      if (proximo.pedido.t === 'ranking.perfil') perfisDoPiloto.set(String(proximo.pedido.nick).toLowerCase(), agora() + 60000);
       const registro = { origem: proximo.origem, pedido: proximo.pedido, reserva: proximo.reserva, em: agora(), timer: null };
       registro.timer = agendar(() => {
         const i = enviosPih.indexOf(registro);
@@ -712,7 +712,7 @@
       }, 3000);
       enviosPih.push(registro);
       while (enviosPih.length > 20) clearTimeout(enviosPih.shift().timer);
-      emitirInterno('piloto.enviado', { t: proximo.pedido.t, origem: proximo.origem, custo: proximo.custo, em: agora() });
+      emitirInterno('piloto.enviado', { t: proximo.pedido.t, origem: proximo.origem, custo: proximo.custo, em: agora(), pokemonId: Number.isInteger(proximo.pedido.pokemonId) ? proximo.pedido.pokemonId : null });
       if (st.gravando) entrada('out', proximo.pedido.t, agora(), 0, proximo.pedido, { bytes: texto.length, piloto: true });
     } catch (e) {
       erro(e);
@@ -881,18 +881,24 @@
 
   // 1.25: perfis pedidos pelo Piloto (nick -> até quando). A resposta vai só para o Piloto: o jogo
   // abriria a janela do perfil na tela do André a cada leitura da aba Meta.
+  // 1.28.1 (o André viu a janela de perfil abrir de novo): o nick casa sem maiúsculas, a janela é de
+  // 60 s (a fila de leituras pode segurar o pedido) e, se o nick não casar, um perfil que chega com
+  // pedido do Piloto em aberto e SEM clique/tecla sua nos últimos 4 s também é do Piloto. Perfil que
+  // você clica continua abrindo.
   const perfisDoPiloto = new Map();
+  let cliqueEm = 0;
+  try { for (const tipo of ['pointerdown', 'keydown']) raiz.addEventListener(tipo, () => { cliqueEm = agora(); }, { capture: true, passive: true }); } catch { /* sem janela */ }
   function ehPerfilDoPiloto(dado) {
-    if (!perfisDoPiloto.size || dado.slice(0, 40).indexOf('"t":"perfil"') < 0) return false;
-    const m = /"nick":"((?:[^"\\]|\\.){1,40})"/.exec(dado.slice(0, 400));
-    if (!m) return false;
-    let nick = m[1];
-    try { nick = JSON.parse(`"${m[1]}"`); } catch { /* fica o bruto */ }
-    const ate = perfisDoPiloto.get(nick);
+    if (!perfisDoPiloto.size || dado.slice(0, 80).indexOf('"t":"perfil"') < 0) return false;
     for (const [n, t] of perfisDoPiloto) if (t < agora()) perfisDoPiloto.delete(n);
-    if (!ate || ate < agora()) return false;
-    perfisDoPiloto.delete(nick);
-    return true;
+    if (!perfisDoPiloto.size) return false;
+    const m = /"nick":"((?:[^"\\]|\\.){1,40})"/.exec(dado.slice(0, 600));
+    let nick = m ? m[1] : '';
+    try { nick = JSON.parse(`"${nick}"`); } catch { /* fica o bruto */ }
+    nick = String(nick).toLowerCase();
+    if (nick && perfisDoPiloto.has(nick)) { perfisDoPiloto.delete(nick); return true; }
+    if (agora() - cliqueEm > 4000) { perfisDoPiloto.delete(perfisDoPiloto.keys().next().value); return true; }
+    return false;
   }
   function aoReceber(ev) {
     try {

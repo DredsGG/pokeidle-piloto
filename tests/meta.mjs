@@ -120,6 +120,14 @@ await sleep(1500);
 for (let i = 0; i < 7; i++) { await page.evaluate(() => { const m = window.__pokeidleHunt.meta._interno; m.st.ultimoPerfil = 0; m.tique(); }); await sleep(2500); }
 srv({ t: 'perfil', perfil: { nick: 'cliqueDoAndre', level: 10, pvpTime: [], vitrine: [] } }); await sleep(800);
 r.perfisQueOJogoViu = await page.evaluate(() => window.__perfisJogo);
+// 1.28.1: nick com outra caixa e perfil que chega sem casar o nick (pedido do Piloto em aberto, sem clique) → escondidos; com clique seu → abre
+await page.evaluate(() => { window.__perfisJogo = []; window.__pokeidleHunt.pedir({ t: 'ranking.perfil', nick: 'Fulano' }, 'meta'); }); await sleep(4000);
+srv({ t: 'perfil', perfil: { nick: 'FULANO', level: 10, pvpTime: [], vitrine: [] } }); await sleep(600);
+await page.evaluate(() => window.__pokeidleHunt.pedir({ t: 'ranking.perfil', nick: 'Ciclano' }, 'meta')); await sleep(4000);
+srv({ t: 'perfil', perfil: { guild: { nick: 'x' }, nick: 'outroNome', level: 10, pvpTime: [], vitrine: [] } }); await sleep(600);
+await page.evaluate(() => window.__pokeidleHunt.pedir({ t: 'ranking.perfil', nick: 'Beltrano' }, 'meta')); await sleep(4000);
+await page.mouse.click(5, 5); srv({ t: 'perfil', perfil: { nick: 'perfilQueVoceClicou', level: 10, pvpTime: [], vitrine: [] } }); await sleep(600);
+r.perfisEscondidos = await page.evaluate(() => window.__perfisJogo);
 r.enviados = recebidos.filter((m) => /pvp.info|ranking.perfil/.test(m.t)).map((m) => m.t + (m.nick ? ':' + m.nick : ''));
 r.topo = await page.evaluate(() => { const a = window.__pokeidleHunt.meta.agregar('topo'); return { n: a.n, comp: a.comp.map((x) => `${x.nome}:${Math.round(x.uso * 100)}%`) }; });
 r.faixa = await page.evaluate(() => { const a = window.__pokeidleHunt.meta.agregar('faixa'); return { n: a.n, comp: a.comp.map((x) => `${x.nome}:${Math.round(x.uso * 100)}%`) }; });
@@ -129,5 +137,16 @@ await page.locator('.plt-janela-time').screenshot({ path: `${SAIDA}/1-meta-topo.
 await page.locator('.plt-janela-time [data-escolha="meta:recorte"][data-valor="faixa"]').click(); await sleep(1500);
 await page.locator('.plt-janela-time').screenshot({ path: `${SAIDA}/2-meta-faixa.png` });
 r.erros = erros.filter((e) => /error|Error/.test(e) && !/404/.test(e));
+// 1.27: a ordem do PvP copiada do topo — quem o topo põe para abrir abre
+r.ordem = await page.evaluate(async () => {
+  const P = window.__pokeidleHunt; await P.meta.familia.pronta();
+  const s = P.meta._interno.estado();
+  const k = (id, nome) => ({ speciesId: id, nome, tipos: [], poder: 1000, level: 50, nota: 4 });
+  s.placar = { linhas: ['a', 'b', 'c', 'd', 'e'].map((n) => ({ nick: n })), em: Date.now() };
+  for (const n of ['a', 'b', 'c', 'd', 'e']) s.perfis[n] = { nick: n, em: Date.now(), time: [k(19, 'Rattata'), k(7, 'Squirtle'), k(5, 'Charmeleon')] };
+  const meus = [{ id: 1, speciesId: 4, nome: 'Charmander', poder: 900 }, { id: 2, speciesId: 7, nome: 'Squirtle', poder: 500 }, { id: 3, speciesId: 19, nome: 'Rattata', poder: 100 }, { id: 4, speciesId: 999, nome: 'Outro', poder: 5000 }];
+  const o = P.meta.ordemPvp(meus, 'topo');
+  return { comMeta: o.comMeta, ordem: o.ordem.map((p) => p.nome) };
+});
 console.log(JSON.stringify(r, null, 1));
 setTimeout(() => process.exit(0), 500); await ctx.close();

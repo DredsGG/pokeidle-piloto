@@ -10,7 +10,7 @@
   const IDIOMAS = ['pt', 'en', 'es'];
   const NOMES = { pt: 'Português', en: 'English', es: 'Español' };
   const ATRIBUTOS = ['title', 'aria-label', 'placeholder'];
-  const RAIZES = '.plt-janela, .plt-painel, .plt-barra, .plt-mini-pilha, .plt-bandeja, .plt-pop, .plt-toast, .plt-voto, .pih-aviso';
+  const RAIZES = '.plt-janela, .plt-painel, .plt-barra, .plt-mini-pilha, .plt-bandeja, .plt-pop, .plt-toast, .plt-voto, .pih-aviso, .plt-plateia-faixa, .plt-eq-turno, .plt-eqc';
   const HOSTS = ['radar-mercado-tela', 'radar-mercado-barra'];
 
   let atual = 'pt';

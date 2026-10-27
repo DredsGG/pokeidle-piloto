@@ -559,6 +559,21 @@ const ACOES = {
     }, 45_000);
     return aba.id;
   },
+  // 1.29: as salas da Plateia, uma vez por sessão do Chrome (janela à parte, sem roubar o foco).
+  // Se a janela aberta antes ainda existe, não abre outra.
+  'plateia:abrir': async (m) => {
+    const SALAS = { twitch: 'https://www.twitch.tv/drops/inventory#plateia', kick: 'https://kick.com/drops/claimed#plateia' };
+    const abertas = [];
+    for (const p of (Array.isArray(m.plataformas) ? m.plataformas : [])) {
+      if (!SALAS[p]) continue;
+      const chave = `plateia:janela:${p}`;
+      const { [chave]: antiga } = await chrome.storage.session.get(chave);
+      if (typeof antiga === 'number') { const ok = await chrome.windows.get(antiga).then(() => true).catch(() => false); if (ok) continue; }
+      const w = await chrome.windows.create({ url: SALAS[p], type: 'popup', focused: false, width: 1440, height: 900 }).catch(() => null);
+      if (w && typeof w.id === 'number') { await chrome.storage.session.set({ [chave]: w.id }); abertas.push(p); }
+    }
+    return abertas;
+  },
   'upd:checar': () => checarUpd(),
   'upd:aplicar': () => aplicarUpd(),
   'upd:dispensar': async (m) => gravarUpd({ ...(m.limparAviso ? { acabouDe: null } : { dispensada: typeof m.versao === 'string' ? m.versao.slice(0, 20) : null }) }),

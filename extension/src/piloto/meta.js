@@ -314,9 +314,14 @@
   // quem joga no topo: cada pokémon seu que serve para uma espécie do meta vai na posição média em
   // que os jogadores do recorte usam aquela espécie; quem não é do meta fica no meio. Desempate e
   // falta de dados (menos de 5 times lidos): o mais forte abrindo, como antes.
+  const ORDEM_DO_META_DESLIGADA = true;
   function ordemPvp(pks, recorte) {
     const lista = (pks || []).slice();
     const porPoder = (a, b) => (Number(b.poder) || 0) - (Number(a.poder) || 0);
+    // 1.28.1: DESLIGADO. O jogo esconde a ordem de entrada da equipe de PvP no perfil dos outros
+    // ("ordem de entrada oculta"): a lista que chega não é a ordem da luta, então copiar a posição
+    // não tem base. Fica o mais forte abrindo.
+    if (ORDEM_DO_META_DESLIGADA) return { ordem: lista.sort(porPoder), comMeta: false };
     const ag = agregar(recorte === 'faixa' ? 'faixa' : 'topo');
     if (!familias || ag.n < 5) return { ordem: lista.sort(porPoder), comMeta: false };
     const posDe = (p) => {

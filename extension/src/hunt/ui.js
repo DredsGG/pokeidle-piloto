@@ -469,6 +469,7 @@
     else if (mod === 'cofre') PIH.cofre?.definir?.(caminho, valor);
     else if (mod === 'captura') PIH.captura?.definir?.(caminho, valor);
     else if (mod === 'volta') PIH.volta?.definir?.(caminho, valor);
+    else if (mod === 'plateia') PIH.plateia?.definir?.(caminho, valor);
     ultimoHtml = '';
     desenhar();
   }
@@ -507,6 +508,7 @@
     if (acao === 'fechar') fecharPainel();
     else if (acao === 'tema') { definirTema(temaAtual() === 'claro' ? 'escuro' : 'claro'); pintarBotaoTema(); }
     else if (acao === 'mais') { mostrando += POR_PAGINA; ultimoHtml = ''; desenhar(); }
+    else if (acao === 'plateia-abrir') PIH.plateia?.abrirAgora?.();
     else if (acao.startsWith('religar:')) { PIH.cofre?.religar?.(acao.slice(8)); ultimoHtml = ''; desenhar(); }
     else if (PIH.auto?.acoes?.[acao]) Promise.resolve(PIH.auto.acoes[acao]()).finally(() => { ultimoHtml = ''; desenhar(); });
   }
@@ -945,7 +947,7 @@
     if (aba !== 'mercado') soltarMercado();
     if (aba === 'mercado') { ultimaAba = 'mercado'; ultimoHtml = ''; montarMercado(alvo); return; }
     if (aba === 'resumo') { pintarSeMudou(alvo, aba, topo + blocoResumo()); return; }
-    if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '')); return; }
+    if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '') + (PIH.plateia ? PIH.plateia.linha(layout) : '')); return; }
     if (aba === 'cofre') { pintarSeMudou(alvo, aba, topo + (PIH.cofre ? PIH.cofre.html(layout) : '')); return; }
     const pk = pkAtivo();
     const linhasCaca = aba === 'hunts' ? `${PIH.auto ? PIH.auto.linhas(layout) : ''}${PIH.rotina && PIH.rotina.linhasCaca ? PIH.rotina.linhasCaca(layout) : ''}${PIH.captura ? PIH.captura.linha(layout) : ''}${PIH.volta ? PIH.volta.linha(layout) : ''}${K.grupo('Onde render mais')}` : '';

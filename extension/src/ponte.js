@@ -296,6 +296,14 @@
         .catch((e) => { document.dispatchEvent(new CustomEvent('piloto:upd-resposta', { detail: JSON.stringify({ acao: d.acao, erro: String(e && e.message || e) }) })); });
     });
     setTimeout(lerUpd, 1500);
+    // 1.29: abrir as salas da Plateia (o service worker abre numa janela à parte)
+    document.addEventListener('piloto:plateia-abrir', (ev) => {
+      let d = {};
+      try { d = JSON.parse(ev.detail) || {}; } catch { return; }
+      const plataformas = (Array.isArray(d.plataformas) ? d.plataformas : []).filter((x) => x === 'twitch' || x === 'kick');
+      if (!plataformas.length || !storage()) return;
+      chrome.runtime.sendMessage({ tipo: 'plateia:abrir', plataformas }).catch(() => {});
+    });
   } catch (e) {
     erro(e);
   }

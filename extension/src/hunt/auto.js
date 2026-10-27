@@ -80,8 +80,8 @@
     }
     return out;
   }
-  async function ranking(criterio) {
-    const pk = pkAtivo();
+  async function ranking(criterio, pkOutro = null) {
+    const pk = pkOutro || pkAtivo();
     if (!pk || !welcome || !eu) return null;
     const jogo = await PIH.carregarJogo();
     const chave = PIH.geo?.chaveDoPokemon(pk);
@@ -272,6 +272,16 @@
     const cands = (linhas || []).filter((l) => !l.inviavel && l.liberada && !(c.evitarRisco && arriscada(l)));
     cands.sort((a, b) => valorDe(b, criterio) - valorDe(a, criterio));
     return cands[0] || null;
+  }
+  // 1.28: a melhor hunt (o 👑 da aba Caçar) de outro pokémon — o rodízio leva o que entra direto
+  // para ela, pelo Centro, sem lutar na hunt do anterior.
+  async function melhorHuntPara(pkId) {
+    const pk = (eu?.pokemons ?? []).find((p) => p.id === Number(pkId));
+    if (!pk || !pk.stats) return null;
+    const criterio = criterioDaLista();
+    const r = await ranking(criterio, pk);
+    const m = r ? melhorDe(r.linhas, criterio) : null;
+    return m ? { slug: m.slug, nome: m.nome } : null;
   }
   let candidato = null;
   let pkDaAnalise = null;
@@ -667,5 +677,5 @@
     if (m?.repor) Object.assign(cfg.repor, { ligado: !!m.repor.ligado });
     gravar();
   }
-  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, irAoCentroEFicar, liberarCentro, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina, vigiaCentro, centro: () => ({ ultimaHunt, centroDesde, centroFalhou }), forcarCentro: (o) => { if ('centroDesde' in o) centroDesde = o.centroDesde; if ('mexeuEm' in o) mexeuEm = o.mexeuEm; } } };
+  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, irAoCentroEFicar, liberarCentro, melhorHuntPara, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { comprasPendentes, itensVigiados, cfg: () => cfg, passo, rotina: () => rotina, vigiaCentro, centro: () => ({ ultimaHunt, centroDesde, centroFalhou }), forcarCentro: (o) => { if ('centroDesde' in o) centroDesde = o.centroDesde; if ('mexeuEm' in o) mexeuEm = o.mexeuEm; } } };
 })(globalThis);

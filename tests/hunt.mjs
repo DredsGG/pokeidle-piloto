@@ -126,14 +126,19 @@ r.continuo = recebidos.slice(antes3).filter((m) => ['hunt.select', 'centro.ir'].
 r.diario = await page.evaluate(() => window.__pokeidleHunt.auto.diario().slice(0, 6).map((d) => d.txt));
 await page.locator('.plt-janela').screenshot({ path: `${SAIDA}/3-continuo.png` });
 r.retornoFinal = await page.evaluate(() => { let e; window.__pokeidleHunt.on('estado', (x) => { e = x; }); return e.huntSlug; });
-// Time: botão novo; a análise roda sozinha por dentro (a aba Analisar saiu na 1.26)
+// Time: botão novo e Analisar automático
 await page.keyboard.press('Escape'); await sleep(400);
 await page.locator('#p-equipe .plt-time-bt').screenshot({ path: `${SAIDA}/4-botao-time.png` }).catch(() => {});
 await page.locator('#p-equipe .plt-time-bt').click(); await sleep(1200);
-r.semAbaAnalisar = (await page.locator('.plt-janela-time .cfg-cat[data-aba="analisar"]').count()) === 0;
-await page.evaluate(() => window.__pokeidleHunt.time.analisar()); await sleep(3500);
-r.analiseAuto = await page.evaluate(() => !!window.__pokeidleHunt.time._interno.st.analise?.em);
-await page.locator('.plt-janela-time').screenshot({ path: `${SAIDA}/5-time.png` });
+// 1.26: sem a aba Analisar (a análise roda por dentro)
+r.abaAnalisar = await page.locator('.plt-janela-time .cfg-cat[data-aba="analisar"]').count();
+await page.keyboard.press('Escape'); await sleep(400);
+// 1.26.3: rodízio e Outland na aba Caçar; retratos com sprite quando o atlas não tem
+await page.evaluate(() => { if (!document.querySelector('.plt-janela:not(.plt-janela-time)')) document.querySelector('button.plt-barra').click(); }); await sleep(1200);
+await page.evaluate(() => { const b = document.querySelector('.plt-cats [data-aba="hunts"]'); b && b.click(); }); await sleep(2500);
+await page.locator('.plt-janela:not(.plt-janela-time)').screenshot({ path: `${SAIDA}/5-cacar-rodizio.png` });
+r.cacarLinhas = await page.evaluate(() => [...document.querySelectorAll('.plt-janela:not(.plt-janela-time) .cfg-linha b')].map((x) => x.textContent.trim()).filter(Boolean).slice(0, 12));
+r.rotinaTemRodizio = await page.evaluate(async () => { const b = document.querySelector('.plt-cats [data-aba="rotina"]'); b && b.click(); await new Promise((ok) => setTimeout(ok, 1500)); return /Rodízio/.test(document.querySelector('.plt-janela:not(.plt-janela-time)').textContent); });
 r.erros = erros.filter((e) => /error|Error/.test(e) && !/404/.test(e));
 console.log(JSON.stringify(r));
 setTimeout(() => process.exit(0), 500); await ctx.close();

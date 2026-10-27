@@ -100,6 +100,9 @@ const srv = (o) => globalThis.__ws.send(JSON.stringify(o));
 const lista = () => page.evaluate(() => { let e = null; window.__pokeidleHunt.on('estado', (x) => { e = x; }); return e.pokemons; });
 globalThis.__aoMsg = async (o) => {
   if (o.t === 'team.move') { const ps = await lista(); for (const p of ps) if (p.id === o.pokemonId) p.slot = o.slot; srv({ t: 'estado', estado: { pokemons: ps } }); }
+  if (o.t === 'centro.ir') srv({ t: 'estado', estado: { noCentro: true } });
+  if (o.t === 'hunt.select') srv({ t: 'estado', estado: { noCentro: false, huntSlug: o.slug } });
+  if (o.t === 'team.active') srv({ t: 'estado', estado: { activeId: o.pokemonId } });
 };
 await sleep(1500);
 r.botao = await page.locator('#p-equipe .plt-time-bt').count();
@@ -123,17 +126,133 @@ r.pvpAlvo = await page.evaluate(() => window.__pokeidleHunt.rotina.equipePvpAlvo
 r.campo = await page.evaluate(() => { let e = null; window.__pokeidleHunt.on('estado', (x) => { e = x; }); return e.pokemons.filter((p) => p.slot != null).map((p) => p.id); });
 r.pvpLigado = await page.evaluate(() => window.__pokeidleHunt.rotina._interno.cfg().pvp.time);
 // rodízio: um de cada vez (com a Troca de hunt ligada, não precisa matar aqui)
+for (let i = 0; i < 30 && await page.evaluate(() => window.__pokeidleHunt.time.emSessao() || !!window.__pokeidleHunt.auto.rotinaAtual()); i++) await sleep(1000);
 const antesR = recebidos.length;
-await page.evaluate(async () => { const R = window.__pokeidleHunt.rotina; R.definir('rodizio.ligado', true); R._interno.marcas().rodizio = 0; window.__pokeidleHunt.auto._interno.cfg().hunt.ligado = true; await R._interno.TAREFAS.find((f) => f.name === 'tarefaRodizio')(); });
-await sleep(2500);
+await page.evaluate(async () => { const R = window.__pokeidleHunt.rotina; R.definir('rodizio.ligado', true); R._interno.marcas().rodizio = 0; const T = window.__pokeidleHunt.time._interno.turnos(); if (T.atual) { T.atual.inicio = Date.now() - 2 * 3_600_000; T.atual.desde = T.atual.inicio; } window.__pokeidleHunt.auto._interno.cfg().hunt.ligado = true; await R._interno.TAREFAS.find((f) => f.name === 'tarefaRodizio')(); });
+for (let i = 0; i < 15 && !recebidos.slice(antesR).some((m) => m.t === 'hunt.select'); i++) await sleep(1000);
 r.rodizio = recebidos.slice(antesR).filter((m) => m.t === 'team.active').map((m) => m.pokemonId);
+// 1.28: com a Troca de hunt ligada, o rodízio troca no Centro e sai direto para a melhor hunt do que entrou
+r.rodizioSeq = recebidos.slice(antesR).filter((m) => ['centro.ir', 'team.active', 'hunt.select'].includes(m.t)).map((m) => m.t + ':' + (m.pokemonId ?? m.slug ?? ''));
+await sleep(1500);
+r.turnos = await page.evaluate(() => { const t = window.__pokeidleHunt.time._interno.turnos(); return { atual: t.atual && `${t.atual.nome}@${t.atual.onde}:${t.atual.motivo}`, n: t.hist.length, ult: t.hist.slice(-3).map((h) => `${h.nome}@${h.onde}`) }; });
+r.chipAgora = await page.evaluate(() => (document.querySelector('.plt-janela-time .plt-turno-agora') || {}).textContent || null);
+// 1.28.1: o timer no painel Equipe do jogo (linhas no formato do jogo: #time > .poke-linha[data-id] > .pl-info > .pl-cabeca)
+r.equipeJogo = await page.evaluate(async () => {
+  let e = null; window.__pokeidleHunt.on('estado', (x) => { e = x; });
+  const montar = () => { const t = document.getElementById('time'); t.innerHTML = ''; for (const p of e.pokemons.filter((k) => k.slot != null)) { const d = document.createElement('div'); d.className = 'poke-linha'; d.dataset.id = p.id; d.innerHTML = `<div class="pl-info"><div class="pl-cabeca"><b>${p.nome}</b><span>P1</span></div><div class="mini-hp"></div></div>`; t.append(d); } };
+  montar(); await new Promise((r) => setTimeout(r, 16000));
+  const antes = [...document.querySelectorAll('#time .plt-eq-turno')].map((x) => (x.classList.contains('agora') ? '*' : '') + x.textContent);
+  montar(); await new Promise((r) => setTimeout(r, 600)); // o jogo refez as linhas: volta sozinho
+  const depois = document.querySelectorAll('#time .plt-eq-turno').length;
+  const prox = window.__pokeidleHunt.rotina.proximoRodizio();
+  window.__cliqueNaLinha = 0; for (const l of document.querySelectorAll('#time .poke-linha')) l.addEventListener('click', () => { window.__cliqueNaLinha++; });
+  return { antes, depois, prox };
+});
+// 1.29: o botãozinho ⏱ abre o cartão com tudo, sem trocar o ativo (o clique não chega na linha do jogo)
+await page.locator('#time .plt-eq-bt').nth(1).click(); await sleep(600);
+r.cartao = await page.evaluate(() => ({ aberto: !!document.querySelector('.plt-eqc'), txt: (document.querySelector('.plt-eqc') || {}).innerText || '', linha: window.__cliqueNaLinha }));
+await page.locator('.plt-eqc').screenshot({ path: `${SAIDA}/9-cartao-turno.png` }).catch(() => {});
+await page.locator('#p-equipe').screenshot({ path: `${SAIDA}/8-equipe-jogo.png` }).catch(() => {});
+await page.evaluate(() => {
+  const t = window.__pokeidleHunt.time._interno.turnos(); const h = 3_600_000; const n = Date.now();
+  t.hist.push({ pkId: 3, nome: 'Charmander', onde: 'squirtle_1', desde: n - 3.2 * h, ate: n - 2.1 * h, motivo: 'rodízio' }, { pkId: 13, nome: 'Squirtle', onde: 'rattata_1', desde: n - 2.1 * h, ate: n - 1.05 * h, motivo: 'rodízio' }, { pkId: 3, nome: 'Charmander', onde: 'rattata_1', desde: n - 1.05 * h, ate: n - 0.6 * h, motivo: 'o jogo ou você (desmaiou?)' });
+  t.atual.desde = n - 0.6 * h;
+  window.__pokeidleHunt.time.abrirAba('time');
+});
+await sleep(2500);
+await page.locator('.plt-janela-time').screenshot({ path: `${SAIDA}/6-turnos-topo.png` });
+await page.evaluate(() => { const c = document.querySelector('.plt-janela-time .cfg-linhas') || document.querySelector('.plt-janela-time [data-conteudo]'); if (c) c.scrollTop = c.scrollHeight; }); await sleep(800);
+await page.locator('.plt-janela-time').screenshot({ path: `${SAIDA}/7-turnos-fim.png` });
 r.proximo = await page.evaluate(() => window.__pokeidleHunt.rotina.proximoRodizio());
 await page.locator('.plt-janela-time').screenshot({ path: `${SAIDA}/3-time.png` });
-// Analisar: desde a 1.26 a aba saiu da janela, mas a análise continua por dentro (a venda automática usa)
-r.semAbaAnalisar = (await page.locator('.plt-janela-time .cfg-cat[data-aba="analisar"]').count()) === 0;
+// 1.26: a aba Analisar saiu da janela; a análise segue por dentro (para a venda automática)
+r.abaAnalisar = await page.locator('.plt-janela-time .cfg-cat[data-aba="analisar"]').count();
 await page.evaluate(() => window.__pokeidleHunt.time.analisar());
 await sleep(4000);
 r.analise = await page.evaluate(() => { const a = window.__pokeidleHunt.time._interno.st.analise; return a && { n: a.n, farm: a.farmTop.map((l) => l.p.nome + ':' + Math.round(l.farm)), pvp: a.pvpTop.map((l) => l.p.nome), treinar: a.treinar.map((l) => `${l.p.nome}:${l.poder}->${Math.round(l.pot.v)}:${l.pot.como}`), erro: a.erro }; });
+// 1.26: os do meta que você tem entram primeiro (Mega X conta como X), mesmo com menos Poder
+r.meta = await page.evaluate(async () => {
+  const P = window.__pokeidleHunt;
+  await P.meta.familia.pronta();
+  let e = null; P.on('estado', (x) => { e = x; });
+  const meus = e.pokemons.filter((p) => p.stats && p.poder > 0);
+  const fraco = meus.slice().sort((a, b) => a.poder - b.poder)[0];
+  const antes = P.time.alvoPrincipal();
+  P.meta.agregar = () => ({ n: 5, lista: [], comp: [{ speciesId: 3000 + fraco.speciesId, nome: 'Mega ' + fraco.nome }] });
+  return { fraco: fraco.id + ':' + fraco.nome, antesTinha: antes.includes(fraco.id), doMeta: P.time.doMeta(), depois: P.time.alvoPrincipal(), temNoAlvo: P.time.alvoPrincipal().includes(fraco.id) };
+});
+await page.evaluate(() => window.__pokeidleHunt.time.abrirAba('time')); await sleep(1500);
+await page.locator('.plt-janela-time').screenshot({ path: `${SAIDA}/4-time-meta.png` });
+// 1.26: quem completou o Caçar o meta na 1.24/1.25 (5 no cadeado, Troca de hunt desligada):
+// depois do recarregar, o cadeado sai, o time segue os do meta e a Troca de hunt liga.
+await page.evaluate(() => {
+  const ids = window.__pokeidleHunt.time.alvoPrincipal().slice(0, 3);
+  localStorage.setItem('piloto:metacaca:v1', JSON.stringify({ ligado: false, recorte: 'topo', alvos: [], vistos: [], desde: 1, fim: { em: Date.now(), ids } }));
+  const t = JSON.parse(localStorage.getItem('piloto:time:v1') || '{}'); t.travados = { time: ids }; localStorage.setItem('piloto:time:v1', JSON.stringify(t));
+  localStorage.removeItem('piloto:migr:meta126');
+  const a = JSON.parse(localStorage.getItem('pokeidle-hunt:auto:v1') || '{}'); a.hunt = { ...(a.hunt || {}), ligado: false }; localStorage.setItem('pokeidle-hunt:auto:v1', JSON.stringify(a));
+});
+await page.reload(); await sleep(26_000);
+r.migracao = await page.evaluate(() => ({ travados: window.__pokeidleHunt.time.travados(), doMeta: window.__pokeidleHunt.time._interno.cfg().doMeta, hunt: window.__pokeidleHunt.auto._interno.cfg().hunt.ligado, marca: localStorage.getItem('piloto:migr:meta126') }));
+// 1.26.3: serve para o meta quem é ou EVOLUI até ele (o Pupitar do Tyranitar), Mega conta como base
+r.serve = await page.evaluate(() => { const F = window.__pokeidleHunt.meta.familia; return {
+  charmanderParaMegaCharmeleon: F.serve({ speciesId: 4, nome: 'Charmander' }, { speciesId: 3005, nome: 'Mega Charmeleon' }),
+  charmeleonParaCharmander: F.serve({ speciesId: 5, nome: 'Charmeleon' }, { speciesId: 4, nome: 'Charmander' }),
+  megaParaBase: F.serve({ speciesId: 3005, nome: 'Mega Charmeleon' }, { speciesId: 5, nome: 'Charmeleon' }),
+  membros: F.membrosDoMeta({ speciesId: 3005, nome: 'Mega Charmeleon' }).map((m) => m.nome + ':' + m.estagio) }; });
+// 1.26.2: troca com o time cheio, na ordem do jogo — marca quem sai na Coleção, tira, põe o do meta
+let recusar = false;
+globalThis.__aoMsg = async (o) => {
+  if (o.t === 'team.move') {
+    if (recusar) { srv({ t: 'erro', msg: 'teste: o servidor recusou' }); return; }
+    const ps = await lista(); for (const p of ps) if (p.id === o.pokemonId) p.slot = o.slot; srv({ t: 'estado', estado: { pokemons: ps } });
+  }
+  if (o.t === 'centro.ir') srv({ t: 'estado', estado: { noCentro: true } });
+  if (o.t === 'hunt.select') srv({ t: 'estado', estado: { noCentro: false, huntSlug: o.slug } });
+  if (o.t === 'colecao.mover') {
+    const col = await page.evaluate(() => { let e = null; window.__pokeidleHunt.on('estado', (x) => { e = x; }); return (e.automation && e.automation.pokemonTravado) || []; });
+    srv({ t: 'estado', estado: { automation: { pokemonTravado: [...new Set([...col, o.pokemonId])] } } });
+  }
+};
+{
+  const ps = await lista();
+  const slots = { 3: 0, 4: 1, 10: 2, 12: 3, 13: 4 };
+  for (const p of ps) p.slot = p.id in slots ? slots[p.id] : null;
+  srv({ t: 'estado', estado: { pokemons: ps, activeId: 3, automation: { pokemonTravado: [] } } });
+  await sleep(800);
+  srv({ t: 'estado', estado: { noCentro: false, huntSlug: 'rattata_1', centroLivreEm: 0 } });
+  await sleep(500);
+  await page.evaluate(() => { const P = window.__pokeidleHunt; P.meta.agregar = () => ({ n: 5, lista: [], comp: [{ speciesId: 3019, nome: 'Mega Rattata' }] }); P.time._interno.st.ultimaTroca = 0; P.time._interno.st.motivo = ''; P.time._interno.st.sessaoFalhouEm = 0; P.auto.definir('hunt.ligado', true); });
+  const a0 = recebidos.length;
+  await page.evaluate(() => window.__pokeidleHunt.time._interno.tarefaCampo());
+  await sleep(1500);
+  r.sessaoNoMeio = await page.evaluate(() => ({ sessao: window.__pokeidleHunt.time.emSessao(), hunt: window.__pokeidleHunt.auto._interno.cfg().hunt.ligado }));
+  await sleep(9000);
+  r.trocaCheia = recebidos.slice(a0).filter((m) => ['team.move', 'colecao.mover', 'centro.ir', 'centro.curar', 'hunt.select'].includes(m.t)).map((m) => `${m.t}:${m.pokemonId ?? m.slug ?? ''}:${m.slot ?? m.para ?? ''}`);
+  r.poll = [];
+  for (let k = 0; k < 4; k++) { r.poll.push(await page.evaluate(() => { const st = window.__pokeidleHunt.time._interno.st; let e = null; window.__pokeidleHunt.on('estado', (x) => { e = x; }); return JSON.stringify({ et: st.sessao && st.sessao.etapa, tr: !!st.troca, nc: e.noCentro, m: st.motivo }); })); await sleep(1000); }
+  r.sessaoFim = await page.evaluate(() => ({ sessao: window.__pokeidleHunt.time.emSessao(), hunt: window.__pokeidleHunt.auto._interno.cfg().hunt.ligado, rotina: window.__pokeidleHunt.auto.rotinaAtual() }));
+  r.campoDepois = (await lista()).filter((p) => p.slot != null).map((p) => p.id).sort((x, y) => x - y);
+  // recusa do servidor: aparece o motivo e espera 2 min
+  const ps2 = await lista();
+  const fora = ps2.find((p) => p.slot == null && p.stats);
+  recusar = true;
+  await page.evaluate((id) => { const P = window.__pokeidleHunt; P.time._interno.st.ultimaTroca = 0; P.time._interno.st.motivo = ''; P.meta.agregar = () => ({ n: 5, lista: [], comp: [{ speciesId: 3019, nome: 'Mega Rattata' }, { speciesId: 9999, nome: 'x' }] }); }, fora && fora.id);
+  r.recusa = await page.evaluate(async () => {
+    const T = window.__pokeidleHunt.time._interno;
+    // força uma troca qualquer para ver a recusa
+    let e = null; window.__pokeidleHunt.on('estado', (x) => { e = x; });
+    const fora = e.pokemons.find((p) => p.slot == null && p.stats);
+    const dentro = e.pokemons.find((p) => p.slot != null && p.id !== e.activeId && p.id !== 11);
+    T.st.troca = { entra: fora.id, nomeEntra: fora.nome, sai: dentro.id, etapa: 'sair', desde: Date.now(), em: Date.now() - 9000 };
+    window.__pokeidleHunt.pedir({ t: 'team.move', pokemonId: dentro.id, slot: null }, 'time');
+    await new Promise((r) => setTimeout(r, 2500));
+    T.st.troca.desde = Date.now() - 46_000;
+    T.andarTroca();
+    return { motivo: T.st.motivo, troca: T.st.troca };
+  });
+  recusar = false;
+}
 r.erros = erros.filter((e) => /error|Error/.test(e) && !/404/.test(e));
 console.log(JSON.stringify(r));
 setTimeout(() => process.exit(0), 500); await ctx.close();

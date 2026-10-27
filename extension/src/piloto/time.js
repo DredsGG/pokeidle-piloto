@@ -48,7 +48,91 @@
   let welcome = null;
   let ultimaHunt = null;
   PIH.on('welcome', (w) => { welcome = w; });
-  PIH.on('estado', (e) => { eu = e; if (e && e.huntSlug && !e.noCentro) ultimaHunt = e.huntSlug; });
+  PIH.on('estado', (e) => { eu = e; if (e && e.huntSlug && !e.noCentro) ultimaHunt = e.huntSlug; try { notarTurno(e); } catch (err) { console.warn('[piloto] turnos:', err); } });
+
+  // ---- 1.28: os turnos (pedido do André) — quem lutou, em qual hunt, quanto tempo, e por que trocou.
+  // Um turno = o mesmo ativo na mesma hunt. Guardado no navegador (os últimos 150), sobrevive ao F5.
+  const CHAVE_TURNOS = 'piloto:turnos:v1';
+  const turnos = (() => { try { const t = JSON.parse(localStorage.getItem(CHAVE_TURNOS) || 'null'); return t && Array.isArray(t.hist) ? t : { atual: null, hist: [] }; } catch { return { atual: null, hist: [] }; } })();
+  const gravarTurnos = () => { try { localStorage.setItem(CHAVE_TURNOS, JSON.stringify(turnos)); } catch { /* sem armazenamento */ } };
+  let envioAtivo = null; // o último team.active que o Piloto mandou: { pokemonId, origem, em }
+  PIH.on('piloto.enviado', (m) => { if (m && m.t === 'team.active') envioAtivo = { pokemonId: m.pokemonId, origem: m.origem, em: m.em || Date.now() }; });
+  function motivoDaTroca(novoId) {
+    const e = envioAtivo;
+    if (e && e.pokemonId === novoId && Date.now() - e.em < 60_000) return { rotina: 'rodízio', metacaca: 'Caçar o meta', time: 'troca do time' }[e.origem] || e.origem || 'Piloto';
+    return 'o jogo ou você (desmaiou?)';
+  }
+  function notarTurno(e) {
+    if (!e || e.activeId == null) return;
+    const onde = e.noCentro ? 'centro' : (e.huntSlug || null);
+    const a = turnos.atual;
+    if (a && a.pkId === e.activeId && a.onde === onde) return;
+    const agora = Date.now();
+    let motivo = null;
+    if (a) {
+      if (agora - a.desde >= 15_000) turnos.hist.push({ ...a, ate: agora }); // piscadas de segundos não contam
+      motivo = a.pkId !== e.activeId ? motivoDaTroca(e.activeId) : onde === 'centro' ? 'foi ao Centro' : 'trocou de hunt';
+      // passagem rápida (o Centro do rodízio, por exemplo): o turno novo herda o motivo de verdade
+      if (agora - a.desde < 15_000 && a.pkId === e.activeId && a.motivo) motivo = a.motivo;
+    }
+    const pk = (e.pokemons || []).find((p) => p && p.id === e.activeId);
+    // o jogo trocou sozinho porque o anterior desmaiou: o rodízio dá a quem entrou só um turno curto
+    const antes = a ? (e.pokemons || []).find((p) => p && p.id === a.pkId) : null;
+    const desmaio = !!(a && a.pkId !== e.activeId && /^o jogo/.test(motivo || '') && antes && antes.hp != null && Number(antes.hp) <= 0);
+    // mesmo pokémon (mudou de hunt ou foi ao Centro): o turno dele continua de onde estava
+    const inicio = a && a.pkId === e.activeId ? (a.inicio ?? a.desde) : agora;
+    turnos.atual = { pkId: e.activeId, nome: pk ? pk.nome : `#${e.activeId}`, onde, desde: agora, inicio, motivo, desmaio: a && a.pkId === e.activeId ? !!a.desmaio : desmaio };
+    if (turnos.hist.length > 150) turnos.hist.splice(0, turnos.hist.length - 150);
+    gravarTurnos();
+  }
+  const ondeNome = (o) => (o === 'centro' ? 'Centro' : o ? nomeHunt(o) : '—');
+  const duracao = (ms) => { const m = Math.max(0, Math.round(ms / 60_000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`; };
+  const hhmm = (t) => new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  function resumoTurnos(pkId) {
+    const h0 = new Date(); h0.setHours(0, 0, 0, 0);
+    const ini = h0.getTime();
+    const todos = [...turnos.hist, ...(turnos.atual ? [{ ...turnos.atual, ate: Date.now() }] : [])];
+    let ms = 0; let entradas = 0; const hunts = new Set(); let ultimoFim = null; let anterior = null;
+    for (const t of todos) {
+      if (t.pkId === pkId) {
+        ultimoFim = t.ate;
+        if (t.ate >= ini) {
+          if (t.onde !== 'centro') { ms += t.ate - Math.max(t.desde, ini); if (t.onde) hunts.add(t.onde); }
+          if (anterior !== pkId) entradas++;
+        }
+      }
+      anterior = t.pkId;
+    }
+    return { ms, entradas, hunts: hunts.size, ultimoFim };
+  }
+  // 1.28.1: para o rodízio — o turno de quem luta (desde que virou o ativo, somando hunts e Centro)
+  // e a última vez que cada um lutou.
+  function turnoAtual() {
+    const a = turnos.atual;
+    return a ? { pkId: a.pkId, desde: a.inicio ?? a.desde, desmaio: !!a.desmaio } : null;
+  }
+  function ultimaVez(pkId) {
+    if (turnos.atual && turnos.atual.pkId === pkId) return Date.now();
+    for (let i = turnos.hist.length - 1; i >= 0; i--) if (turnos.hist[i].pkId === pkId) return turnos.hist[i].ate;
+    return null;
+  }
+  function chipsTurno(p) {
+    const a = turnos.atual;
+    const r = resumoTurnos(p.id);
+    const hoje = r.ms > 0 ? `<span class="plt-meta-tem" title="Hoje: tempo lutando (fora do Centro), quantas vezes entrou e em quantas hunts">hoje ${duracao(r.ms)} · ${r.entradas} turno${r.entradas === 1 ? '' : 's'} · ${r.hunts} hunt${r.hunts === 1 ? '' : 's'}</span>` : '';
+    if (a && a.pkId === p.id && eu && eu.activeId === p.id) {
+      let prox = '';
+      try { prox = PIH.rotina && PIH.rotina.proximoRodizio ? PIH.rotina.proximoRodizio() : ''; } catch { prox = ''; }
+      return `<span class="plt-meta-tem plt-turno-agora" title="Lutando agora${a.motivo ? ` — entrou por: ${esc(a.motivo)}` : ''}">⏱ ${duracao(Date.now() - a.desde)} em ${esc(ondeNome(a.onde))}</span>${prox ? `<span class="plt-meta-tem" title="Rodízio do time">rodízio: ${esc(prox)}</span>` : ''}${hoje}`;
+    }
+    const ult = r.ultimoFim ? `<span class="plt-meta-tem" title="Quando saiu da luta pela última vez">lutou há ${duracao(Date.now() - r.ultimoFim)}</span>` : '';
+    return `${ult}${hoje}`;
+  }
+  function historicoTurnos() {
+    const todos = [...turnos.hist.slice(-9), ...(turnos.atual ? [{ ...turnos.atual, ate: null }] : [])].reverse().slice(0, 10);
+    if (!todos.length) return '';
+    return `${K.grupo('Turnos · quem lutou, onde e por quanto tempo')}<div class="plt-turnos">${todos.map((t) => `<div class="plt-turno${t.ate ? '' : ' agora'}"><span class="plt-turno-h">${hhmm(t.desde)}–${t.ate ? hhmm(t.ate) : 'agora'}</span><b>${esc(t.nome)}</b><span>${esc(ondeNome(t.onde))} · ${duracao((t.ate || Date.now()) - t.desde)}</span>${t.motivo ? `<small>${esc(t.motivo)}</small>` : ''}</div>`).join('')}</div>`;
+  }
 
   const modoPiloto = () => {
     const cof = PIH.cofre?.resumo?.();
@@ -432,7 +516,7 @@
         const meta = m ? `<span class="plt-meta-tem on" title="Do meta: ${esc(m.meta)}">meta · ${esc(m.meta)}</span>` : '';
         return cartao(p, { lista: 'time', slug, maxStats: max, trava, extra: pos || meta ? `<span class="plt-meta-chips">${pos}${meta}</span>` : '' });
       }).join('');
-    })()}${'<div class="plt-pk-vazio">vaga livre</div>'.repeat(vazias)}`;
+    })()}${'<div class="plt-pk-vazio">vaga livre</div>'.repeat(vazias)}${historicoTurnos()}`;
   }
   function linhaAnalise(l, tipo, a, modo) {
     const p = l.p;
@@ -473,6 +557,117 @@
     if (tg) cab.insertBefore(botao, tg); else cab.append(botao);
   }
   setInterval(montarBotao, 2000);
+
+  // ---- 1.28.1 (pedido do André): o timer de cada pokémon no painel EQUIPE do próprio jogo ---------
+  // O jogo refaz as linhas da Equipe (#time > .poke-linha[data-id]) a cada estado; um observador
+  // põe de novo, em cada linha, uma linha curta embaixo dos selos:
+  //   o que luta agora → "⏱ 36 min · Rattata · rodízio em 24 min"
+  //   os outros        → "hoje 1h03 · lutou há 2h10"
+  // 1.29 (o André: o texto cortava com "…"): na linha do jogo, só o essencial, curto; um botãozinho
+  // ⏱ abre um cartão com tudo — agora, turno, posição na fila do rodízio, quando entra, hoje e os
+  // turnos de hoje.
+  function infoTurno(id) {
+    const a = turnos.atual;
+    const r = resumoTurnos(id);
+    let fila = null;
+    try { fila = PIH.rotina && PIH.rotina.filaRodizio ? PIH.rotina.filaRodizio() : null; } catch { fila = null; }
+    const naFila = fila ? fila.fila.find((x) => x.id === id) : null;
+    const agora = !!(a && a.pkId === id && eu && eu.activeId === id);
+    return { a, r, fila, naFila, agora };
+  }
+  function textoCurto(id) {
+    const { a, fila, naFila, agora, r } = infoTurno(id);
+    if (agora) return { agora: true, txt: `⏱ ${duracao(Date.now() - (a.inicio ?? a.desde))}${fila ? ` · faltam ${duracao(fila.falta)}` : ''}` };
+    if (naFila) return { agora: false, txt: `${naFila.pos}º na fila · entra em ${duracao(naFila.emMs)}` };
+    if (r.ms > 0) return { agora: false, txt: `hoje ${duracao(r.ms)}` };
+    return null;
+  }
+  const ICO_RELOGIO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm1 3v4.6l3.2 1.9-1 1.7L11 12.7V7z"/></svg>';
+  function cartaoTurno(id) {
+    const p = meus().find((x) => x.id === id);
+    const { a, r, fila, naFila, agora } = infoTurno(id);
+    const linhas = [];
+    const L = (rot, val) => linhas.push(`<div class="plt-eqc-l"><span>${rot}</span><b>${val}</b></div>`);
+    if (agora) {
+      L('Agora', `lutando há ${duracao(Date.now() - a.desde)} em ${esc(ondeNome(a.onde))}`);
+      L('Turno', `${duracao(Date.now() - (a.inicio ?? a.desde))}${fila ? ` de ${fila.intervaloMin} min · faltam ${duracao(fila.falta)}` : ''}`);
+      if (a.motivo) L('Entrou por', esc(a.motivo));
+    } else if (naFila) {
+      L('Rodízio', `${naFila.pos}º na fila · entra em ~${duracao(naFila.emMs)}`);
+    } else if (fila === null) {
+      L('Rodízio', 'desligado');
+    }
+    L('Hoje', `${duracao(r.ms)} lutando · ${r.entradas} turno${r.entradas === 1 ? '' : 's'} · ${r.hunts} hunt${r.hunts === 1 ? '' : 's'}`);
+    if (!agora && r.ultimoFim) L('Última vez', `há ${duracao(Date.now() - r.ultimoFim)}`);
+    const h0 = new Date(); h0.setHours(0, 0, 0, 0);
+    const hoje = [...turnos.hist, ...(a ? [{ ...a, ate: null }] : [])].filter((t) => t.pkId === id && t.onde !== 'centro' && (t.ate == null || t.ate >= h0.getTime()) && (t.ate == null || t.ate - t.desde >= 60_000)).slice(-6).reverse();
+    const lista = hoje.length ? `<div class="plt-eqc-sub">Turnos de hoje</div>${hoje.map((t) => `<div class="plt-eqc-t"><span>${hhmm(t.desde)}–${t.ate ? hhmm(t.ate) : 'agora'}</span><span>${esc(ondeNome(t.onde))}</span><span>${duracao((t.ate || Date.now()) - t.desde)}</span></div>`).join('')}` : '';
+    const ordem = fila && fila.fila.length ? `<div class="plt-eqc-sub">Fila do rodízio</div>${fila.fila.map((x) => `<div class="plt-eqc-t${x.id === id ? ' eu' : ''}"><span>${x.pos}º</span><span>${esc(x.nome)}</span><span>em ${duracao(x.emMs)}</span></div>`).join('')}` : '';
+    return `<div class="plt-eqc-cab">${esc(p ? p.nome : `#${id}`)}<button type="button" class="plt-eqc-x" aria-label="Fechar">×</button></div>${linhas.join('')}${lista}${ordem}`;
+  }
+  let cartaoAberto = null; // { id, el }
+  function fecharCartao() { if (cartaoAberto) { cartaoAberto.el.remove(); cartaoAberto = null; } }
+  function abrirCartao(id, ancora) {
+    if (cartaoAberto && cartaoAberto.id === id) return fecharCartao();
+    fecharCartao();
+    const el = document.createElement('div');
+    el.className = 'plt-eqc';
+    el.setAttribute('role', 'dialog');
+    el.innerHTML = cartaoTurno(id);
+    document.body.append(el);
+    const r = ancora.getBoundingClientRect();
+    const w = el.offsetWidth || 280;
+    const h = el.offsetHeight || 200;
+    const x = Math.min(Math.max(8, r.right + 8), innerWidth - w - 8);
+    const y = Math.min(Math.max(8, r.top - 12), innerHeight - h - 8);
+    el.style.left = `${x}px`; el.style.top = `${y}px`;
+    el.querySelector('.plt-eqc-x').addEventListener('click', fecharCartao);
+    cartaoAberto = { id, el };
+  }
+  document.addEventListener('pointerdown', (ev) => { if (cartaoAberto && !cartaoAberto.el.contains(ev.target) && !ev.target.closest('.plt-eq-bt')) fecharCartao(); }, true);
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharCartao(); });
+  setInterval(() => { if (cartaoAberto && cartaoAberto.el.isConnected) { const sc = cartaoAberto.el.scrollTop; cartaoAberto.el.innerHTML = cartaoTurno(cartaoAberto.id); cartaoAberto.el.scrollTop = sc; cartaoAberto.el.querySelector('.plt-eqc-x').addEventListener('click', fecharCartao); } }, 15_000);
+
+  function pintarEquipeJogo() {
+    const lista = document.getElementById('time');
+    if (!lista) return;
+    for (const linha of lista.querySelectorAll('.poke-linha[data-id]')) {
+      const id = Number(linha.dataset.id);
+      const info = linha.querySelector('.pl-cabeca') || linha.querySelector('.pl-info');
+      if (!info || !Number.isInteger(id)) continue;
+      const t = textoCurto(id);
+      let el = info.querySelector(':scope > .plt-eq-turno');
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'plt-eq-turno';
+        el.innerHTML = `<button type="button" class="plt-eq-bt" title="Turnos e rodízio deste pokémon (Piloto)" aria-label="Turnos e rodízio">${ICO_RELOGIO}</button><span class="plt-eq-txt"></span>`;
+        const bt = el.querySelector('button');
+        // o clique na linha do jogo troca o ativo: o botão não deixa o clique chegar lá
+        for (const tipo of ['pointerdown', 'mousedown']) bt.addEventListener(tipo, (ev) => ev.stopPropagation());
+        bt.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); abrirCartao(id, bt); });
+        info.append(el);
+      }
+      const span = el.querySelector('.plt-eq-txt');
+      const txt = t ? t.txt : '';
+      if (span.textContent !== txt) span.textContent = txt;
+      el.classList.toggle('agora', !!(t && t.agora));
+    }
+  }
+  let obsEquipe = null;
+  let obsAlvo = null;
+  let pintandoEquipe = 0;
+  function vigiarEquipe() {
+    const lista = document.getElementById('time');
+    if (lista && lista !== obsAlvo) {
+      if (obsEquipe) obsEquipe.disconnect();
+      obsAlvo = lista;
+      obsEquipe = new MutationObserver(() => { if (!pintandoEquipe) pintandoEquipe = requestAnimationFrame(() => { pintandoEquipe = 0; try { pintarEquipeJogo(); } catch { /* tenta no próximo */ } }); });
+      obsEquipe.observe(lista, { childList: true, subtree: true });
+    }
+    try { pintarEquipeJogo(); } catch { /* tenta no próximo */ }
+  }
+  setInterval(vigiarEquipe, 15_000);
+  setTimeout(vigiarEquipe, 2000);
 
   function alternar() {
     if (janela) return fechar();
@@ -640,5 +835,5 @@
     cfg.aba = aba; gravar();
     if (!janela) alternar(); else pintar(true);
   }
-  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), campoAuto, _interno: { cfg: () => cfg, st, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
+  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), campoAuto, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
 })(globalThis);

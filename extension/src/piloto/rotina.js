@@ -153,10 +153,87 @@
     return pedir({ t: 'outland.tier', tier: alvo }, `Outland ${atual} → Outland ${alvo} (mesmo XP e ouro, drops raros ×${m.outland.multOutlandTier(alvo)})`);
   }
 
+  // 1.28 (o André viu o rodízio pôr o 2º para lutar na hunt do Charizard, ele cair e o jogo voltar
+  // o Charizard): com a Troca de hunt ligada, a troca do ativo passa pelo Centro — vai na fila do
+  // Centro, troca o ativo lá dentro (fora de combate), calcula a melhor hunt DELE e sai direto para
+  // ela. Sem a Troca de hunt (ou sem o Centro), troca na hora, como antes (aí só entra quem mata
+  // com segurança na hunt atual).
+  let rodCentro = null; // { proxId, nome, deNome, etapa, desde, em }
+  function trocarAtivo(prox, at, huntAuto) {
+    const txt = `rodízio: ${prox.nome} (Nv ${prox.level}) entra no lugar de ${at.nome} (Nv ${at.level})`;
+    if (huntAuto && PIH.auto && PIH.auto.irAoCentroEFicar && !rodCentro) {
+      const r = PIH.auto.irAoCentroEFicar({ motivo: `${txt} — trocando no Centro` });
+      if (r.ok) {
+        rodCentro = { proxId: prox.id, nome: prox.nome, deNome: at.nome, etapa: 'indo', desde: Date.now(), em: 0 };
+        diario(`${txt}: vou trocar no Centro e levar ${prox.nome} direto para a melhor hunt dele`);
+        return true;
+      }
+    }
+    return pedir({ t: 'team.active', pokemonId: prox.id }, `${txt}${huntAuto ? ' — a Troca de hunt leva para a melhor hunt dele' : ''}`);
+  }
+  let rodAndando = false;
+  async function andarRodCentro() {
+    const r = rodCentro;
+    if (!r || !eu || rodAndando) return;
+    rodAndando = true;
+    try {
+      const agora = Date.now();
+      const sair = (txt, tipo, destino) => { rodCentro = null; try { PIH.auto.liberarCentro(destino); } catch { /* sem auto */ } if (txt) diario(txt, tipo); };
+      if (agora - r.desde > 12 * 60_000) return sair('rodízio: a troca no Centro passou de 12 min — voltando', 'aviso');
+      if (r.etapa === 'indo') {
+        if (eu.noCentro) { r.etapa = 'trocar'; r.em = 0; return; }
+        if (!PIH.auto.rotinaAtual()) { rodCentro = null; marcas.rodizio = Date.now() - cfg.rodizio.intervaloMin * 60_000 + 2 * 60_000; diario('rodízio: não cheguei ao Centro — tento de novo em 2 min', 'aviso'); return; }
+        return;
+      }
+      if (r.etapa === 'trocar') {
+        if (eu.activeId === r.proxId) { r.etapa = 'hunt'; return; }
+        if (agora - r.em > 5000) {
+          if (r.em && agora - r.desde > 3 * 60_000) return sair(`rodízio: o jogo não trocou o ativo para ${r.nome} — voltando`, 'aviso');
+          r.em = agora;
+          pedir({ t: 'team.active', pokemonId: r.proxId }, `rodízio: ${r.nome} entra no lugar de ${r.deNome} (no Centro)`);
+        }
+        return;
+      }
+      if (r.etapa === 'hunt') {
+        r.etapa = 'saindo';
+        const h = await PIH.auto.melhorHuntPara(r.proxId).catch(() => null);
+        return sair(h ? `rodízio: ${r.nome} sai do Centro direto para ${h.nome} (a melhor hunt dele)` : `rodízio: ${r.nome} volta para a hunt de antes (sem cálculo da melhor)`, 'ok', h ? h.slug : undefined);
+      }
+    } finally { rodAndando = false; }
+  }
+  setInterval(() => { andarRodCentro().catch((e) => console.warn('[piloto] rodízio:', e)); }, 1000);
+
+  // 1.28.1 (o André viu "próximo em 25 min" num Charizard que tinha acabado de entrar): o relógio do
+  // rodízio é o TURNO de quem está lutando — conta desde que ESSE pokémon virou o ativo (a janela Time
+  // anota os turnos), não desde o último rodízio. Se o jogo trocou sozinho porque o anterior
+  // desmaiou, o turno de quem entrou é curto (2 min): logo vem o próximo da fila.
+  function faltaDoTurno() {
+    const c = cfg.rodizio;
+    const intervalo = c.intervaloMin * 60_000;
+    const at = eu && eu.activeId;
+    const t = PIH.time && PIH.time.turnoAtual ? PIH.time.turnoAtual() : null;
+    if (t && at != null && t.pkId === at) return t.desde + (t.desmaio ? 2 * 60_000 : intervalo) - Date.now();
+    return (Number(marcas.rodizio) || 0) + intervalo - Date.now();
+  }
+  // 1.29: a fila do rodízio para a tela (o painel Equipe do jogo): quem entra depois, na ordem, e
+  // quando — a mesma regra da escolha (quem está há mais tempo sem lutar; empate, a ordem do PvP).
+  function filaRodizio() {
+    const c = cfg.rodizio;
+    if (!eu || !c.ligado) return null;
+    const at = eu.activeId;
+    const ordemIds = PIH.time ? equipeAlvo([]).map((p) => p.id) : [];
+    const idx = (p) => { const i = ordemIds.indexOf(p.id); return i < 0 ? 99 + p.slot : i; };
+    const ultimaVez = (p) => { const v = PIH.time && PIH.time.ultimaVez ? PIH.time.ultimaVez(p.id) : null; return v == null ? -Infinity : v; };
+    const fila = equipe().filter((p) => p.id !== at && p.stats && (p.starter || (p.level || 0) <= (eu.level || 0) + 5))
+      .sort((a, b) => (ultimaVez(a) - ultimaVez(b)) || (idx(a) - idx(b)));
+    const intervalo = c.intervaloMin * 60_000;
+    const falta = Math.max(0, faltaDoTurno());
+    return { intervaloMin: c.intervaloMin, falta, modo: c.modo, fila: fila.map((p, i) => ({ id: p.id, nome: p.nome, pos: i + 1, emMs: falta + i * intervalo, desmaiado: p.hp != null && Number(p.hp) <= 0 })) };
+  }
   async function tarefaRodizio() {
     const c = cfg.rodizio;
-    if (!c.ligado || !naHunt() || !PIH.engine || !venceu('rodizio', c.intervaloMin * 60_000)) return false;
-    if (PIH.auto && PIH.auto._interno.rotina()) return false; // a troca de hunt está andando
+    if (!c.ligado || !naHunt() || !PIH.engine || faltaDoTurno() > 0 || !venceu('rodizio', 3 * 60_000)) return false;
+    if (rodCentro || (PIH.auto && PIH.auto._interno.rotina())) return false; // a troca de hunt (ou a do Centro) está andando
     if (PIH.metaCaca && PIH.metaCaca.ativo()) return false; // 1.24: caçando o meta, quem luta é o mais forte
     if (PIH.time && PIH.time.emSessao && PIH.time.emSessao()) return false; // 1.26.3: trocando o time no Centro
     const h = huntAtual();
@@ -179,9 +256,11 @@
       const idx = (p) => { const i = ordemIds.indexOf(p.id); return i < 0 ? 99 + p.slot : i; };
       const ordem = equipe().filter((p) => p.stats && !(p.hp != null && Number(p.hp) <= 0) && (p.starter || (p.level || 0) <= (eu.level || 0) + 5)).sort((a, b) => idx(a) - idx(b));
       if (ordem.length < 2) return false;
-      const i = ordem.findIndex((p) => p.id === at.id);
-      for (let k = 1; k < ordem.length; k++) {
-        const prox = ordem[(Math.max(0, i) + k) % ordem.length];
+      // 1.28.1 (pedido do André: "quem acabou de lutar vai por último"): entra quem está há mais
+      // tempo sem lutar (nunca lutou = primeiro); empate, a ordem do PvP.
+      const ultimaVez = (p) => { const v = PIH.time && PIH.time.ultimaVez ? PIH.time.ultimaVez(p.id) : null; return v == null ? -Infinity : v; };
+      const fila = ordem.filter((p) => p.id !== at.id).sort((a, b) => (ultimaVez(a) - ultimaVez(b)) || (idx(a) - idx(b)));
+      for (const prox of fila) {
         if (!huntAuto) {
           try {
             const r = PIH.engine.analisar(prox, ctx, { soLiberadas: false, comPocao: true });
@@ -189,7 +268,7 @@
             if (!l || l.inviavel || l.umHit || l.mortesH >= 0.2 || l.hitPct >= 0.5) continue;
           } catch { continue; }
         }
-        return pedir({ t: 'team.active', pokemonId: prox.id }, `rodízio: ${prox.nome} (Nv ${prox.level}) entra no lugar de ${at.nome} (Nv ${at.level})${huntAuto ? ' — a Troca de hunt leva para a melhor hunt dele' : ''}`);
+        return trocarAtivo(prox, at, huntAuto);
       }
       return false;
     }
@@ -631,7 +710,7 @@
   function proximoRodizio() {
     const c = cfg.rodizio;
     if (!c.ligado) return '';
-    const falta = (Number(marcas.rodizio) || 0) + c.intervaloMin * 60_000 - Date.now();
+    const falta = faltaDoTurno();
     return falta > 0 ? `próximo em ${Math.ceil(falta / 60_000)} min` : 'troca na próxima chance';
   }
   // 1.22, uma vez: o rodízio vira o ciclo de 1 h (pedido do André); no Auto ele já liga.
@@ -643,5 +722,5 @@
       gravar();
     }
   } catch { /* sem armazenamento */ }
-  PIH.rotina = { html, linhasCaca, ligar, aplicar, definir, proximoRodizio, resumoAutoColecao: () => resumoRegra(ultimaRegra), pvpTime: () => (Array.isArray(pvp.time) ? pvp.time.slice() : null), equipePvpAlvo: () => (eu ? equipeAlvo(Array.isArray(pvp.time) ? pvp.time : []).map((p) => p.id) : []), _interno: { cfg: () => cfg, tique, TAREFAS, marcas: () => marcas } };
+  PIH.rotina = { html, linhasCaca, ligar, aplicar, definir, proximoRodizio, filaRodizio, resumoAutoColecao: () => resumoRegra(ultimaRegra), pvpTime: () => (Array.isArray(pvp.time) ? pvp.time.slice() : null), equipePvpAlvo: () => (eu ? equipeAlvo(Array.isArray(pvp.time) ? pvp.time : []).map((p) => p.id) : []), _interno: { cfg: () => cfg, tique, TAREFAS, marcas: () => marcas } };
 })(globalThis);

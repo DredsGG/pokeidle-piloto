@@ -33,7 +33,7 @@ const carregar = (rel) => vm.runInThisContext(fs.readFileSync(`${RAIZ}/${rel}`, 
 for (const f of ['hook.js', 'piloto/kit.js', 'piloto/cofre.js', 'hunt/game.js', 'hunt/engine.js', 'hunt/geo.js', 'hunt/nivel.js', 'hunt/auto.js', 'piloto/rotina.js', 'piloto/captura.js']) carregar(f);
 const PIH = globalThis.__pokeidleHunt;
 PIH.carregarJogo = async () => ({
-  itensPorId: new Map([[205, { id: 205, name: 'Revive', category: 'revive', priceGold: 40 }], [300, { id: 300, name: 'Fire Stone', category: 'stone' }]]),
+  itensPorId: new Map([[205, { id: 205, name: 'Revive', category: 'revive', priceGold: 40 }], [201, { id: 201, name: 'Potion', category: 'potion', priceGold: 50 }], [300, { id: 300, name: 'Fire Stone', category: 'stone' }]]),
   especies: new Map([[4, { pokeId: 4, name: 'Charmander', type1: 'FIRE', evolvesToId: 5, evolveLevel: 16 }], [5, { pokeId: 5, name: 'Charmeleon', type1: 'FIRE' }]]),
   mod: {}, precoItem: new Map(),
 });
@@ -454,6 +454,54 @@ await caso('rotina: Auto Coleção no ponto — salva a regra do Mercado e só d
   assert.equal(PIH.pedir({ t: 'shop.autoColecao', regra: { ...regra.regra, pot: { on: true, min: 7 } } }, 'rotina').ok, false);
   assert.equal(PIH.pedir({ t: 'shop.autoColecao', regra: { ...regra.regra, nota: { on: true, min: 'x' } } }, 'rotina').ok, false);
   cfg.depot.modo = 'off'; cfg.autoColecao.ligado = false;
+});
+
+await caso('reposição 1.25.1: pouco ouro não vai todo em bola — revive e poção chegam ao mínimo e o resto é repartido', async () => {
+  const A = PIH.auto._interno;
+  const c = A.cfg();
+  c.repor.ligado = true;
+  msg({ t: 'estado', estado: { automation: { ballIds: [1], potionIds: [201], reviveIds: [205] }, balls: { 1: 0 }, items: { 300: 3 } } });
+  const ouro = Number(estados.at(-1).gold);
+  c.repor.reservaOuro = ouro - 30_000; // 30 mil livres
+  const lista = A.comprasPendentes();
+  const q = Object.fromEntries(lista.map((x) => [x.chave, x.qty]));
+  assert.ok(q.i205 >= 20, `revive ${q.i205}`);
+  assert.ok(q.i201 >= 200, `poção ${q.i201}`);
+  assert.ok(q.b1 >= 1000 && q.b1 < 3000, `bola ${q.b1}`);
+  const gasto = lista.reduce((s, x) => s + x.qty * x.preco, 0);
+  assert.ok(gasto <= 30_000 && gasto > 25_000, `gasto ${gasto}`);
+  // ouro de sobra: cada um até o alvo
+  c.repor.reservaOuro = 0;
+  const cheio = Object.fromEntries(A.comprasPendentes().map((x) => [x.chave, x.qty]));
+  assert.deepEqual(cheio, { i205: 100, i201: 1000, b1: 9999 });
+  c.repor.ligado = false; c.repor.reservaOuro = 5_000_000;
+});
+
+await caso('Centro 1.25.1: parado no Centro, o Piloto cura, espera o time levantar e volta para a última hunt', async () => {
+  const A = PIH.auto._interno;
+  const c = A.cfg();
+  c.hunt.ligado = true;
+  await sleep(3500);
+  msg({ t: 'estado', estado: { huntSlug: 'outland_x', noCentro: false, centroLivreEm: 0 } });
+  assert.equal(A.centro().ultimaHunt, 'outland_x');
+  msg({ t: 'estado', estado: { noCentro: true, pokemons: [{ id: 1, slot: 0, level: 300, nome: 'Charizard', speciesId: 6, hp: 0 }] } });
+  enviados.length = 0;
+  A.forcarCentro({ centroDesde: Date.now() - 100_000, mexeuEm: 0 });
+  A.vigiaCentro(Date.now());
+  assert.ok(A.rotina(), 'a vigia começou a rotina');
+  await sleep(1200);
+  assert.ok(enviados.some((m) => m.t === 'centro.curar'), `esperava a cura, veio: ${enviados.map((m) => m.t)}`);
+  await sleep(4500);
+  assert.equal(enviados.filter((m) => m.t === 'hunt.select').length, 0, 'não sai com o time desmaiado');
+  assert.ok(enviados.filter((m) => m.t === 'centro.curar').length >= 2, 'cura de novo');
+  msg({ t: 'estado', estado: { pokemons: [{ id: 1, slot: 0, level: 300, nome: 'Charizard', speciesId: 6, hp: 500 }] } });
+  await sleep(3000);
+  const sel = enviados.find((m) => m.t === 'hunt.select');
+  assert.ok(sel && sel.slug === 'outland_x', `esperava voltar para outland_x, veio: ${JSON.stringify(sel)}`);
+  msg({ t: 'estado', estado: { noCentro: false, huntSlug: 'outland_x' } });
+  A.passo();
+  assert.equal(A.rotina(), null);
+  c.hunt.ligado = false;
 });
 
 console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTUDO PASSOU');
