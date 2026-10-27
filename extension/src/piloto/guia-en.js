@@ -7,7 +7,7 @@
   (PIH.guiaTextos = PIH.guiaTextos || {}).en = {
     ui: {
       comoUsar: 'How to use the Pilot', pular: 'Skip', voltar: 'Back', proximo: 'Next', entendi: 'Got it', fechar: 'Close (Esc)',
-      passo: 'Step {n} of {t}', novidades: "What's new in v{v}", verGuia: 'See the guide',
+      passo: 'Step {n} of {t}', novidades: "What's new in v{v}", verGuia: 'See the guide', eMais: 'and {n} more — the full list is on GitHub',
       novaVersao: 'New version v{v}', voceTem: "You're on v{v}. What changed:", atualizar: 'Update', verNoGithub: 'See on GitHub',
       updMsg: {
         aplicando: 'Updating…',
@@ -30,18 +30,29 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.33.6': [
+        "What's new now shows only what changed since the last version you saw (6 lines at most).",
+      ],
       '1.33.5': [
         "Automatic evolution: the stone the Radar buys for the team no longer goes to resale (before, the Pokémon kept waiting and the Radar bought another every 30 min); if the Radar already has the stone in stock, it uses one from there.",
+      ],
+      '1.33.4': [
         "Rotation: when the hunt never gives a break in combat (the weak Pokémon keeps getting hit), after 2 min the next one in line comes in right there, clears the hunt and goes on to the Center and its best hunt. The order doesn't change.",
         "If the next one in line can't handle that hunt, the team's strongest comes in only to clear it; it doesn't count as a turn or lose its place in line.",
         "No VIP: the automatic Poké Ball keeps throwing with the window minimized (Chrome was slowing the clock to once a minute).",
+      ],
+      '1.33.3': [
         "Automatic Market buying now follows your money: it buys what's profitable while the radar's stock plus the purchase stays under half of what you have; once it sells, room opens again. It left the daily cap.",
         "When the game says \"Devagar aí — muitas mensagens\" (too many messages), the radar and the Pilot slow down on their own and speed back up slowly.",
         "The ball takes your balance into account: an account with lots of gold uses the Ultra Ball even while leveling a weak Pokémon.",
+      ],
+      '1.33.0': [
         "Restock for new accounts: the Pilot ticks one ball, one potion and one revive right away and buys the first batch as soon as there is gold (it keeps only 10% of the balance).",
         "Restock amounts come from what your account actually uses (1 h minimum, 6 h target), and the potion is the one with the lowest gold per HP it really heals.",
         "Hunt tab: gold/h already takes potions off, and a hunt where fainting costs more XP than it gives is flagged as risky.",
         "Hunt the meta no longer skips anyone: it tries every team Pokémon and, with no safe hunt, waits while farming XP until the trainer levels up.",
+      ],
+      '1.32.3': [
         "Plateia also stops opening a duplicate room after a Piloto update or with Windows display scaling (it adopts the window that is already open).",
         "Hunt tab: a hunt where your Pokémon dies before finishing a single kill leaves the ranking (e.g. Larvitar Lv 20 at Ledyba Lv 230), and with \"Avoid risk\" the risky ones come after the safe ones.",
         "The first time, the Pilot opens in your browser language (Portuguese, English or Spanish); the PT · EN · ES picker is still in the panel.",

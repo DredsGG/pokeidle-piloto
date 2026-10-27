@@ -7,7 +7,7 @@
   (PIH.guiaTextos = PIH.guiaTextos || {}).es = {
     ui: {
       comoUsar: 'Cómo usar el Piloto', pular: 'Saltar', voltar: 'Atrás', proximo: 'Siguiente', entendi: 'Entendido', fechar: 'Cerrar (Esc)',
-      passo: 'Paso {n} de {t}', novidades: 'Novedades de la v{v}', verGuia: 'Ver la guía',
+      passo: 'Paso {n} de {t}', novidades: 'Novedades de la v{v}', verGuia: 'Ver la guía', eMais: 'y {n} más — la lista completa está en GitHub',
       novaVersao: 'Nueva versión v{v}', voceTem: 'Estás en la v{v}. Qué cambió:', atualizar: 'Actualizar', verNoGithub: 'Ver en GitHub',
       updMsg: {
         aplicando: 'Actualizando…',
@@ -30,18 +30,29 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.33.6': [
+        "Las novedades muestran solo lo que cambió desde la última versión que viste (máximo 6 líneas).",
+      ],
       '1.33.5': [
         "Evolución automática: la piedra que el Radar compra para el equipo ya no va a la reventa (antes el pokémon se quedaba esperando y el Radar compraba otra cada 30 min); si el Radar ya tiene la piedra en stock, usa una de ahí.",
+      ],
+      '1.33.4': [
         "Rotación: cuando la hunt nunca da una pausa de combate (el pokémon débil no deja de recibir golpes), a los 2 min el siguiente de la fila entra ahí mismo, limpia la hunt y sigue al Centro y a su mejor hunt. El orden no cambia.",
         "Si el siguiente de la fila no aguanta esa hunt, el más fuerte del equipo entra solo para limpiar; no cuenta como turno ni pierde su lugar en la fila.",
         "Sin VIP: la pokébola automática sigue lanzando con la ventana minimizada (Chrome frenaba el reloj a una vez por minuto).",
+      ],
+      '1.33.3': [
         "La compra automática del Mercado ahora va por tu dinero: compra lo que da ganancia mientras el stock del radar más la compra no pase de la mitad de lo que tienes; al vender, se libera de nuevo. Salió del tope del día.",
         "Cuando el juego avisa \"Devagar aí — muitas mensagens\" (demasiados mensajes), el radar y el Piloto bajan el ritmo solos y vuelven a subir de a poco.",
         "La bola tiene en cuenta el saldo: una cuenta con mucho oro usa la Ultra Ball aunque esté subiendo un pokémon débil.",
+      ],
+      '1.33.0': [
         "Reposición para cuenta nueva: el Piloto marca una bola, una poción y un revivir al instante y compra el primer lote en cuanto hay oro (guarda solo el 10% del saldo).",
         "Las cantidades de la reposición salen de lo que tu cuenta gasta de verdad (mínimo de 1 h, objetivo de 6 h), y la poción es la de menos oro por HP que cura.",
         "Pestaña Cazar: el oro/h ya descuenta las pociones, y la hunt donde los desmayos quitan más XP de lo que dan queda marcada como riesgo.",
         "Cazar el meta ya no salta a nadie: prueba cada pokémon del equipo y, sin hunt segura, espera farmeando XP hasta que el entrenador suba de nivel.",
+      ],
+      '1.32.3': [
         "La Plateia tampoco abre una sala repetida después de actualizar el Piloto o con la escala de Windows (adopta la ventana que ya está abierta).",
         "Pestaña Cazar: la hunt donde el pokémon muere antes de terminar un abate sale del ranking (ej.: Larvitar Nv 20 en la Ledyba Nv 230), y con \"Evitar riesgo\" las arriesgadas quedan después de las seguras.",
         "La primera vez, el Piloto abre en el idioma del navegador (portugués, inglés o español); el selector PT · EN · ES sigue en el panel.",

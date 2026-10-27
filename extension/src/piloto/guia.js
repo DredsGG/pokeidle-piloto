@@ -45,6 +45,18 @@
   const insistir = setInterval(() => { if (estado || ++tentativas > 15) clearInterval(insistir); else pedirEstado(); }, 1000);
 
   // ---- o quadro -------------------------------------------------------------------------------
+  // 1.33.6 (o André: "aparece um monte de coisa, às vezes não mudou quase nada"): cada versão tem só
+  // o que mudou NELA; o quadro mostra as versões entre a última que a pessoa viu e a atual, da mais
+  // nova para trás, no máximo 6 linhas (o resto fica no GitHub).
+  const MAX_NOVIDADES = 6;
+  function novidadesDesde(T) {
+    const v = versao();
+    const nov = (T && T.novidades) || {};
+    if (!v) return [];
+    const viu = estado && estado.novidades;
+    const vers = Object.keys(nov).filter((x) => cmpVer(x, v) <= 0 && (viu ? cmpVer(x, viu) > 0 : x === v)).sort((a, b) => cmpVer(b, a));
+    return vers.flatMap((x) => nov[x] || []);
+  }
   let quadro = null; // { el, tipo: 'tutorial'|'novidades', passo }
   const janela = () => document.querySelector('.plt-janela:not(.plt-janela-time)');
 
@@ -95,9 +107,11 @@
         </span>`;
     } else {
       const v = versao();
-      const itens = (T.novidades && T.novidades[v]) || [];
+      const todos = novidadesDesde(T);
+      const itens = todos.slice(0, MAX_NOVIDADES);
+      const resto = todos.length - itens.length;
       titulo = fmt(U.novidades, { v });
-      corpo = `<ul class="plt-guia-lista">${itens.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
+      corpo = `<ul class="plt-guia-lista">${itens.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>${resto > 0 ? `<p class="plt-guia-de">${esc(fmt(U.eMais || '+{n}', { n: resto }))}</p>` : ''}`;
       rodape = `<span class="plt-guia-bts plt-guia-bts-fim">
           <button type="button" class="cfg-escala-bt" data-guia="ver-guia">${esc(U.verGuia)}</button>
           <button type="button" class="cfg-escala-bt on" data-guia="entendi">${esc(U.entendi)}</button>
@@ -129,7 +143,7 @@
     // teclas digitadas no quadro não viram atalho do jogo (menos o Esc)
     for (const t of ['keydown', 'keyup', 'keypress']) el.addEventListener(t, (e) => { if (e.key !== 'Escape') e.stopPropagation(); });
     (j || document.body).append(el);
-    quadro = { el, tipo, passo: 0, solto };
+    quadro = { el, tipo, passo: 0, solto, abertoEm: Date.now() };
     desenhar();
     return true;
   }
@@ -148,18 +162,20 @@
 
   // Esc fecha só o quadro (a janela do Piloto continua aberta). Registrado antes do Esc da janela.
   addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape' && quadro) { ev.preventDefault(); ev.stopImmediatePropagation(); fechar(); }
+    // 1.33.6: um Esc nos primeiros 2 s depois que o quadro apareceu sozinho era de outra coisa (o
+    // André não viu as Novidades da 1.33.5: elas foram marcadas como vistas sem ele ver). Passa reto.
+    if (ev.key === 'Escape' && quadro && !(quadro.solto && Date.now() - quadro.abertoEm < 2000)) { ev.preventDefault(); ev.stopImmediatePropagation(); fechar(); }
   }, true);
 
   // ---- a versão nova (o fundo procura; a ponte traz o 'piloto:update') -------------------------
   let upd = {};
   let updStatus = null;
-  const cmpVer = (a, b) => {
+  function cmpVer(a, b) {
     const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
     const pb = String(b).split('.').map((n) => parseInt(n, 10) || 0);
     for (let i = 0; i < Math.max(pa.length, pb.length); i++) { const d = (pa[i] || 0) - (pb[i] || 0); if (d) return d > 0 ? 1 : -1; }
     return 0;
-  };
+  }
   const pedirUpd = (acao, extra = {}) => document.dispatchEvent(new CustomEvent('piloto:upd-pedir', { detail: JSON.stringify({ acao, ...extra }) }));
   document.addEventListener('piloto:upd', (ev) => {
     try { upd = JSON.parse(ev.detail) || {}; } catch { upd = {}; }
@@ -195,13 +211,22 @@
     if (quadro || semGuia) return;
     if (!solto && !janela()) return;
     if (solto && (!prontoParaSoltar || !naPaginaDoJogo())) return;
+    // 1.33.6: com a aba escondida (outra aba, janela minimizada) ninguém veria: espera a pessoa voltar
+    if (solto && document.visibilityState !== 'visible') { esperarVisivel(); return; }
     if (!estado) { esperando = true; if (Date.now() - pedidoEm > 3000) pedirEstado(); return; }
     const T = textos();
     if (!T) return;
     if (estado.tutorial !== true) { abrir('tutorial', solto); return; }
     const v = versao();
-    if (v && estado.novidades !== v && T.novidades && (T.novidades[v] || []).length) { abrir('novidades', solto); return; }
+    if (v && estado.novidades !== v && novidadesDesde(T).length) { abrir('novidades', solto); return; }
     if (solto && versaoNova()) { updStatus = null; abrir('versao', true); }
+  }
+  let esperandoVisivel = false;
+  function esperarVisivel() {
+    if (esperandoVisivel) return;
+    esperandoVisivel = true;
+    const volta = () => { if (document.visibilityState !== 'visible') return; document.removeEventListener('visibilitychange', volta); esperandoVisivel = false; setTimeout(() => talvezMostrar(true), 1500); };
+    document.addEventListener('visibilitychange', volta);
   }
   // a página do jogo: espera o jogo mandar o primeiro estado (ou 8 s) e mais um pouco
   const soltar = () => { if (prontoParaSoltar) return; prontoParaSoltar = true; talvezMostrar(true); };

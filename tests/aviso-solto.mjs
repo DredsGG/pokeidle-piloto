@@ -86,6 +86,7 @@ await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
   setInterval(() => ws.send(JSON.stringify({ t: 'estado', estado: { servidorAgora: Date.now() } })), 1000);
 });
 
+// 1.33.6: imitar a aba escondida (janela minimizada) quando o teste pede
 await ctx.addInitScript(() => { try { if (!localStorage.getItem('piloto:idioma')) localStorage.setItem('piloto:idioma', 'pt'); localStorage.removeItem('piloto:dev:manual'); } catch {} if (location.hostname === 'pokeidle.io') window.__plateiaPonte = true; });
 await ctx.route(/https:\/\/(www\.twitch\.tv|kick\.com|github\.com)\/.*/, (rota) => rota.fulfill({ status: 200, contentType: 'text/html', body: 'ok' }));
 const page = await ctx.newPage();
@@ -132,6 +133,14 @@ ok(!(await aberto()), 'recarregar: não volta');
 
 // 2) atualização simulada: novidades sozinhas, uma vez
 await sw.evaluate(() => chrome.storage.local.set({ 'piloto:guia': { tutorial: true, novidades: '1.29.1' } }));
+// 1.33.6: com a aba escondida não aparece (ninguém veria); aparece quando a pessoa volta
+await page.evaluate(() => localStorage.setItem('teste:escondida', '1'));
+await page.reload(); await sleep(9000);
+ok(!(await aberto()), 'aba escondida: as Novidades esperam');
+await page.evaluate(() => { localStorage.removeItem('teste:escondida'); window.__vis = 'visible'; document.dispatchEvent(new Event('visibilitychange')); });
+await sleep(2500);
+a = await aberto();
+ok(a && a.tipo === 'novidades', `a pessoa voltou para a aba: as Novidades aparecem (${JSON.stringify(a)})`);
 await page.reload(); await sleep(7000);
 a = await aberto();
 ok(a && a.tipo === 'novidades' && a.solto, `depois de atualizar: Novidades sozinhas (${JSON.stringify(a)})`);
@@ -172,7 +181,12 @@ ok(!(await aberto()), 'escondida: não volta na mesma versão');
 await updFalso('9.9.10', { dispensada: '9.9.9' });
 await page.reload();
 ok((await esperar((x) => x && x.tipo === 'versao'))?.tipo === 'versao', 'versão mais nova: volta a aparecer');
+// 1.33.6: Esc logo que o quadro aparece era para outra coisa — não fecha nem marca como visto
+await page.keyboard.press('Escape'); await sleep(200);
+ok((await aberto())?.tipo === 'versao', 'Esc nos primeiros 2 s não fecha o quadro que acabou de aparecer');
+await sleep(2200);
 await page.keyboard.press('Escape'); await sleep(2000); // o X/Esc grava a versão escondida no fundo: espera antes de simular a próxima
+ok(!(await aberto()), 'depois de 2 s o Esc fecha');
 // Firefox pelo .xpi (atualiza sozinho): não aparece
 await updFalso('9.9.11', { autoAtualiza: true });
 await page.reload(); await sleep(7000);

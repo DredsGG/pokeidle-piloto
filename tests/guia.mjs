@@ -136,7 +136,8 @@ await page.locator('button.plt-barra').click(); await sleep(1800);
 a = await aberto();
 ok(a && a.tipo === 'novidades', `depois de atualizar: novidades (${JSON.stringify(a)})`);
 const itens = await page.locator('.plt-guia-lista li').count();
-ok(itens >= 1, `lista de novidades (${itens} itens)`);
+ok(itens >= 1 && itens <= 6, `lista de novidades curta (${itens} itens, no máximo 6)`);
+ok(itens < 6 || /e mais \d+/.test(await page.locator('.plt-guia').innerText()), 'passou de 6: "e mais N" no fim');
 ok(/Novidades da v\d+\.\d+\.\d+/.test(await page.locator('.plt-guia-h').innerText()), 'título "Novidades da vX.Y.Z"');
 await J().screenshot({ path: `${SAIDA}/2-novidades-pt.png` });
 await page.locator('.plt-guia [data-guia="fechar"]').click(); await sleep(400);
@@ -144,6 +145,19 @@ ok(!(await aberto()) && (await guiaNoStorage())?.novidades === (await page.evalu
 await page.keyboard.press('Escape'); await sleep(300);
 await page.locator('button.plt-barra').click(); await sleep(1500);
 ok(!(await aberto()), 'novidades só uma vez por versão');
+// 1.33.6: quem vinha da versão anterior vê SÓ o que mudou nesta (e não a lista acumulada)
+{
+  const atual = await page.evaluate(() => document.documentElement.dataset.pilotoVersao);
+  const cl = JSON.parse(fs.readFileSync(path.join(EXT, 'changelog.json'), 'utf8')).versoes;
+  const anteriores = Object.keys(cl).filter((v) => v !== atual).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  await page.keyboard.press('Escape'); await sleep(300);
+  await sw.evaluate((v) => chrome.storage.local.set({ 'piloto:guia': { tutorial: true, novidades: v } }), anteriores[0]);
+  await page.reload(); await sleep(4500);
+  await page.locator('button.plt-barra').click(); await sleep(1800);
+  const n = await page.locator('.plt-guia-lista li').count();
+  ok(n === (cl[atual].pt || []).length, `da v${anteriores[0]} para a v${atual}: só as ${n} linhas desta versão`);
+  await page.locator('.plt-guia [data-guia="fechar"]').click(); await sleep(400);
+}
 // 5) inglês: os textos vêm do arquivo do idioma
 await page.click('.plt-idiomas [data-idioma="en"]'); await sleep(600);
 await page.locator('.plt-janela [data-guia-abrir]').click(); await sleep(500);
