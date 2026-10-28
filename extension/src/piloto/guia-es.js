@@ -30,6 +30,10 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.36.2': [
+        "Evolucionar: la piedra del equipo ahora usa la misma reserva que las pociones (y no los 5 M del Mercado), así que una cuenta con poco oro también la compra — sin pasar de la mitad del oro libre, para que no falten pociones.",
+        "PvP en vivo: el nombre de cada entrenador en una etiqueta azul (tú) o roja (el rival) y cada pokémon en un cuadradito claro — sin el fondo oscuro detrás.",
+      ],
       '1.36.1': [
         "Reposición: revive y poción siempre van antes que la bola, y la bola solo usa el oro que sobra después de asegurar la próxima reposición de pociones — una cuenta con poco oro ya no se queda sin pociones.",
         "Reposición: cuando cambia la poción (o bola, o revive) elegida, el Piloto la cambia y compra al momento, en vez de pasar hasta 40 min sin comprar ninguna; y no baja a una poción más débil solo porque acaba de gastar.",

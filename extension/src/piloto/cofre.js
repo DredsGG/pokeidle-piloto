@@ -194,7 +194,7 @@
   }
 
   /** O piloto (ou o automático do radar) pode mandar isto? Reserva o ouro se puder. */
-  function autorizar(pedido, origem) {
+  function autorizar(pedido, origem, opcoes = {}) {
     virarDia();
     if (!s.cfg.ligado) return { ok: false, motivo: 'piloto desligado' };
     if (s.desligados[origem]) return { ok: false, motivo: `módulo ${origem} desligado pelo disjuntor (${s.desligados[origem].motivo})` };
@@ -204,11 +204,20 @@
       if (pedido.moeda && pedido.moeda !== 'gold') return { ok: false, motivo: 'só ouro' };
       const ouro = Number(eu && eu.gold);
       if (!Number.isFinite(ouro)) return { ok: false, motivo: 'saldo desconhecido' };
-      if (ouro - pendente() - custo < reservaDe(categoria)) return { ok: false, motivo: `abaixo da reserva (${fmt(reservaDe(categoria))}, com ${fmt(pendente())} já comprometido)` };
-      if (categoria === 'mercado') {
+      // 1.36.2 (o André: "a ideia é que dê para comprar... as coisas evoluem"): a pedra de evolução
+      // do TIME não é estoque de revenda. Ela segue a reserva da reposição (a menor entre a reserva e
+      // 10% do saldo) em vez dos 5 mi do Mercado, e fica fora do capital em giro — mas nunca passa de
+      // metade do ouro livre, para sobrar para poção e revive (a sobrevivência vem antes).
+      const pedraTime = categoria === 'mercado' && opcoes && opcoes.pedraTime === true;
+      if (pedraTime) {
+        const livreVida = ouro - pendente() - reservaDe('repor');
+        if (ouro - pendente() - custo < reservaDe('repor')) return { ok: false, motivo: `abaixo da reserva (${fmt(reservaDe('repor'))}, com ${fmt(pendente())} já comprometido)` };
+        if (custo > 0.5 * livreVida) return { ok: false, motivo: `a pedra passaria de metade do ouro livre (${fmt(Math.max(0, livreVida))}): o resto é da reposição` };
+      } else if (ouro - pendente() - custo < reservaDe(categoria)) return { ok: false, motivo: `abaixo da reserva (${fmt(reservaDe(categoria))}, com ${fmt(pendente())} já comprometido)` };
+      if (categoria === 'mercado' && !pedraTime) {
         const giro = livreDoGiro();
         if (custo > giro) return { ok: false, motivo: `capital em giro: o estoque do radar mais esta compra passaria de metade do que você tem (livre ${fmt(Math.max(0, giro))})` };
-      } else {
+      } else if (categoria !== 'mercado') {
         const teto = tetoDia();
         if (gastoHoje() - (Number(s.gasto.mercado) || 0) + custo > teto) return { ok: false, motivo: `teto do dia (${fmt(teto)})` };
       }

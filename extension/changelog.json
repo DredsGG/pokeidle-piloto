@@ -1,5 +1,19 @@
 {
   "versoes": {
+    "1.36.2": {
+      "pt": [
+        "Evoluir: a pedra do time agora usa a mesma reserva das poções (e não os 5 mi do Mercado), então conta com pouco ouro também compra a pedra — sem passar de metade do ouro livre, para a poção não faltar.",
+        "PvP ao vivo: o nome de cada treinador numa etiqueta azul (você) ou vermelha (o adversário) e cada pokémon num quadradinho claro — sem o fundo escuro atrás."
+      ],
+      "en": [
+        "Evolve: the team's stone now uses the same reserve as potions (not the Market's 5M), so low-gold accounts can buy it too — never more than half the free gold, so potions don't run out.",
+        "Live PvP: each trainer's name in a blue (you) or red (opponent) tag and each Pokémon in a light little square — no more dark box behind."
+      ],
+      "es": [
+        "Evolucionar: la piedra del equipo ahora usa la misma reserva que las pociones (y no los 5 M del Mercado), así que una cuenta con poco oro también la compra — sin pasar de la mitad del oro libre, para que no falten pociones.",
+        "PvP en vivo: el nombre de cada entrenador en una etiqueta azul (tú) o roja (el rival) y cada pokémon en un cuadradito claro — sin el fondo oscuro detrás."
+      ]
+    },
     "1.36.1": {
       "pt": [
         "Reposição: revive e poção vêm sempre antes da bola, e a bola só usa o ouro que sobra depois de garantir a próxima reposição de poção — conta com pouco ouro não fica mais sem poção.",

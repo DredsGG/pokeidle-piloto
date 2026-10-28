@@ -250,6 +250,12 @@
     'Põe no time, primeiro, os pokémon do meta que você tem': ['Puts the meta Pokémon you own on the team first', 'Pone primero en el equipo los pokémon del meta que tienes'],
     'Rodízio do time': ['Team rotation', 'Rotación del equipo'],
     'Extrato': ['Statement', 'Extracto'],
+    'Dúvidas': ['Questions', 'Dudas'],
+    'O que o Piloto respondeu no canal Dúvidas do chat': ['What the Pilot answered in the chat Questions channel', 'Lo que el Piloto respondió en el canal Dudas del chat'],
+    'Dúvidas do chat': ['Chat questions', 'Dudas del chat'],
+    'Responder no Dúvidas': ['Answer in Questions', 'Responder en Dudas'],
+    'Responde sozinho no canal Dúvidas quando uma resposta da base (tirada da Pokepédia do jogo e dos módulos dele) bate com certeza. Espera 20 s e não responde se alguém já falou; no máximo 1 a cada 5 min, a mesma pessoa a cada 30 min. Aqui aparecem só as respostas; o resto fica guardado para a base crescer.': ['Answers by itself in the Questions channel when an answer from the base (taken from the game\'s Pokepedia and modules) matches for sure. Waits 20 s and stays quiet if someone already spoke; at most 1 every 5 min, the same person every 30 min. Only the answers show here; the rest is kept so the base can grow.', 'Responde solo en el canal Dudas cuando una respuesta de la base (sacada de la Pokepedia del juego y sus módulos) coincide con certeza. Espera 20 s y no responde si alguien ya habló; como máximo 1 cada 5 min, la misma persona cada 30 min. Aquí solo aparecen las respuestas; el resto queda guardado para que la base crezca.'],
+    'Nenhuma resposta ainda. Quando o Piloto responder alguém no canal Dúvidas, a pergunta e a resposta aparecem aqui.': ['No answers yet. When the Pilot answers someone in the Questions channel, the question and the answer show up here.', 'Ninguna respuesta todavía. Cuando el Piloto responda a alguien en el canal Dudas, la pregunta y la respuesta aparecen aquí.'],
     'O que você gastou e o que entrou': ['What you spent and what came in', 'Lo que gastaste y lo que entró'],
     "Atualizar o time pelo meta": ["Update the team from the meta", "Actualizar el equipo según el meta"],
     "Atualizar time": ["Update team", "Actualizar equipo"],
@@ -597,6 +603,7 @@
 
   // Frases com partes variáveis (a primeira que casar vale).
   const regras = [
+    [/^hoje: (\d+) respondidas · (\d+) puladas · (\d+) sem resposta · (\d+) respostas na base$/u, 'today: $1 answered · $2 skipped · $3 unanswered · $4 answers in the base', 'hoy: $1 respondidas · $2 omitidas · $3 sin respuesta · $4 respuestas en la base'],
     // ---- 1.34: alvos de compra ----
     [/^(\d+) de (\d+)$/u, '$1 of $2', '$1 de $2'],
     [/^até (.+?) de ouro · comprou (.+?) \/ (.+)$/u, 'up to $1 gold · bought $2 / $3', 'hasta $1 de oro · compró $2 / $3'],

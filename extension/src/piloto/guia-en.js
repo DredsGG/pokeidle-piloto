@@ -30,6 +30,10 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.36.2': [
+        "Evolve: the team's stone now uses the same reserve as potions (not the Market's 5M), so low-gold accounts can buy it too — never more than half the free gold, so potions don't run out.",
+        "Live PvP: each trainer's name in a blue (you) or red (opponent) tag and each Pokémon in a light little square — no more dark box behind.",
+      ],
       '1.36.1': [
         "Restock: revive and potion always come before balls, and balls only use the gold left after the next potion restock is secured — low-gold accounts no longer run out of potions.",
         "Restock: when the chosen potion (or ball, or revive) changes, the Piloto switches and buys right away instead of going up to 40 min without buying either; and it no longer drops to a weaker potion just because it just spent gold.",

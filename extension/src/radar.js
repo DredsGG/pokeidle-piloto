@@ -1048,7 +1048,7 @@
     c.enviando = true;
     s.rastroAlvo = c;
     // `auto`: o hook passa a compra automática pelo cofre do piloto (reserva e teto do dia).
-    const r = await ponte.enviar({ t: 'market.comprar', id: c.alerta.anuncioId, qtd: c.estado.qtd, preco: c.alerta.preco, moeda: 'gold', auto: c.auto === true });
+    const r = await ponte.enviar({ t: 'market.comprar', id: c.alerta.anuncioId, qtd: c.estado.qtd, preco: c.alerta.preco, moeda: 'gold', auto: c.auto === true, pedraTime: c.auto === true && c.alerta.pedraDoTime === true });
     c.enviando = false;
     aplicarCompra(c, r.ok ? { tipo: 'enviado', em: r.em || Date.now() } : { tipo: 'falhaEnvio', motivo: r.motivo, em: Date.now() });
     if (!r.ok && c.auto) diarioPiloto(`radar: compra de ${c.alerta.nome || 'item'} não saiu: ${r.motivo}`, 'erro', `envio:${r.motivo}`);

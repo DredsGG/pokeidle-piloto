@@ -120,7 +120,7 @@
       m.el.setAttribute('aria-hidden', 'true');
       palco.appendChild(m.el);
     }
-    const px = pl.mini ? 18 : 30;
+    const px = pl.mini ? 20 : 32;
     const lados = [0, 1].map((g) => [...m.rost.values()].filter((p) => p.g === g).sort((a, b) => a.ordem - b.ordem).slice(0, 6));
     const nomeLado = (g) => lados[g].find((p) => p.dono)?.dono || (reps[g] && (reps[g].nome || reps[g].nick)) || '';
     const meu = eu && eu.nick ? [0, 1].find((g) => nomeLado(g) && String(nomeLado(g)).toLowerCase() === String(eu.nick).toLowerCase()) : undefined;
@@ -136,10 +136,13 @@
         const op = p.fora ? 0.25 : 0.45 + 0.55 * vida;
         const cls = `plt-pvv-pk${p.fora ? ' fora' : ''}${p.ativo ? ' ativo' : ''}${!p.entrou && !p.fora ? ' espera' : ''}`;
         const cor = vida > 0.5 ? '#6fdc8c' : vida > 0.2 ? '#f2c94c' : '#ef6b5b';
-        return `<span class="${cls}" style="opacity:${op.toFixed(2)}" title="${esc(p.nome)}${p.nv ? ` Nv ${p.nv}` : ''}">${arte(p, px, `pvv:${g}:${i}:${p.lt}`)}<span class="plt-pvv-vida"><i style="width:${Math.round(vida * 100)}%;background:${cor}"></i></span></span>`;
+        // 1.36.2 (print do André: "espaço preto vazio"): cada pokémon num quadradinho claro, com as
+        // iniciais por baixo do desenho — se a arte não carregar, o quadrado não fica vazio
+        const ini = String(p.nome || '?').replace(/[^A-Za-zÀ-ÿ0-9]/g, '').slice(0, 2);
+        return `<span class="${cls}" style="opacity:${op.toFixed(2)}" title="${esc(p.nome)}${p.nv ? ` Nv ${p.nv}` : ''}"><span class="plt-pvv-quadro" style="width:${px + 4}px;height:${px + 4}px"><b class="plt-pvv-ini">${esc(ini)}</b>${arte(p, px, `pvv:${g}:${i}:${p.lt}`)}</span><span class="plt-pvv-vida"><i style="width:${Math.round(vida * 100)}%;background:${cor}"></i></span></span>`;
       }).join('');
       const vivos = lados[g].filter((p) => !p.fora).length;
-      return `<div class="plt-pvv-lado ${cls}"><b>${esc(nomeLado(g))}</b><span class="plt-pvv-pks">${pks}</span><small>${vivos}/${lados[g].length || 0}</small></div>`;
+      return `<div class="plt-pvv-lado ${cls}"><b class="plt-pvv-nome" title="${esc(nomeLado(g))}">${esc(nomeLado(g))}</b><span class="plt-pvv-pks">${pks}</span><small>${vivos}/${lados[g].length || 0}</small></div>`;
     };
     m.el.innerHTML = lado(esq, 'esq') + lado(1 - esq, 'dir');
     if (PIH.arte) PIH.arte.preparar().then(() => PIH.arte.hidratar(m.el, (k) => dados.get(k)));

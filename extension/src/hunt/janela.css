@@ -501,14 +501,15 @@ html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { backgrou
 .plt-guia .cfg-escala-bt:disabled { opacity: .5; cursor: progress; }
 
 /* 1.33.8 (build de teste): o registro do respondedor do Dúvidas */
-.plt-tdu { display: grid; gap: 6px; margin-top: 8px; max-height: 360px; overflow: auto; }
-.plt-tdu-l { display: grid; grid-template-columns: 44px 1fr; gap: 2px 8px; padding: 6px 8px; border-radius: 8px; background: rgba(0, 0, 0, .18); font: 500 12px/1.35 "Barlow", sans-serif; }
-.plt-tdu-h { grid-row: span 3; opacity: .6; }
-.plt-tdu-a { font-weight: 700; opacity: .8; }
-.plt-tdu-respondi .plt-tdu-a { color: #7fe08a; opacity: 1; }
-.plt-tdu-sem-resposta .plt-tdu-a { color: #ffd76a; }
-.plt-tdu-p, .plt-tdu-r { overflow-wrap: anywhere; }
-.plt-tdu-r { color: #bfe3ff; }
+.plt-tdu { display: grid; gap: 10px; margin-top: 8px; max-height: 420px; overflow: auto; padding-right: 2px; }
+.plt-tdu-qa { display: grid; gap: 4px; }
+.plt-tdu-q, .plt-tdu-ans { position: relative; padding: 7px 10px; border-radius: 10px; font: 500 12.5px/1.4 "Barlow", sans-serif; overflow-wrap: anywhere; }
+.plt-tdu-q { margin-right: 18%; background: rgba(0, 0, 0, .22); border-top-left-radius: 3px; }
+.plt-tdu-ans { margin-left: 18%; background: rgba(127, 224, 138, .14); box-shadow: inset 0 0 0 1px rgba(127, 224, 138, .28); border-top-right-radius: 3px; }
+.plt-tdu-q p, .plt-tdu-ans p { margin: 2px 0 0; }
+.plt-tdu-nick { font-weight: 800; color: #bfe3ff; }
+.plt-tdu-eu { font-weight: 800; color: #7fe08a; }
+.plt-tdu-h { margin-left: 8px; font-size: 11px; opacity: .6; }
 .plt-tdu-vazio { opacity: .7; margin: 6px 0; }
 
 /* 1.34.1: o resultado da última ranqueada ao lado do rank do treinador (#tr-rank-pr do jogo) */
@@ -557,27 +558,33 @@ html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { backgrou
 
 /* 1.35: PvP ao vivo — os treinadores e os pokémon nos cantos da janelinha e da tela cheia */
 .plt-pvv { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
-.plt-pvv-lado { position: absolute; top: 8px; display: flex; flex-direction: column; gap: 4px; max-width: 30%; padding: 6px; border-radius: 8px; background: rgba(20, 12, 18, .62); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
+/* 1.36.2: sem a caixa escura atrás (virava um "quadradão preto"): o nome numa etiqueta azul (você)
+   ou vermelha (o adversário) e, embaixo, um quadradinho claro por pokémon */
+.plt-pvv-lado { position: absolute; top: 8px; display: flex; flex-direction: column; gap: 4px; max-width: 34%; }
 .plt-pvv-lado.esq { left: 8px; align-items: flex-start; }
 .plt-pvv-lado.dir { right: 8px; align-items: flex-end; }
-.plt-pvv-lado > b { font: 700 12px/1 Tahoma, Verdana, sans-serif; color: #fff; text-shadow: 0 1px 0 #000; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.plt-pvv-lado.esq > b { color: #9ee7ff; }
-.plt-pvv-lado.dir > b { color: #ffb4a8; }
-.plt-pvv-lado > small { font: 700 10px/1 Tahoma, Verdana, sans-serif; color: rgba(255, 255, 255, .7); }
+.plt-pvv-nome { display: block; max-width: 140px; padding: 2px 8px; border-radius: 999px; font: 800 12px/1.3 Tahoma, Verdana, sans-serif; color: #fff; text-shadow: 0 1px 0 rgba(0, 0, 0, .55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .3); }
+.plt-pvv-lado.esq .plt-pvv-nome { background: linear-gradient(#3d8bff, #1f5fd6); }
+.plt-pvv-lado.dir .plt-pvv-nome { background: linear-gradient(#ff5a4e, #d42f2f); }
+.plt-pvv-lado > small { font: 800 10px/1 Tahoma, Verdana, sans-serif; color: #fff; text-shadow: 0 1px 2px #000; }
 .plt-pvv-pks { display: flex; flex-direction: column; gap: 3px; }
-.plt-pvv-pk { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 2px 3px 3px; border-radius: 6px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px transparent; transition: opacity .4s, filter .4s, box-shadow .2s; }
-.plt-pvv-lado.esq .plt-pvv-pk.ativo { box-shadow: inset 0 0 0 2px #9ee7ff, 0 0 8px rgba(158, 231, 255, .55); background: rgba(158, 231, 255, .14); }
-.plt-pvv-lado.dir .plt-pvv-pk.ativo { box-shadow: inset 0 0 0 2px #ffb4a8, 0 0 8px rgba(255, 180, 168, .55); background: rgba(255, 180, 168, .14); }
-.plt-pvv-pk.fora { filter: grayscale(1) brightness(.7); }
-.plt-pvv-vida { display: block; width: 100%; height: 3px; border-radius: 2px; background: rgba(0, 0, 0, .45); overflow: hidden; }
+.plt-pvv-lado.dir .plt-pvv-pks { align-items: flex-end; }
+.plt-pvv-pk { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; transition: opacity .4s, filter .4s; }
+.plt-pvv-quadro { position: relative; display: grid; place-items: center; border-radius: 6px; background: linear-gradient(rgba(255, 255, 255, .92), rgba(225, 232, 240, .88)); box-shadow: 0 1px 3px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(0, 0, 0, .18); overflow: hidden; }
+.plt-pvv-quadro > .plt-arte { position: relative; z-index: 1; }
+.plt-pvv-ini { position: absolute; inset: 0; display: grid; place-items: center; font: 800 10px/1 Tahoma, Verdana, sans-serif; color: rgba(40, 50, 70, .55); text-transform: uppercase; }
+.plt-pvv-lado.esq .plt-pvv-pk.ativo .plt-pvv-quadro { box-shadow: 0 0 0 2px #3d8bff, 0 0 8px rgba(61, 139, 255, .8); }
+.plt-pvv-lado.dir .plt-pvv-pk.ativo .plt-pvv-quadro { box-shadow: 0 0 0 2px #ff5a4e, 0 0 8px rgba(255, 90, 78, .8); }
+.plt-pvv-pk.fora { filter: grayscale(1) brightness(.75); }
+.plt-pvv-vida { display: block; width: 100%; height: 3px; border-radius: 2px; background: rgba(0, 0, 0, .55); overflow: hidden; box-shadow: 0 0 0 1px rgba(0, 0, 0, .3); }
 .plt-pvv-vida > i { display: block; height: 100%; border-radius: 2px; transition: width .3s; }
 .plt-pvv-pk.fora .plt-pvv-vida { visibility: hidden; }
-.plt-pvv-mini .plt-pvv-lado { top: 4px; padding: 3px; gap: 2px; border-radius: 6px; }
+.plt-pvv-mini .plt-pvv-lado { top: 4px; gap: 2px; max-width: 40%; }
 .plt-pvv-mini .plt-pvv-lado.esq { left: 4px; }
 .plt-pvv-mini .plt-pvv-lado.dir { right: 4px; }
-.plt-pvv-mini .plt-pvv-lado > b { font-size: 9px; max-width: 56px; }
+.plt-pvv-mini .plt-pvv-nome { max-width: 92px; padding: 1px 6px; font-size: 10px; }
 .plt-pvv-mini .plt-pvv-lado > small { display: none; }
-.plt-pvv-mini .plt-pvv-pks { gap: 1px; }
-.plt-pvv-mini .plt-pvv-pk { padding: 1px 2px 2px; gap: 1px; }
+.plt-pvv-mini .plt-pvv-pks { gap: 2px; }
+.plt-pvv-mini .plt-pvv-quadro { border-radius: 4px; }
 .plt-pvv-mini .plt-pvv-vida { height: 2px; }
 @media (prefers-reduced-motion: reduce) { .plt-pvv-pk, .plt-pvv-vida > i { transition: none; } }

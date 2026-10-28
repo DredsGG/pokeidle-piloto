@@ -1190,7 +1190,9 @@
       if (!r.ok) return responder(ref, false, `cofre: ${r.motivo}`);
     }
     if (compra && auto) {
-      const r = cofreRef ? cofreRef.autorizar(pedido, 'mercado') : { ok: false, motivo: 'cofre não carregou' };
+      // 1.36.2 (pedido do André): a pedra do time segue a reserva da reposição (ver cofre.autorizar)
+      const pedraTime = cmd.pedido && cmd.pedido.pedraTime === true;
+      const r = cofreRef ? cofreRef.autorizar(pedido, 'mercado', { pedraTime }) : { ok: false, motivo: 'cofre não carregou' };
       if (!r.ok) return responder(ref, false, `cofre: ${r.motivo}`);
       reservasMercado.set(pedido.id, r.reserva);
       while (reservasMercado.size > 200) reservasMercado.delete(reservasMercado.keys().next().value);
