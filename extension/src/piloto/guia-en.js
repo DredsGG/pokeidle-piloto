@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.37.0': [
+        "New Questions tab: the Piloto can answer questions in the chat's Questions channel by itself, with 53 answers taken from the game's Pokepedia. It comes off; turn it on in the tab if you want. It waits 20 s, stays quiet if someone already helped and speaks at most once every 5 min.",
+      ],
       '1.36.2': [
         "Evolve: the team's stone now uses the same reserve as potions (not the Market's 5M), so low-gold accounts can buy it too — never more than half the free gold, so potions don't run out.",
         "Live PvP: each trainer's name in a blue (you) or red (opponent) tag and each Pokémon in a light little square — no more dark box behind.",

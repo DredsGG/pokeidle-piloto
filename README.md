@@ -9,7 +9,7 @@ Hunt optimizer, market radar, team manager and daily routine in one browser exte
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
 ![Browsers](https://img.shields.io/badge/Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20GX%20·%20Firefox%20140+-works-6d4aff)
-![Version](https://img.shields.io/badge/version-1.36.2-e53935)
+![Version](https://img.shields.io/badge/version-1.37.0-e53935)
 ![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-2e7d32)
 
 <img src="docs/hunt-tab.png" width="80%" alt="The Piloto window in Automatic mode, Hunt tab: hunt switching, restock, team rotation, Outland tier, automatic Poké Ball and auto-reload, above the ranking of the best hunts">
@@ -85,6 +85,10 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 </p>
 
 - If you also use [Plateia](https://github.com/DredsGG/plateia) (Twitch and Kick), opening the game opens its Twitch and/or Kick room in a separate window, once per browser session, for the platforms linked in your game account. If a room window is already open (even after the browser or the extension restarts or updates), it isn't opened again; only a missing one opens. **Reopen if it closes** (off by default) brings a closed or memory-discarded room back within a minute while the Piloto is on and the game is open. The game's own Twitch/Kick bonus windows get an **Open the room** button, or a link to download Plateia if you don't have it.
+
+**Questions channel (opt-in)**
+
+- A **Questions** tab can answer the chat's Questions channel by itself, from a closed base of 53 answers taken from the game's own Pokepedia (and the evolution stone computed with the game's modules). It is **off by default**. When on, it only answers a question when exactly one answer clearly matches, waits 20 s and stays quiet if someone else already helped, speaks at most once every 5 minutes (the same person every 30 min, the same answer every 15 min), never posts links, only writes in the Questions channel and stops if the game mutes the account. The tab shows each question next to the answer the Piloto gave.
 
 **Support**
 

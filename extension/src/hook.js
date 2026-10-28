@@ -394,7 +394,7 @@
   const BLOQUEADOS = Object.freeze(new Set([
     'orbs.sacar', 'orbs.painel', 'loja.comprar', 'passe.comprarVip', 'guild.doar', 'amigo.coins',
     'market.anunciarChat', 'market.diamantes.cota', 'afiliado.recolher', 'convite.resgatar',
-    'chat.send', 'chat.comando', 'amigo.dm.enviar', 'comercio.enviar', 'pokemon.megaRetroceder',
+    'chat.comando', 'amigo.dm.enviar', 'comercio.enviar', 'pokemon.megaRetroceder',
     'pokemon.reduzirNivel', 'nametag.usar', 'guild.apagar', 'guild.sair', 'guild.transferirLider',
   ]));
   PIH.BLOQUEADOS = BLOQUEADOS;
@@ -507,7 +507,7 @@
     else if (cab.includes('"t":"perfil"')) tipo = 'perfil'; // 1.23: o perfil público (ranking.perfil), para a aba Meta
     else if (cab.includes('"t":"campeonato"')) tipo = 'campeonato'; // 1.32: torneios (Mundial e Amador)
     else if (cab.includes('"t":"showdown"')) tipo = 'showdown'; // 1.32: o Showdown semanal
-    // 1.33.8 (build de teste do André): o chat, para o respondedor do Dúvidas. Fica no mundo da página
+    // 1.33.8 (build de teste do André; pública desde a 1.37.0): o chat, para o respondedor do Dúvidas. Fica no mundo da página
     // (TIPOS_DO_SERVIDOR: não sai para a ponte nem para o fundo).
     else if (cab.includes('"t":"chat"')) tipo = 'chat';
     else if (cab.includes('"t":"chat.mute"')) tipo = 'chat.mute';
@@ -603,7 +603,7 @@
       return { t: 'chocadeira.colocar', slot: p.slot, ovo: p.ovo };
     },
     'oferenda.tudo': () => ({ t: 'oferenda.tudo' }),
-    // 1.33.8 (build de teste): uma fala no canal Dúvidas. Só esse canal, sem link, até 240 letras e
+    // 1.33.8 (pública desde a 1.37.0, com o respondedor desligado de fábrica): uma fala no canal Dúvidas. Só esse canal, sem link, até 240 letras e
     // no mínimo 4 min entre falas, contados aqui (o módulo segura 5 min; isto é a trava de baixo).
     'chat.send': (p) => {
       const n = agora();
