@@ -30,6 +30,11 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.36.1': [
+        "Reposición: revive y poción siempre van antes que la bola, y la bola solo usa el oro que sobra después de asegurar la próxima reposición de pociones — una cuenta con poco oro ya no se queda sin pociones.",
+        "Reposición: cuando cambia la poción (o bola, o revive) elegida, el Piloto la cambia y compra al momento, en vez de pasar hasta 40 min sin comprar ninguna; y no baja a una poción más débil solo porque acaba de gastar.",
+        "Evolucionar: si la bóveda no libera oro para la piedra (cuenta con poco oro), lo intenta de nuevo en 30 min, sin insistir.",
+      ],
       '1.36.0': [
         "Evolucionar: el equipo evoluciona en cuanto llega al nivel — cualquier pokémon, el inicial también. Sin la piedra, el Piloto la compra al momento en el Mercado (con oro) y nunca va a la reventa.",
         "Evolucionar: corregido lo que trababa la evolución — la consulta de la piedra perdía el turno frente al Radar, la segunda piedra del mismo vendedor era rechazada y un comando perdido retenía al pokémon por 24 h.",

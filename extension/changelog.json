@@ -1,5 +1,22 @@
 {
   "versoes": {
+    "1.36.1": {
+      "pt": [
+        "Reposição: revive e poção vêm sempre antes da bola, e a bola só usa o ouro que sobra depois de garantir a próxima reposição de poção — conta com pouco ouro não fica mais sem poção.",
+        "Reposição: quando a poção (ou bola, ou revive) escolhida muda, o Piloto troca e compra na hora, em vez de passar até 40 min sem comprar nenhuma das duas; e não desce para uma poção mais fraca só porque acabou de gastar.",
+        "Evoluir: se o cofre não libera ouro para a pedra (conta com pouco ouro), tenta de novo em 30 min, sem ficar insistindo."
+      ],
+      "en": [
+        "Restock: revive and potion always come before balls, and balls only use the gold left after the next potion restock is secured — low-gold accounts no longer run out of potions.",
+        "Restock: when the chosen potion (or ball, or revive) changes, the Piloto switches and buys right away instead of going up to 40 min without buying either; and it no longer drops to a weaker potion just because it just spent gold.",
+        "Evolve: if the vault won't release gold for the stone (low-gold account), it tries again in 30 min instead of retrying nonstop."
+      ],
+      "es": [
+        "Reposición: revive y poción siempre van antes que la bola, y la bola solo usa el oro que sobra después de asegurar la próxima reposición de pociones — una cuenta con poco oro ya no se queda sin pociones.",
+        "Reposición: cuando cambia la poción (o bola, o revive) elegida, el Piloto la cambia y compra al momento, en vez de pasar hasta 40 min sin comprar ninguna; y no baja a una poción más débil solo porque acaba de gastar.",
+        "Evolucionar: si la bóveda no libera oro para la piedra (cuenta con poco oro), lo intenta de nuevo en 30 min, sin insistir."
+      ]
+    },
     "1.36.0": {
       "pt": [
         "Evoluir: o time evolui na hora em que chega no nível — qualquer pokémon, o inicial também. Sem a pedra, o Piloto compra na hora no Mercado (em ouro) e ela nunca vai para a revenda.",

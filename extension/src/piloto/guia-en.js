@@ -30,6 +30,11 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.36.1': [
+        "Restock: revive and potion always come before balls, and balls only use the gold left after the next potion restock is secured — low-gold accounts no longer run out of potions.",
+        "Restock: when the chosen potion (or ball, or revive) changes, the Piloto switches and buys right away instead of going up to 40 min without buying either; and it no longer drops to a weaker potion just because it just spent gold.",
+        "Evolve: if the vault won't release gold for the stone (low-gold account), it tries again in 30 min instead of retrying nonstop.",
+      ],
       '1.36.0': [
         "Evolve: the team evolves the moment it reaches the level — any Pokémon, the starter too. Without the stone, the Piloto buys one on the Market right away (for gold) and it never goes to resale.",
         "Evolve: fixed what blocked evolutions — the stone lookup lost its turn to the Radar, a second stone from the same seller was refused and a lost command held the Pokémon for 24 h.",

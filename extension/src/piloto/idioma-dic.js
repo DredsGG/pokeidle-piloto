@@ -661,6 +661,7 @@
     [/^pedra: o Mercado não respondeu \((.+?)\)$/u, "stone: the Market didn't answer ($1)", 'piedra: el Mercado no respondió ($1)'],
     [/^pedra: sem conexão com o jogo para comprar (.+)$/u, 'stone: no connection to the game to buy $1', 'piedra: sin conexión con el juego para comprar $1'],
     [/^pedra: comprando 1× (.+?) por (.+?) de ouro(?: para (.+))?$/u, (m) => `stone: buying 1× ${m[1]} for ${m[2]} gold${m[3] ? ` for ${m[3]}` : ''}`, (m) => `piedra: comprando 1× ${m[1]} por ${m[2]} de oro${m[3] ? ` para ${m[3]}` : ''}`],
+    [/^pedra: o cofre não liberou (.+?) de ouro para (.+?) \((.+)\) — tento de novo em 30 min$/u, "stone: the vault didn't release $1 gold for $2 ($3) — trying again in 30 min", 'piedra: la bóveda no liberó $1 de oro para $2 ($3) — lo intento de nuevo en 30 min'],
     [/^pedra: comprei 1× (.+?) a (.+?) de ouro — o time evolui em seguida$/u, 'stone: bought 1× $1 for $2 gold — the team evolves next', 'piedra: compré 1× $1 a $2 de oro — el equipo evoluciona enseguida'],
     [/^pedra: a compra de (.+?) não deu certo \((.+)\) — tento de novo em 30 s$/u, "stone: buying $1 didn't work ($2) — trying again in 30 s", 'piedra: la compra de $1 no funcionó ($2) — lo intento de nuevo en 30 s'],
     [/^pedra: a compra de (.+?) não entrou na fila$/u, "stone: buying $1 didn't get into the queue", 'piedra: la compra de $1 no entró en la fila'],

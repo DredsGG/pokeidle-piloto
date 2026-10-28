@@ -426,22 +426,25 @@
       }
     }
     // 1.33: com "Escolher os itens pela conta", só compra os três do kit — mesmo que o jogo ainda
-    // esteja com todos marcados (conta nova) ou tenha recusado a troca
-    if (cfg.repor.kitAuto !== false && kitIds) {
-      const doKit = lista.filter((x) => kitIds.has(x.chave));
-      // 1.34 (print do amigo do André, Nv 50: Ultra Ball e Great Potion marcadas, revive zerado e
-      // desmarcado): o jogo não deixa marcado o item que a conta não tem. A reposição só olhava o que
-      // está marcado, então o revive (ou a bola/poção nova do kit) que chegou a zero nunca mais era
-      // comprado. Agora o item do kit entra mesmo desmarcado; com estoque, o kit marca de novo.
+    // esteja com todos marcados (conta nova) ou tenha recusado a troca.
+    // 1.36.1 (amigo do André, conta baixa: "quando troca para uma mais fraca, não compra e morre"):
+    // a lista era o que está marcado CRUZADO com o kit candidato (o que ainda espera os 10 min para
+    // ser aplicado). Na troca, a poção marcada não estava no candidato e o candidato não estava
+    // marcado: nenhuma das duas era comprada — e, depois de recarregar a página, sem kit aplicado na
+    // memória, nada mesmo. Agora compra o kit APLICADO (marcado ou não); sem kit aplicado ainda, o que
+    // está marcado se for um de cada (conta nova, com tudo marcado de fábrica, espera o kit).
+    if (cfg.repor.kitAuto !== false) {
       if (kitAtual) {
-        const tem = new Set(doKit.map((x) => x.chave));
+        const out = [];
         const { bola, pocao, revive } = kitAtual;
-        if (bola && !tem.has(`b${bola.id}`) && bola.compravel !== false && Number(bola.priceGold) > 0) doKit.push({ chave: `b${bola.id}`, kind: 'ball', id: bola.id, nome: bola.nome, preco: Number(bola.priceGold), tem: eu.balls?.[bola.id] ?? 0, cat: 'bola' });
+        if (bola && bola.compravel !== false && Number(bola.priceGold) > 0) out.push({ chave: `b${bola.id}`, kind: 'ball', id: bola.id, nome: bola.nome, preco: Number(bola.priceGold), tem: eu.balls?.[bola.id] ?? 0, cat: 'bola' });
         for (const [it, cat] of [[pocao, 'pocao'], [revive, 'revive']]) {
-          if (it && !tem.has(`i${it.id}`) && Number(it.priceGold) > 0) doKit.push({ chave: `i${it.id}`, kind: 'item', id: Number(it.id), nome: it.name, preco: Number(it.priceGold), tem: eu.items?.[it.id] ?? 0, cat });
+          if (it && Number(it.priceGold) > 0) out.push({ chave: `i${it.id}`, kind: 'item', id: Number(it.id), nome: it.name, preco: Number(it.priceGold), tem: eu.items?.[it.id] ?? 0, cat });
         }
+        return out;
       }
-      return doKit;
+      const umDeCada = ['ballIds', 'potionIds', 'reviveIds'].every((k) => (a[k] ?? []).length <= 1);
+      return umDeCada ? lista : [];
     }
     return lista;
   }
@@ -524,9 +527,8 @@
   /**
    * O que está abaixo do mínimo, com a quantidade que cabe no ouro acima da reserva.
    * 1.25.1 (relato #1 no GitHub): antes as bolas vinham primeiro e, com pouco ouro (conta nova ou
-   * teto do dia baixo), levavam tudo — sem poção nem revive o pokémon morria e a caça parava. Agora:
-   * 1º cada item até o mínimo, revive e poção antes de bola; 2º o que sobra é repartido na
-   * proporção do que falta para o alvo de cada um.
+   * teto do dia baixo), levavam tudo — sem poção nem revive o pokémon morria e a caça parava.
+   * 1.36.1: a ordem completa está logo abaixo (sobrevivência primeiro; bolas só com o que sobra).
    */
   const ORDEM_CAT = { revive: 0, pocao: 1, bola: 2 };
   function comprasPendentes() {
@@ -538,19 +540,42 @@
       .sort((a, b) => (ORDEM_CAT[a.it.cat] ?? 9) - (ORDEM_CAT[b.it.cat] ?? 9));
     const qtd = new Map();
     const teto = (x) => Math.min(9999, Math.max(0, x.alvo - x.it.tem)); // o Market vende até 9.999 por compra
-    for (const x of baixos) {
-      const q = Math.min(teto(x), Math.max(0, x.min - x.it.tem), Math.floor(Math.max(0, livre) / x.it.preco));
-      if (q > 0) { qtd.set(x.it.chave, q); livre -= q * x.it.preco; }
-    }
-    const falta = baixos.map((x) => ({ x, q: teto(x) - (qtd.get(x.it.chave) || 0) })).filter((f) => f.q > 0);
-    const custo = falta.reduce((s, f) => s + f.q * f.x.it.preco, 0);
-    if (custo > 0 && livre > 0) {
-      const fr = Math.min(1, livre / custo);
+    // 1.36.1 (amigo do André, conta baixa, "está morrendo"): as bolas (o alvo delas é 6 h de
+    // lançamentos, centenas por hora) levavam quase todo o ouro e, na volta seguinte, não sobrava para a
+    // poção boa: o kit descia para a mais fraca e comprava 2. Agora, nesta ordem:
+    //   1º revive e poção até o mínimo; 2º bolas até o mínimo; 3º revive e poção até o alvo; 4º bolas
+    //   até o alvo. As bolas só usam o que passar de uma reposição inteira de revive + poção (o alvo
+    //   de cada um a preço de loja) — esse fôlego fica guardado para a próxima volta. Sem bola o jogo
+    //   só não lança; sem poção, o pokémon morre.
+    const repartir = (lista, verba) => {
+      const falta = lista.map((x) => ({ x, q: teto(x) - (qtd.get(x.it.chave) || 0) })).filter((f) => f.q > 0);
+      const custo = falta.reduce((sm, f) => sm + f.q * f.x.it.preco, 0);
+      if (!(custo > 0) || !(verba > 0)) return 0;
+      const fr = Math.min(1, verba / custo);
+      let gasto = 0;
       for (const f of falta) {
-        const q = Math.min(f.q, Math.floor(f.q * fr), Math.floor(livre / f.x.it.preco));
-        if (q > 0) { qtd.set(f.x.it.chave, (qtd.get(f.x.it.chave) || 0) + q); livre -= q * f.x.it.preco; }
+        const q = Math.min(f.q, Math.floor(f.q * fr), Math.floor((verba - gasto) / f.x.it.preco));
+        if (q > 0) { qtd.set(f.x.it.chave, (qtd.get(f.x.it.chave) || 0) + q); gasto += q * f.x.it.preco; }
       }
-    }
+      return gasto;
+    };
+    const vida = baixos.filter((x) => x.it.cat !== 'bola');
+    const bolas = baixos.filter((x) => x.it.cat === 'bola');
+    // (no Manual valem os mínimos e alvos que você pôs: sem o fôlego guardado)
+    const reservaVida = cfg.repor.kitAuto === false ? 0 : itensVigiados().filter((it) => it.cat !== 'bola').reduce((sm, it) => sm + Math.max(0, alvoDe(it).alvo) * it.preco, 0);
+    const ateMin = (lista, verbaDe) => {
+      for (const x of lista) {
+        const q = Math.min(teto(x), Math.max(0, x.min - x.it.tem), Math.floor(Math.max(0, verbaDe()) / x.it.preco));
+        if (q > 0) { qtd.set(x.it.chave, q); livre -= q * x.it.preco; }
+      }
+    };
+    ateMin(vida, () => livre);
+    // conta nova precisa capturar para montar o time: um punhado de bolas (o piso, 30) passa mesmo
+    // sem o fôlego guardado — a sobrevivência mínima já foi comprada acima
+    const pisoBolas = bolas.reduce((sm, x) => sm + Math.max(0, Math.min(PISO_AUTO.bola, x.min) - x.it.tem) * x.it.preco, 0);
+    ateMin(bolas, () => Math.max(livre - reservaVida, Math.min(livre, pisoBolas)));
+    livre -= repartir(vida, livre);
+    livre -= repartir(bolas, Math.max(0, livre - reservaVida));
     return baixos.filter((x) => qtd.get(x.it.chave) > 0).map((x) => ({ ...x.it, qty: qtd.get(x.it.chave) }));
   }
 
@@ -599,7 +624,14 @@
     const util = (i) => Math.max(1, Math.min(cura(i), falta));
     // ouro livre para a reposição agora (o que o cofre deixa); o teste pode passar outro
     const livre = teste.livre ?? Math.min((Number(eu.gold) || 0) - (Number(cfg.repor.reservaOuro) || 0), PIH.cofre ? PIH.cofre.livre('repor') : Infinity);
-    const cabe = (i, cat) => livre >= PISO_AUTO[cat] * Number(i.priceGold);
+    // 1.36.1: o item que já está marcado e ainda tem o mínimo em estoque "cabe" — sem isso, logo
+    // depois de uma compra (ouro livre baixo) o kit descia para a poção mais fraca sem precisar.
+    const marcado = (i, cat) => {
+      const ids = cat === 'bola' ? eu.automation?.ballIds : cat === 'pocao' ? eu.automation?.potionIds : eu.automation?.reviveIds;
+      return Array.isArray(ids) && ids.map(Number).includes(Number(i.id));
+    };
+    const estoque = (i, cat) => Number((cat === 'bola' ? eu.balls : eu.items)?.[i.id]) || 0;
+    const cabe = (i, cat) => livre >= PISO_AUTO[cat] * Number(i.priceGold) || (marcado(i, cat) && estoque(i, cat) >= PISO_AUTO[cat]);
     const porUtil = (i) => Number(i.priceGold) / util(i);
     const ordenadas = [...pocoes].sort((a, b) => porUtil(a) - porUtil(b) || cura(b) - cura(a));
     const baratas = [...pocoes].sort((a, b) => a.priceGold - b.priceGold);
@@ -650,7 +682,22 @@
     const agora = Date.now();
     // a primeira vez (conta nova vem com tudo marcado, ou um item só não está marcado): na hora
     const primeira = !kitTrocadoEm && !(igual(a.potionIds, a.potionIds?.[0]) && igual(a.reviveIds, a.reviveIds?.[0]) && igual(a.ballIds, a.ballIds?.[0]));
-    if (!forcar && !primeira) {
+    // 1.36.1: troca URGENTE — o item marcado de uma categoria que muda está abaixo do mínimo (vai
+    // precisar comprar agora). Comprar o antigo para trocar daqui a 10-40 min é desperdício, e não
+    // comprar nenhum deixa o pokémon morrer: troca já e compra o novo.
+    const urgente = (() => {
+      const pares = [['ballIds', k.bola, 'bola', 'b', eu.balls], ['potionIds', k.pocao, 'pocao', 'i', eu.items], ['reviveIds', k.revive, 'revive', 'i', eu.items]];
+      for (const [campo, novo, cat, pre, est] of pares) {
+        if (igual(a[campo], novo.id)) continue;
+        const ids = a[campo] ?? [];
+        if (!ids.length) return true; // nada marcado nessa categoria
+        const tem = ids.reduce((sm, id) => sm + (Number(est?.[id]) || 0), 0);
+        const min = Math.max(PISO_AUTO[cat], Math.ceil(consumoPorHora(`${pre}${ids[0]}`) ?? taxaDoModelo(cat)));
+        if (tem < min) return true;
+      }
+      return false;
+    })();
+    if (!forcar && !primeira && !urgente) {
       if (!kitVisto || kitVisto.chave !== chave) { kitVisto = { chave, em: agora }; return k; }
       if (agora - kitVisto.em < KIT_ESTAVEL_MS || agora - kitTrocadoEm < KIT_INTERVALO_MS) return k;
     }

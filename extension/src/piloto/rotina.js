@@ -557,6 +557,7 @@
       if (!d || typeof d.txt !== 'string' || !/^pedra:/.test(d.txt)) return;
       diagEvo(`radar: ${d.txt}`);
       // compra perdida no sorteio do Mercado ou recusada: pede de novo já no próximo tique (não em 5 min)
+      if (/o cofre não liberou/.test(d.txt)) { for (const k of pedidoPedra.keys()) pedidoPedra.set(k, Date.now() + 25 * 60_000); return; } // 30 min
       const daqui = /não deu certo|não entrou na fila|não respondeu|sem conexão/.test(d.txt) ? 30_000 : /ninguém vende/.test(d.txt) ? 2 * 60_000 : 0;
       if (daqui) for (const [k, em] of pedidoPedra) pedidoPedra.set(k, Math.min(em, Date.now() - 5 * 60_000 + daqui));
     } catch { /* segue */ }

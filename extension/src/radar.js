@@ -1162,7 +1162,12 @@
     // 1.36.0: o resultado da compra da pedra do time vai para o diário (e libera um pedido novo se falhou)
     if (c.alerta.pedraDoTime) {
       c.alerta.resultado = r || 'sem-resposta';
-      diarioPiloto(C.comprou(r) ? `pedra: comprei 1× ${c.alerta.nome} a ${fmtN(c.alerta.preco)} de ouro — o time evolui em seguida` : `pedra: a compra de ${c.alerta.nome} não deu certo (${r || 'sem resposta'}${c.estado.msg ? `: ${String(c.estado.msg).slice(0, 60)}` : ''}) — tento de novo em 30 s`, C.comprou(r) ? 'ok' : 'aviso');
+      // conta com pouco ouro: o cofre (reserva, teto) não libera a pedra — tentar a cada 30 s só gastaria
+      // leituras; espera 30 min (ou o ouro subir)
+      const peloCofre = /cofre|reserva|teto|saldo/i.test(String(c.estado.msg || ''));
+      diarioPiloto(C.comprou(r) ? `pedra: comprei 1× ${c.alerta.nome} a ${fmtN(c.alerta.preco)} de ouro — o time evolui em seguida`
+        : peloCofre ? `pedra: o cofre não liberou ${fmtN(c.alerta.preco)} de ouro para ${c.alerta.nome} (${String(c.estado.msg).slice(0, 60)}) — tento de novo em 30 min`
+          : `pedra: a compra de ${c.alerta.nome} não deu certo (${r || 'sem resposta'}${c.estado.msg ? `: ${String(c.estado.msg).slice(0, 60)}` : ''}) — tento de novo em 30 s`, C.comprou(r) ? 'ok' : 'aviso');
     }
     if (c.alerta.alvo) {
       const id = c.alerta.alvo;
