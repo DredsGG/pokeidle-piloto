@@ -86,7 +86,17 @@ await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
   setInterval(() => ws.send(JSON.stringify({ t: 'estado', estado: { servidorAgora: Date.now() } })), 1000);
 });
 
+// 1.34: conta os pedidos de "procurar atualização" que a página faz
+await ctx.addInitScript(() => { window.__checar = 0; document.addEventListener('piloto:upd-pedir', (ev) => { try { if (JSON.parse(ev.detail).acao === 'checar') window.__checar++; } catch {} }); });
 // 1.33.6: imitar a aba escondida (janela minimizada) quando o teste pede
+await ctx.addInitScript(() => {
+  try {
+    if (localStorage.getItem('teste:escondida') !== '1') return;
+    window.__vis = 'hidden';
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => window.__vis });
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.__vis !== 'visible' });
+  } catch {}
+});
 await ctx.addInitScript(() => { try { if (!localStorage.getItem('piloto:idioma')) localStorage.setItem('piloto:idioma', 'pt'); localStorage.removeItem('piloto:dev:manual'); } catch {} if (location.hostname === 'pokeidle.io') window.__plateiaPonte = true; });
 await ctx.route(/https:\/\/(www\.twitch\.tv|kick\.com|github\.com)\/.*/, (rota) => rota.fulfill({ status: 200, contentType: 'text/html', body: 'ok' }));
 const page = await ctx.newPage();
@@ -102,6 +112,7 @@ const caixa = () => page.locator('.plt-guia-solto .plt-guia-caixa');
 const st = (k) => sw.evaluate((k) => chrome.storage.local.get(k).then((r) => r[k] || null), k);
 // o fundo não procura no GitHub de verdade durante o teste (o alarme sobrescreveria o Release simulado)
 await sw.evaluate(() => chrome.alarms.clear('piloto-upd'));
+const pedidosChecar = () => page.evaluate(() => window.__checar || 0);
 const esperar = async (cond, ms = 15000) => { const fim = Date.now() + ms; let a = null; while (Date.now() < fim) { a = await aberto().catch(() => null); if (cond(a)) return a; await sleep(400); } return a; };
 const VER = JSON.parse(fs.readFileSync(`${EXT}/manifest.json`, 'utf8')).version;
 const updFalso = (ultima, extra = {}) => sw.evaluate(([u, ver, ex]) => chrome.storage.local.set({ 'piloto:update': { checadoEm: Date.now(), atual: ver, instalacao: 'development', disponivel: true, ultima: u, pagina: 'https://github.com/DredsGG/pokeidle-piloto/releases/tag/v' + u, zip: 'https://github.com/DredsGG/pokeidle-piloto/releases/download/v' + u + '/x.zip',
@@ -175,9 +186,13 @@ ok(ctx.pages().length > abas || (await st('piloto:update'))?.baixadoEm, 'Atualiz
 await page.screenshot({ path: `${SAIDA}/4-atualizar.png` });
 // X esconde até sair uma mais nova
 await page.locator('.plt-guia-solto [data-guia="fechar"]').click(); await sleep(800);
-ok((await st('piloto:update'))?.dispensada === '9.9.9', 'X grava a versão escondida');
-await page.reload(); await sleep(7000);
-ok(!(await aberto()), 'escondida: não volta na mesma versão');
+ok(!(await aberto()), 'X fecha (só adia: 1 h ou a próxima abertura)');
+await updFalso('9.9.9'); // o fundo pode ter procurado de verdade no GitHub depois do "Atualizar"
+await page.reload();
+const dbgA = await esperar((x) => x && x.tipo === 'versao');
+if (!(dbgA && dbgA.tipo === 'versao')) console.log('DBG', JSON.stringify(await page.evaluate(() => ({ a: window.__pokeidleHunt.guia.aberto(), vn: window.__pokeidleHunt.guia.versaoNova(), est: window.__pokeidleHunt.guia.estado(), ver: document.documentElement.dataset.pilotoVersao }))), JSON.stringify(await st('piloto:update')).slice(0, 400));
+ok(dbgA?.tipo === 'versao', 'X só adia: na próxima abertura volta (regra 14 de 27/10)');
+await sleep(2200); await page.keyboard.press('Escape'); await sleep(800);
 await updFalso('9.9.10', { dispensada: '9.9.9' });
 await page.reload();
 ok((await esperar((x) => x && x.tipo === 'versao'))?.tipo === 'versao', 'versão mais nova: volta a aparecer');
@@ -196,6 +211,47 @@ await updFalso('9.9.12', { mudancas: null, notas: '## Changes\n- Old style note'
 await page.reload(); await sleep(7000);
 ok(await page.locator('.plt-guia-solto .plt-guia-lista li').first().innerText().catch(() => '') === 'Old style note', 'sem changelog.json: as notas do Release');
 await page.keyboard.press('Escape'); await sleep(300);
+// 1.34 (regra 14, 27/10): com a página JÁ aberta, Release novo aparece sem recarregar; o X só adia
+// (volta depois de 1 h e na próxima abertura); URGENTE não tem X e pausa a automação.
+await page.evaluate(() => localStorage.setItem('piloto:idioma', 'pt'));
+await updFalso('9.9.19', { autoAtualiza: false });
+await page.reload(); await sleep(7000);
+if (await aberto()) { await page.keyboard.press('Escape'); await sleep(2500); }
+ok((await pedidosChecar()) >= 1, `ao abrir a página, pede a checagem do GitHub (${await pedidosChecar()})`);
+await updFalso('9.9.20');
+a = await esperar((x) => x && x.tipo === 'versao');
+ok(a && a.tipo === 'versao', 'Release novo com a página aberta: aparece sem recarregar');
+await sleep(2200);
+await page.locator('.plt-guia-solto [data-guia="fechar"]').click(); await sleep(800);
+ok(!(await aberto()), 'X fecha');
+const adiado = await page.evaluate(() => window.__pokeidleHunt.guia._interno.adiadoAte() - Date.now());
+ok(adiado > 59 * 60_000 && adiado <= 60 * 60_000, `X adia 1 h (${Math.round(adiado / 60000)} min)`);
+ok((await st('piloto:update'))?.dispensada !== '9.9.20', 'X não esconde a versão para sempre');
+await page.evaluate(() => window.__pokeidleHunt.guia._interno.voltarJa());
+a = await esperar((x) => x && x.tipo === 'versao', 40000);
+ok(a && a.tipo === 'versao', 'passada 1 h: o aviso volta sozinho');
+await sleep(2200);
+await page.locator('.plt-guia-solto [data-guia="fechar"]').click(); await sleep(800);
+await page.reload();
+ok((await esperar((x) => x && x.tipo === 'versao'))?.tipo === 'versao', 'próxima abertura: o aviso volta');
+await sleep(2200); await page.keyboard.press('Escape'); await sleep(800);
+// voltar para a aba pede a checagem (no máximo 1 a cada 10 min: quem segura é o fundo)
+const antesVis = await pedidosChecar();
+await page.evaluate(() => { document.dispatchEvent(new Event('visibilitychange')); });
+await sleep(500);
+ok((await pedidosChecar()) > antesVis, 'voltar para a aba pede a checagem');
+// URGENTE
+await updFalso('9.9.21', { urgente: true, titulo: 'v9.9.21 URGENTE' });
+a = await esperar((x) => x && x.tipo === 'versao');
+await sleep(2500);
+const temX = await page.locator('.plt-guia-solto [data-guia="fechar"]').count();
+const tituloU = await page.locator('.plt-guia-h').innerText().catch(() => '');
+ok(a && a.tipo === 'versao' && temX === 0 && /urgente/i.test(tituloU), `URGENTE: quadro sem X ("${tituloU}")`);
+await page.keyboard.press('Escape'); await sleep(800);
+ok((await aberto())?.tipo === 'versao', 'URGENTE: Esc não fecha');
+const ped = await page.evaluate(() => window.__pokeidleHunt.pedir({ t: 'centro.ir' }, 'teste'));
+ok(!ped.ok && /urgente/.test(ped.motivo), `URGENTE: a automação pausa (${ped.motivo})`);
+await page.screenshot({ path: `${SAIDA}/5-urgente.png` });
 // fora da página do jogo (ex.: /terms, que a vigia usa): nada aparece
 await updFalso('9.9.13');
 await page.goto('https://pokeidle.io/terms'); await sleep(6000);

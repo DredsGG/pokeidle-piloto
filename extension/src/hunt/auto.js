@@ -218,6 +218,21 @@
     const ok = iniciarRotina({ destino, curar: true, compras: comprasPendentes(), motivo: motivo || 'indo ao Centro', ficar: true });
     return { ok, motivo: ok ? null : 'ocupado' };
   }
+  // 1.34 (o André viu o turno do Blastoise acabar, ele ir ao Centro e voltar para a mesma hunt, e
+  // só 3 min depois o rodízio fazer outra viagem ao Centro para trocar): se o turno vence com uma ida
+  // ao Centro já andando (reposição, vigia do Centro, o botão ↩), o rodízio pega carona nela — a
+  // rotina fica no Centro (como a do irAoCentroEFicar) até o rodízio trocar o ativo e liberar.
+  function caronaNoCentro({ motivo } = {}) {
+    const r = rotina;
+    if (!r || r.ficar) return { ok: false, motivo: r ? 'a rotina já fica no Centro' : 'nada indo ao Centro' };
+    const vaiAoCentro = r.curar || (r.compras && r.compras.length);
+    const aindaDa = ['esperar', 'indo', 'centro'].includes(r.etapa) || (r.etapa === 'sair' && eu?.noCentro);
+    if (!vaiAoCentro || !aindaDa) return { ok: false, motivo: 'a rotina não passa pelo Centro agora' };
+    r.ficar = true;
+    if (r.etapa === 'sair') { r.etapa = 'parado'; r.desde = Date.now(); }
+    if (motivo) anotar(motivo);
+    return { ok: true };
+  }
   function liberarCentro(destino) {
     if (!rotina || !rotina.ficar) return false;
     if (destino) rotina.destino = destino;
@@ -412,7 +427,22 @@
     }
     // 1.33: com "Escolher os itens pela conta", só compra os três do kit — mesmo que o jogo ainda
     // esteja com todos marcados (conta nova) ou tenha recusado a troca
-    if (cfg.repor.kitAuto !== false && kitIds) return lista.filter((x) => kitIds.has(x.chave));
+    if (cfg.repor.kitAuto !== false && kitIds) {
+      const doKit = lista.filter((x) => kitIds.has(x.chave));
+      // 1.34 (print do amigo do André, Nv 50: Ultra Ball e Great Potion marcadas, revive zerado e
+      // desmarcado): o jogo não deixa marcado o item que a conta não tem. A reposição só olhava o que
+      // está marcado, então o revive (ou a bola/poção nova do kit) que chegou a zero nunca mais era
+      // comprado. Agora o item do kit entra mesmo desmarcado; com estoque, o kit marca de novo.
+      if (kitAtual) {
+        const tem = new Set(doKit.map((x) => x.chave));
+        const { bola, pocao, revive } = kitAtual;
+        if (bola && !tem.has(`b${bola.id}`) && bola.compravel !== false && Number(bola.priceGold) > 0) doKit.push({ chave: `b${bola.id}`, kind: 'ball', id: bola.id, nome: bola.nome, preco: Number(bola.priceGold), tem: eu.balls?.[bola.id] ?? 0, cat: 'bola' });
+        for (const [it, cat] of [[pocao, 'pocao'], [revive, 'revive']]) {
+          if (it && !tem.has(`i${it.id}`) && Number(it.priceGold) > 0) doKit.push({ chave: `i${it.id}`, kind: 'item', id: Number(it.id), nome: it.name, preco: Number(it.priceGold), tem: eu.items?.[it.id] ?? 0, cat });
+        }
+      }
+      return doKit;
+    }
     return lista;
   }
   const PADRAO_ALVO = { bola: { min: 1000, alvo: 10000 }, pocao: { min: 200, alvo: 1000 }, revive: { min: 20, alvo: 100 } };
@@ -551,6 +581,7 @@
   // para TODOS os itens que o jogo marca de fábrica numa conta nova, até Max Revive)
   let kitPedido = null;
   let kitIds = null; // as chaves do último kit escolhido (b<id>, i<id>)
+  let kitAtual = null; // 1.34: a bola, a poção e o revive do kit aplicado no jogo (para comprar mesmo desmarcados)
   function escolherKit(teste = {}) {
     if (!eu || !welcome || !jogoCache) return null;
     const time = (eu.pokemons ?? []).filter((p) => p.slot != null && Number(p.maxHp) > 0);
@@ -614,7 +645,7 @@
     kitIds = new Set([`b${k.bola.id}`, `i${k.pocao.id}`, `i${k.revive.id}`]);
     const a = eu.automation ?? {};
     const igual = (ids, id) => Array.isArray(ids) && ids.length === 1 && Number(ids[0]) === Number(id);
-    if (igual(a.ballIds, k.bola.id) && igual(a.potionIds, k.pocao.id) && igual(a.reviveIds, k.revive.id)) { kitVisto = null; return k; }
+    if (igual(a.ballIds, k.bola.id) && igual(a.potionIds, k.pocao.id) && igual(a.reviveIds, k.revive.id)) { kitVisto = null; kitAtual = k; return k; }
     const chave = `${k.bola.id}/${k.pocao.id}/${k.revive.id}`;
     const agora = Date.now();
     // a primeira vez (conta nova vem com tudo marcado, ou um item só não está marcado): na hora
@@ -627,6 +658,7 @@
     kitVisto = null;
     kitPedido = { em: agora, ids: [`b${k.bola.id}`, `i${k.pocao.id}`, `i${k.revive.id}`] };
     PIH.pedir({ t: 'auto.set', ballIds: [k.bola.id], potionIds: [k.pocao.id], reviveIds: [k.revive.id] }, 'hunt');
+    kitAtual = k; // só o kit que foi de fato mandado ao jogo (o candidato ainda esperando os 10 min não compra)
     anotar(`automações do jogo: ${k.bola.nome}, ${k.pocao.name} e ${k.revive.name} (um de cada, pela conta: HP médio ${nf.format(k.hpMedio)}${k.porBola ? `, até ${nf.format(k.porBola)} de ouro por bola` : ''})`, 'ok');
     return k;
   }
@@ -640,7 +672,9 @@
     if (kitPedido) {
       const a = eu?.automation ?? {};
       const marcados = new Set([...(a.ballIds ?? []).map((id) => `b${id}`), ...(a.potionIds ?? []).map((id) => `i${id}`), ...(a.reviveIds ?? []).map((id) => `i${id}`)]);
-      const confirmou = marcados.size === 3 && kitPedido.ids.every((x) => marcados.has(x));
+      // 1.34: item do kit sem estoque o jogo não deixa marcado — conta como confirmado (a compra vem agora)
+      const zerado = (x) => (x[0] === 'b' ? eu?.balls?.[x.slice(1)] : eu?.items?.[x.slice(1)]) ? false : true;
+      const confirmou = [...marcados].every((x) => kitPedido.ids.includes(x)) && kitPedido.ids.every((x) => marcados.has(x) || zerado(x));
       if (!confirmou && Date.now() - kitPedido.em < 60_000) { setTimeout(() => { ultimaReposicao = 0; }, 4000); return; }
       kitPedido = null;
     }
@@ -872,5 +906,5 @@
     if (m?.repor) Object.assign(cfg.repor, { ligado: !!m.repor.ligado });
     gravar();
   }
-  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, irAoCentroEFicar, liberarCentro, melhorHuntPara, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { alvoAuto, consumoPorHora, registrarConsumo, consumo: () => consumo, kphCache: () => kphCache, comprasPendentes, itensVigiados, escolherKit, conferirKit, cfg: () => cfg, passo, rotina: () => rotina, vigiaCentro, centro: () => ({ ultimaHunt, centroDesde, centroFalhou }), forcarCentro: (o) => { if ('centroDesde' in o) centroDesde = o.centroDesde; if ('mexeuEm' in o) mexeuEm = o.mexeuEm; } } };
+  PIH.auto = { html, ligar, aplicar, linhas, definir, acoes, farmDe, irParaHunt, melhorDe, irAoCentroEVoltar, irAoCentroEFicar, caronaNoCentro, liberarCentro, melhorHuntPara, cancelarIdaManual, rotinaAtual: () => (rotina ? { etapa: rotina.etapa, manual: !!rotina.manual, desde: rotina.desde, motivo: rotina.motivo } : null), diario: () => diario.slice(), proximaAnalise: () => ultimaAnalise + CONTINUO_MS, ultimoResultado: () => ultimoResultado, alvoDe, _interno: { alvoAuto, consumoPorHora, registrarConsumo, consumo: () => consumo, kphCache: () => kphCache, comprasPendentes, itensVigiados, escolherKit, conferirKit, cfg: () => cfg, passo, rotina: () => rotina, vigiaCentro, centro: () => ({ ultimaHunt, centroDesde, centroFalhou }), forcarCentro: (o) => { if ('centroDesde' in o) centroDesde = o.centroDesde; if ('mexeuEm' in o) mexeuEm = o.mexeuEm; } } };
 })(globalThis);

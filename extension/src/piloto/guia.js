@@ -64,7 +64,7 @@
     if (!quadro) return;
     if (quadro.tipo === 'tutorial') gravar({ tutorial: true, novidades: versao() || (estado && estado.novidades) || null });
     if (quadro.tipo === 'novidades') gravar({ novidades: versao() });
-    if (quadro.tipo === 'versao' && upd.ultima) { upd.dispensada = upd.ultima; pedirUpd('dispensar', { versao: upd.ultima }); }
+    if (quadro.tipo === 'versao') { if (urgente() && versaoNova()) return; adiadoAte = Date.now() + 60 * 60_000; adiadoVersao = upd.ultima || null; }
     const solto = quadro.solto;
     quadro.el.remove();
     quadro = null;
@@ -97,9 +97,11 @@
     } else if (quadro.tipo === 'versao') {
       const itens = mudancasDaVersao();
       const msg = updStatus && U.updMsg ? U.updMsg[updStatus] || '' : '';
-      titulo = fmt(U.novaVersao || 'Nova versão v{v}', { v: upd.ultima || '?' });
+      titulo = fmt(urgente() ? (U.versaoUrgente || 'Atualização urgente v{v}') : (U.novaVersao || 'Nova versão v{v}'), { v: upd.ultima || '?' });
+      if (urgente() && PIH.pausarUrgente) PIH.pausarUrgente(String(upd.ultima || '?'));
       corpo = `<p class="plt-guia-de">${esc(fmt(U.voceTem || 'Você está na v{v}.', { v: versao() || upd.atual || '?' }))}</p>
         ${itens.length ? `<ul class="plt-guia-lista">${itens.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+        ${urgente() ? `<p class="plt-guia-msg">${esc(U.urgentePausado || 'O Piloto está pausado até você atualizar.')}</p>` : ''}
         ${msg ? `<p class="plt-guia-msg">${esc(msg)}</p>` : ''}`;
       rodape = `<span class="plt-guia-bts plt-guia-bts-fim">
           ${upd.pagina ? `<a class="cfg-escala-bt plt-guia-link" href="${esc(upd.pagina)}" target="_blank" rel="noopener noreferrer">${esc(U.verNoGithub || 'GitHub')}</a>` : ''}
@@ -120,7 +122,7 @@
     quadro.el.innerHTML = `<div class="plt-guia-caixa modal-caixa" role="dialog" aria-modal="false" aria-label="${esc(titulo)}">
         <div class="modal-topo plt-guia-topo">
           <h3 class="plt-guia-h">${quadro.tipo === 'tutorial' ? ICO_GUIA : quadro.tipo === 'versao' ? ICO_UPD : ICO_NOVO}<span>${esc(titulo)}</span></h3>
-          <button type="button" class="plt-guia-fechar" data-guia="fechar" aria-label="${esc(U.fechar)}" title="${esc(U.fechar)}">×</button>
+          ${quadro.tipo === 'versao' && urgente() ? '' : `<button type="button" class="plt-guia-fechar" data-guia="fechar" aria-label="${esc(U.fechar)}" title="${esc(U.fechar)}">×</button>`}
         </div>
         <div class="plt-guia-corpo">${corpo}</div>
         <div class="plt-guia-rodape">${rodape}</div>
@@ -164,7 +166,7 @@
   addEventListener('keydown', (ev) => {
     // 1.33.6: um Esc nos primeiros 2 s depois que o quadro apareceu sozinho era de outra coisa (o
     // André não viu as Novidades da 1.33.5: elas foram marcadas como vistas sem ele ver). Passa reto.
-    if (ev.key === 'Escape' && quadro && !(quadro.solto && Date.now() - quadro.abertoEm < 2000)) { ev.preventDefault(); ev.stopImmediatePropagation(); fechar(); }
+    if (ev.key === 'Escape' && quadro && !(quadro.tipo === 'versao' && urgente() && versaoNova()) && !(quadro.solto && Date.now() - quadro.abertoEm < 2000)) { ev.preventDefault(); ev.stopImmediatePropagation(); fechar(); }
   }, true);
 
   // ---- a versão nova (o fundo procura; a ponte traz o 'piloto:update') -------------------------
@@ -191,8 +193,20 @@
     desenhar();
   });
   // há versão mais nova que a instalada, não escondida no X, e o navegador não atualiza sozinho
+  // 1.34 (regra 14, 27/10): o X só ADIA (1 h, ou até a próxima abertura da página); versão URGENTE
+  // não tem X e pausa a automação até atualizar.
+  let adiadoAte = 0;
+  let adiadoVersao = null; // o adiamento vale para ESSA versão: saiu outra mais nova, aparece na hora
+  const urgente = () => !!(upd && upd.urgente);
   const versaoNova = () => !!(upd && upd.disponivel && upd.ultima && cmpVer(upd.ultima, versao() || upd.atual || '0') > 0
-    && upd.dispensada !== upd.ultima && !upd.autoAtualiza);
+    && (urgente() || (!upd.autoAtualiza && (adiadoVersao !== upd.ultima || Date.now() >= adiadoAte))));
+  // procurar: ao abrir a página, ao voltar para a aba e a cada 30 min (o fundo), no máx. 1 a cada 10 min
+  const procurar = () => pedirUpd('checar', { minMs: 10 * 60_000 });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && naPaginaDoJogo()) procurar(); });
+  setInterval(() => {
+    if (!quadro && adiadoAte && Date.now() >= adiadoAte) { adiadoAte = 0; if (prontoParaSoltar) talvezMostrar(true); }
+    if (upd && upd.urgente && versaoNova() && PIH.pausarUrgente) PIH.pausarUrgente(String(upd.ultima));
+  }, 30_000);
   // o que mudou: o changelog.json da versão nova, no idioma; sem ele, as notas do Release
   function mudancasDaVersao() {
     const m = upd.mudancas && (upd.mudancas[idioma()] || upd.mudancas.en || upd.mudancas.pt);
@@ -229,7 +243,7 @@
     document.addEventListener('visibilitychange', volta);
   }
   // a página do jogo: espera o jogo mandar o primeiro estado (ou 8 s) e mais um pouco
-  const soltar = () => { if (prontoParaSoltar) return; prontoParaSoltar = true; talvezMostrar(true); };
+  const soltar = () => { if (prontoParaSoltar) return; prontoParaSoltar = true; procurar(); talvezMostrar(true); };
   if (naPaginaDoJogo()) {
     let marcado = false;
     if (PIH.on) PIH.on('estado', () => { if (!marcado) { marcado = true; setTimeout(soltar, 2500); } });
@@ -276,5 +290,5 @@
   const ligar = () => { if (document.body) obs.observe(document.body, { childList: true }); else setTimeout(ligar, 300); };
   ligar();
 
-  PIH.guia = { abrir, fechar, estado: () => estado, aberto: () => (quadro ? { tipo: quadro.tipo, passo: quadro.passo, solto: !!quadro.solto } : null), versaoNova };
+  PIH.guia = { _interno: { adiadoAte: () => adiadoAte, voltarJa: () => { adiadoAte = 1; } }, abrir, fechar, estado: () => estado, aberto: () => (quadro ? { tipo: quadro.tipo, passo: quadro.passo, solto: !!quadro.solto } : null), versaoNova };
 })(globalThis);

@@ -162,12 +162,15 @@
   function trocarAtivo(prox, at, huntAuto) {
     const txt = `rodízio: ${prox.nome} (Nv ${prox.level}) entra no lugar de ${at.nome} (Nv ${at.level})`;
     if (huntAuto && PIH.auto && PIH.auto.irAoCentroEFicar && !rodCentro) {
-      const r = PIH.auto.irAoCentroEFicar({ motivo: `${txt} — trocando no Centro` });
+      // 1.34: com uma ida ao Centro já andando, pega carona nela em vez de esperar ela voltar
+      const carona = PIH.auto._interno.rotina() && PIH.auto.caronaNoCentro;
+      const r = carona ? PIH.auto.caronaNoCentro({ motivo: `${txt} — trocando nesta ida ao Centro` }) : PIH.auto.irAoCentroEFicar({ motivo: `${txt} — trocando no Centro` });
       if (r.ok) {
         rodCentro = { proxId: prox.id, nome: prox.nome, deNome: at.nome, etapa: 'indo', desde: Date.now(), em: 0 };
         diario(`${txt}: vou trocar no Centro e levar ${prox.nome} direto para a melhor hunt dele`);
         return true;
       }
+      if (carona) return false; // a ida ao Centro andando não deu carona: espera ela acabar (nunca troca no meio da hunt)
     }
     return pedir({ t: 'team.active', pokemonId: prox.id }, `${txt}${huntAuto ? ' — a Troca de hunt leva para a melhor hunt dele' : ''}`);
   }
@@ -222,8 +225,9 @@
       const sair = (txt, tipo, destino) => { rodCentro = null; try { PIH.auto.liberarCentro(destino); } catch { /* sem auto */ } if (txt) diario(txt, tipo); };
       if (agora - r.desde > 12 * 60_000) return sair('rodízio: a troca no Centro passou de 12 min — voltando', 'aviso');
       if (r.etapa === 'indo') {
-        if (eu.noCentro) { r.etapa = 'trocar'; r.em = 0; return; }
         const rot = PIH.auto.rotinaAtual();
+        // 1.34: a rotina parada no Centro também conta como chegou (o relógio de 1 s podia perder o noCentro)
+        if (eu.noCentro || (rot && rot.etapa === 'parado')) { r.etapa = 'trocar'; r.em = 0; return; }
         if (!rot) { rodCentro = null; marcas.rodizio = Date.now() - cfg.rodizio.intervaloMin * 60_000 + 2 * 60_000; diario('rodízio: não cheguei ao Centro — tento de novo em 2 min', 'aviso'); return; }
         if (!r.valvula && rot.etapa === 'esperar' && naHunt() && agora - r.desde > VALVULA_MS) { r.valvula = true; await valvula(r); }
         return;
@@ -288,7 +292,12 @@
     const c = cfg.rodizio;
     const comecar = !!marcas.rodizioComecar;
     if (!c.ligado || !naHunt() || !PIH.engine || (!comecar && faltaDoTurno() > 0) || !venceu('rodizio', comecar ? 30_000 : 3 * 60_000)) return false;
-    if (rodCentro || (PIH.auto && PIH.auto._interno.rotina())) return false; // a troca de hunt (ou a do Centro) está andando
+    if (rodCentro) return false; // a troca do rodízio já está andando
+    // 1.34: uma ida ao Centro já andando (reposição, vigia, botão ↩) não segura mais o rodízio — ele pega
+    // carona nela. Só espera a que não passa pelo Centro (a troca de hunt direta) ou a do time.
+    const rotAuto = PIH.auto && PIH.auto._interno.rotina();
+    if (rotAuto && !(rotAuto.curar || (rotAuto.compras && rotAuto.compras.length)) ) return false;
+    if (rotAuto && (rotAuto.ficar || !['esperar', 'indo', 'centro', 'sair'].includes(rotAuto.etapa))) return false;
     if (PIH.metaCaca && PIH.metaCaca.ativo()) return false; // 1.24: caçando o meta, quem luta é o mais forte
     if (PIH.time && PIH.time.emSessao && PIH.time.emSessao()) return false; // 1.26.3: trocando o time no Centro
     const h = huntAtual();

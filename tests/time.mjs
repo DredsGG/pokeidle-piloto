@@ -333,6 +333,23 @@ r.ganho = await page.evaluate(async () => {
 }
 const gOk = r.ganho.soXp === null && r.ganho.depois && r.ganho.depois.t === '+2' && /\+2 (níveis neste turno|levels this turn)/.test(r.ganho.depois.title) && r.ganho.novoTurno === null && r.ganho.voltou === null;
 console.log(gOk ? 'ok   Em campo: +2 ao lado do nível no turno; troca de turno zera; só XP não mostra' : 'FALHOU ganho de nível ' + JSON.stringify(r.ganho));
+// 1.34 (o André viu o Blastoise ir ao Centro no fim do turno, voltar para a mesma hunt e só 3 min
+// depois o rodízio fazer outra viagem): com uma ida ao Centro já andando, o rodízio pega carona nela
+for (let i = 0; i < 30 && await page.evaluate(() => !!window.__pokeidleHunt.auto.rotinaAtual() || !!window.__pokeidleHunt.rotina._interno.rodCentro()); i++) await sleep(1000);
+srv({ t: 'estado', estado: { noCentro: false, huntSlug: 'rattata_1', centroLivreEm: 0 } }); await sleep(800);
+const antesC = recebidos.length;
+r.carona = await page.evaluate(async () => {
+  const P = window.__pokeidleHunt; const R = P.rotina;
+  R._interno.marcas().rodizio = 0; R._interno.marcas().rodizioComecar = false;
+  const T = P.time._interno.turnos(); if (T.atual) { T.atual.inicio = Date.now() - 2 * 3_600_000; T.atual.desde = T.atual.inicio; T.atual.desmaio = false; }
+  const ida = P.auto.irAoCentroEVoltar();
+  const troca = await R._interno.TAREFAS.find((f) => f.name === 'tarefaRodizio')();
+  return { ida: ida.ok, troca, rod: !!R._interno.rodCentro(), fica: !!(P.auto._interno.rotina() && P.auto._interno.rotina().ficar) };
+});
+for (let i = 0; i < 20 && !recebidos.slice(antesC).some((m) => m.t === 'hunt.select'); i++) await sleep(1000);
+r.caronaSeq = recebidos.slice(antesC).filter((m) => ['centro.ir', 'team.active', 'hunt.select'].includes(m.t)).map((m) => m.t + ':' + (m.pokemonId ?? m.slug ?? ''));
+const cOk = r.carona.ida && r.carona.troca && r.carona.rod && r.carona.fica && r.caronaSeq.filter((x) => x === 'centro.ir:').length === 1 && r.caronaSeq.some((x) => x.startsWith('team.active:')) && r.caronaSeq.indexOf('centro.ir:') < r.caronaSeq.findIndex((x) => x.startsWith('team.active:')) && r.caronaSeq.some((x) => x.startsWith('hunt.select:'));
+console.log(cOk ? 'ok   rodízio pega carona na ida ao Centro que já estava andando (uma viagem só)' : 'FALHOU carona ' + JSON.stringify({ c: r.carona, seq: r.caronaSeq }));
 await page.locator('#ativo-card').screenshot({ path: `${SAIDA}/9-ganho-nivel.png` }).catch(() => {});
 console.log(JSON.stringify(r));
 setTimeout(() => process.exit(0), 500); await ctx.close();

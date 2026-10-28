@@ -29,7 +29,7 @@
   function juntarCompras(registro, historico) {
     // 1.33.9: compra com clique (automatica === false) é SUA, não do radar — fica fora do "doRadar"
     const doRadar = (registro || [])
-      .filter((a) => a && a.automatica !== false && (a.resultado === 'ganhou' || a.resultado === 'confirmado') && positivo(a.preco))
+      .filter((a) => a && a.automatica !== false && !a.alvo && (a.resultado === 'ganhou' || a.resultado === 'confirmado') && positivo(a.preco))
       .map((a) => {
         const qtd = positivo(a.qtdPedida) ? a.qtdPedida : a.qtd;
         return { nome: a.nome, qtd, bruto: a.preco * qtd, em: numero(a.concluidoEm) ?? numero(a.em), doRadar: true };
@@ -177,7 +177,7 @@
     const l0 = livro && typeof livro === 'object' ? livro : livroManualVazio();
     const out = { itens: { ...(l0.itens || {}) }, pokemons: [...new Set((l0.pokemons || []).map(Number).filter(Number.isInteger))], vistos: [...(l0.vistos || [])] };
     const vistos = new Set(out.vistos.map(String));
-    const registroAuto = (registro || []).filter((a) => a && a.automatica !== false && (a.resultado === 'ganhou' || a.resultado === 'confirmado'))
+    const registroAuto = (registro || []).filter((a) => a && a.automatica !== false && !a.alvo && (a.resultado === 'ganhou' || a.resultado === 'confirmado'))
       .map((a) => ({ nome: a.nome, qtd: positivo(a.qtdPedida) ? a.qtdPedida : a.qtd, em: numero(a.concluidoEm) ?? numero(a.em), pokemonId: a.pokemonId }));
     let mudou = false;
     for (const l of historico || []) {

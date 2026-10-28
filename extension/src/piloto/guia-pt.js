@@ -8,7 +8,7 @@
     ui: {
       comoUsar: 'Como usar o Piloto', pular: 'Pular', voltar: 'Voltar', proximo: 'Próximo', entendi: 'Entendi', fechar: 'Fechar (Esc)',
       passo: 'Passo {n} de {t}', novidades: 'Novidades da v{v}', verGuia: 'Ver o guia', eMais: 'e mais {n} — a lista completa está no GitHub',
-      novaVersao: 'Nova versão v{v}', voceTem: 'Você está na v{v}. O que mudou:', atualizar: 'Atualizar', verNoGithub: 'Ver no GitHub',
+      versaoUrgente: 'Atualização urgente v{v}', urgentePausado: 'O Piloto está pausado até você atualizar.', novaVersao: 'Nova versão v{v}', voceTem: 'Você está na v{v}. O que mudou:', atualizar: 'Atualizar', verNoGithub: 'Ver no GitHub',
       updMsg: {
         aplicando: 'Atualizando…',
         baixado: 'O zip novo foi baixado (pasta Downloads). Extraia por cima da pasta do Piloto: em até 1 min ele se recarrega sozinho e as abas do jogo recarregam.',
@@ -29,6 +29,13 @@
     novidades: {
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
+      ],
+      '1.34.0': [
+        "Versão nova: o Piloto procura sozinho ao abrir o jogo, a cada 30 min e quando você volta para a aba, e mostra o aviso na hora, sem recarregar. O X só adia por 1 h; atualização urgente pausa o Piloto até você atualizar.",
+        "Modo Manual: aba Alvos no Mercado — para cada item, o teto em ouro e quantas unidades comprar; o Radar compra sozinho quando aparece no teto ou abaixo. Também alvos de pokémon em ouro (P5 e nota mínima).",
+        "Modo Manual: com \"Calcular os limites sozinho\" desligado, os limites do Mercado viram campos para você digitar, e o F5 não desfaz mais o que você ajustou.",
+        "Reposição: o revive, a poção ou a bola que a conta escolheu volta a ser comprado quando acaba, mesmo que o jogo o desmarque por estar zerado.",
+        "Rodízio: se o turno acaba durante uma ida ao Centro (reposição, por exemplo), a troca acontece nessa mesma viagem, sem voltar antes para a hunt.",
       ],
       '1.33.9': [
         "Revenda automática: o que você compra à mão (no Mercado, com clique no Radar ou pokémon) nunca é anunciado sozinho; só entra na revenda o que veio sozinho (drop ou compra automática do Radar).",

@@ -481,7 +481,7 @@ chrome.notifications.onClicked.addListener(async (id) => {
 // - Depois de recarregar, as abas do jogo recarregam (o Piloto volta sozinho no modo em que estava).
 const REPO = 'DredsGG/pokeidle-piloto';
 const CHAVE_UPD = 'piloto:update';
-const CHECAR_A_CADA_MIN = 360;
+const CHECAR_A_CADA_MIN = 30; // 1.34 (regra 14): a cada 30 min; a página também pede ao abrir e ao voltar para a aba
 const versaoAtual = () => chrome.runtime.getManifest().version;
 const cmpVer = (a, b) => {
   const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
@@ -512,7 +512,8 @@ async function checarUpd() {
     const zip = link(/\.zip$/i);
     const xpi = NO_FIREFOX ? link(/\.xpi$/i) : null;
     const disponivel = !!ultima && cmpVer(ultima, cur) > 0;
-    return gravarUpd({ ...base, ultima, notas: String(j.body || '').slice(0, 4000), pagina: j.html_url || null, zip, xpi, disponivel, mudancas: disponivel ? await mudancasAte(ultima, cur) : null, erro: null });
+    const titulo = String(j.name || '').slice(0, 120);
+    return gravarUpd({ ...base, titulo, urgente: /URGENTE/i.test(titulo), ultima, notas: String(j.body || '').slice(0, 4000), pagina: j.html_url || null, zip, xpi, disponivel, mudancas: disponivel ? await mudancasAte(ultima, cur) : null, erro: null });
   } catch (e) {
     return gravarUpd({ ...base, erro: String(e && e.message || e) });
   }
@@ -631,7 +632,16 @@ const ACOES = {
   // popup da sala que o navegador restaurou (o tamanho 1440×900 com que o Piloto abre). Um pedido de
   // cada vez (duas abas do jogo não abrem a mesma sala duas vezes).
   'plateia:abrir': (m) => (filaPlateia = filaPlateia.then(() => abrirSalasPlateia(m)).catch((e) => { erro(e); return []; })),
-  'upd:checar': () => checarUpd(),
+  // 1.34: a página pede ao abrir e ao voltar para a aba (minMs: no máximo uma vez a cada 10 min);
+  // o botão "Procurar atualização" pede sem minMs (na hora)
+  'upd:checar': async (m) => {
+    const minMs = Number(m && m.minMs) || 0;
+    if (minMs > 0) {
+      const { [CHAVE_UPD]: atual = {} } = await chrome.storage.local.get(CHAVE_UPD);
+      if (Date.now() - (Number(atual.checadoEm) || 0) < minMs) return atual;
+    }
+    return checarUpd();
+  },
   'upd:aplicar': () => aplicarUpd(),
   'upd:dispensar': async (m) => gravarUpd({ ...(m.limparAviso ? { acabouDe: null } : { dispensada: typeof m.versao === 'string' ? m.versao.slice(0, 20) : null }) }),
   'voto:fechar': async () => {

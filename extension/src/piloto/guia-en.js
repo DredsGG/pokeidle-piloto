@@ -8,7 +8,7 @@
     ui: {
       comoUsar: 'How to use the Pilot', pular: 'Skip', voltar: 'Back', proximo: 'Next', entendi: 'Got it', fechar: 'Close (Esc)',
       passo: 'Step {n} of {t}', novidades: "What's new in v{v}", verGuia: 'See the guide', eMais: 'and {n} more — the full list is on GitHub',
-      novaVersao: 'New version v{v}', voceTem: "You're on v{v}. What changed:", atualizar: 'Update', verNoGithub: 'See on GitHub',
+      versaoUrgente: 'Urgent update v{v}', urgentePausado: 'The Pilot is paused until you update.', novaVersao: 'New version v{v}', voceTem: "You're on v{v}. What changed:", atualizar: 'Update', verNoGithub: 'See on GitHub',
       updMsg: {
         aplicando: 'Updating…',
         baixado: 'The new zip was downloaded (Downloads folder). Extract it over the Pilot folder: within 1 min it reloads by itself and the game tabs reload.',
@@ -29,6 +29,13 @@
     novidades: {
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
+      ],
+      '1.34.0': [
+        "New version: the Pilot checks on its own when the game opens, every 30 min and when you come back to the tab, and shows the notice right away, without reloading. The X only postpones it for 1 h; an urgent update pauses the Pilot until you update.",
+        "Manual mode: Targets tab in the Market — for each item, the max price in gold and how many to buy; the Radar buys on its own when a listing shows up at or below it. Also Pokémon targets in gold (P5 and minimum grade).",
+        "Manual mode: with \"Calculate limits automatically\" off, the Market limits become fields you can type in, and F5 no longer undoes what you set.",
+        "Restock: the revive, potion or ball picked for the account is bought again when it runs out, even if the game unticks it for being at zero.",
+        "Rotation: if the turn ends during a trip to the Center (a restock, for example), the swap happens on that same trip, without going back to the hunt first.",
       ],
       '1.33.9': [
         "Automatic resale: what you buy by hand (on the Market, with a click in the Radar, or a Pokémon) is never listed on its own; only what came by itself (drops or the Radar's automatic buys) goes to resale.",

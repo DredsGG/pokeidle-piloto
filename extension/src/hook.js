@@ -731,8 +731,14 @@
    * O piloto pede um comando. Devolve { ok, motivo }: ok quer dizer "aceito na fila" — o comando
    * sai assim que houver ficha, e nunca a menos de 3 s de uma compra ou anúncio do radar.
    */
+  // 1.34 (regra 14, 27/10): Release com "URGENTE" no título pausa a automação até a pessoa
+  // atualizar. Só liga (nunca desliga nesta página): depois de atualizar, a página recarrega.
+  let pausaUrgente = null;
+  PIH.pausarUrgente = (v) => { if (!pausaUrgente && typeof v === 'string' && v) { pausaUrgente = v.slice(0, 20); emitirInterno('pausa.urgente', pausaUrgente); } return pausaUrgente; };
+  PIH.emPausaUrgente = () => pausaUrgente;
   PIH.pedir = (obj, origem = 'piloto') => {
     const t = obj && obj.t;
+    if (pausaUrgente) return { ok: false, motivo: `pausado: atualização urgente (v${pausaUrgente})` };
     if (!t || BLOQUEADOS.has(t)) return { ok: false, motivo: `bloqueado: ${t}` };
     // Só chave própria da lista (nada de "constructor" ou "__proto__" vindo do protótipo), e o
     // pedido validado é copiado e congelado: ninguém troca o `t` depois da conferência.
@@ -769,7 +775,7 @@
   }, 20000);
   PIH.freio = () => ({ taxaLeitura: BALDES.leitura.taxa, taxaEscrita: BALDES.escrita.taxa, reclamacoes: freioInfo.reclamacoes });
   PIH.contagemDoJogo = () => ({ in: { ...st.contagem.in }, out: { ...st.contagem.out }, conectado: !!st.atual, ultimaEntrada: st.ultimaEntrada || 0 });
-  for (const k of ['on', 'emit', 'pedir', 'enviar', 'registrarCofre', 'itensReservados', 'liberarItemParaEvoluir', 'BLOQUEADOS', 'COMANDOS_DO_PILOTO', 'hookInstalado', 'contagemDoJogo', 'freio']) {
+  for (const k of ['on', 'emit', 'pedir', 'enviar', 'registrarCofre', 'itensReservados', 'liberarItemParaEvoluir', 'pausarUrgente', 'emPausaUrgente', 'BLOQUEADOS', 'COMANDOS_DO_PILOTO', 'hookInstalado', 'contagemDoJogo', 'freio']) {
     Object.defineProperty(PIH, k, { value: PIH[k], writable: false, configurable: false, enumerable: true });
   }
 
@@ -1153,6 +1159,7 @@
     if (v.erro) return responder(ref, false, v.erro);
     const pedido = v.pedido;
     if (BLOQUEADOS.has(pedido.t)) return responder(ref, false, `bloqueado: ${pedido.t}`);
+    if (pausaUrgente && !RE_LEITURA.test(pedido.t)) return responder(ref, false, `pausado: atualização urgente (v${pausaUrgente})`);
     const compra = pedido.t === 'market.comprar';
     if (compra && st.comprados.has(pedido.id)) return responder(ref, false, 'compra já enviada para esse anúncio');
     const ws = st.atual;

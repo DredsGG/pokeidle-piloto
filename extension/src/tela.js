@@ -156,6 +156,22 @@
     .cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0 14px; }
     .cartao-aj { padding: 10px 12px; margin-bottom: 10px; border-radius: 7px; background: var(--sup2); box-shadow: inset 0 0 0 1px var(--vluz); }
     .lims { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+    /* 1.34: limites editáveis (Manual, cálculo automático desligado) e a aba Alvos */
+    .lim input, .alv-f input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 5px 7px; border-radius: 5px; border: 1px solid var(--vluz); background: var(--sup2, rgba(0,0,0,.25)); color: #fff; font: 700 13px/1.2 inherit; }
+    .lim.editavel { box-shadow: inset 0 0 0 1px var(--pl-ouro-luz, #ffd76a); }
+    .alv-form { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: end; }
+    .alv-f small { display: block; font: 700 9.5px/1.2 var(--tahoma); text-transform: uppercase; letter-spacing: .5px; color: var(--dim); }
+    .alv-lista { display: grid; gap: 6px; margin-top: 10px; width: 100%; }
+    .alv-l { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 6px; background: var(--fundo); box-shadow: inset 0 0 0 1px var(--vluz); }
+    .alv-l.off { opacity: .55; }
+    .alv-l b { color: #fff; }
+    .alv-l small { display: block; color: var(--dim); }
+    .alv-l > span:first-child { display: block; min-width: 0; }
+    .alv-barra { display: block; height: 5px; margin-top: 5px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
+    .alv-barra i { display: block; height: 100%; background: #6fb6e6; }
+    .alv-vazio { color: var(--dim); margin: 8px 0 0; }
+    .alv-msg { width: 100%; margin: 6px 0 0; color: #ffd76a; }
+    @media (max-width: 560px) { .alv-form { grid-template-columns: 1fr 1fr; } }
     .lim { padding: 8px 10px; border-radius: 6px; background: var(--fundo); box-shadow: inset 0 0 0 1px var(--vluz); }
     .lim small { display: block; font: 700 9.5px/1.2 var(--tahoma); text-transform: uppercase; letter-spacing: .5px; color: var(--dim); }
     .lim b { display: block; margin-top: 3px; font-size: 15px; color: #fff; }
@@ -408,7 +424,7 @@
     p.abas = {};
     p.conteudos = {};
     const vao = el('div', 'vao');
-    for (const [chave, rotulo] of [['avisos', 'Avisos'], ['mercado', 'Ofertas'], ['compras', 'Compras'], ['vendas', 'Vendas'], ['revenda', 'Revenda'], ['lucro', 'Lucro'], ['ajustes', 'Ajustes']]) {
+    for (const [chave, rotulo] of [['avisos', 'Avisos'], ['mercado', 'Ofertas'], ['compras', 'Compras'], ['vendas', 'Vendas'], ['revenda', 'Revenda'], ['lucro', 'Lucro'], ['alvos', 'Alvos'], ['ajustes', 'Ajustes']]) {
       const b = el('button', 'aba cfg-escala-bt', rotulo);
       b.type = 'button';
       b.setAttribute('role', 'tab');
@@ -458,6 +474,12 @@
 
     p.ajustes.classList.add('cfg-corpo');
     p.ajustes.addEventListener('click', aoClicarNosAjustes);
+    p.ajustes.addEventListener('change', aoMudarNosAjustes);
+    // Alvos (1.34): regras de compra por item, só no Manual.
+    p.alvos = el('div', 'ajustes cfg-corpo');
+    p.conteudos.alvos.append(p.alvos);
+    p.alvos.addEventListener('click', aoClicarNosAlvos);
+    p.alvos.addEventListener('change', aoMudarNosAlvos);
     painel.append(cab, p.faixa, abas, vao);
     sombra.append(estilo, painel);
     p.painel = painel;
@@ -483,7 +505,7 @@
 
   function mostrarAba(aba, semPedir) {
     s.aba = aba;
-    if (aba === 'ajustes' && s.modoPiloto !== 'manual' && encaixado) aba = s.aba = 'avisos';
+    if ((aba === 'ajustes' || aba === 'alvos') && s.modoPiloto !== 'manual' && encaixado) aba = s.aba = 'avisos';
     for (const [chave, b] of Object.entries(p.abas)) { b.setAttribute('aria-selected', String(chave === aba)); b.classList.toggle('on', chave === aba); }
     for (const [chave, secao] of Object.entries(p.conteudos)) secao.hidden = chave !== aba;
     if (!semPedir) pedirDaAba(aba, false);
@@ -796,16 +818,24 @@
     if (aba === 'compras') pintarCompras();
     if (aba === 'vendas') pintarVendas();
     if (aba === 'ajustes') pintarAjustes();
+    if (aba === 'alvos') pintarAlvos();
   }
 
   // ---- Ajustes -----------------------------------------------------------------------------------
   const NOMES_CATEGORIA = { stone: 'Pedras', fragment: 'Fragmentos', boss: 'Fichas de boss', ticket: 'Tickets', tm: 'TMs', mega: 'Mega pedras', skin: 'Skins', ovo: 'Ovos' };
   let catalogoCats = null;
 
-  async function salvarConfig(mudanca) {
-    const salvo = await chrome.storage.local.get(Config.CHAVE);
-    const atual = Config.validar(salvo[Config.CHAVE]);
-    await chrome.storage.local.set({ [Config.CHAVE]: { ...atual, ...mudanca } });
+  // 1.34: uma gravação de cada vez. Duas mudanças seguidas (dois campos de limite, ou o "input" e o
+  // "change" do mesmo campo) liam a config ao mesmo tempo e a segunda apagava a primeira.
+  let filaSalvar = Promise.resolve();
+  function salvarConfig(mudanca) {
+    const vez = filaSalvar.then(async () => {
+      const salvo = await chrome.storage.local.get(Config.CHAVE);
+      const atual = Config.validar(salvo[Config.CHAVE]);
+      await chrome.storage.local.set({ [Config.CHAVE]: { ...atual, ...mudanca } });
+    });
+    filaSalvar = vez.catch(() => {});
+    return vez;
   }
 
   function modoDoRadar(c) {
@@ -851,8 +881,9 @@
     if (!p.painel) return;
     p.painel.dataset.modo = s.modoPiloto || 'manual';
     if (p.abas && p.abas.ajustes) p.abas.ajustes.hidden = encaixado && s.modoPiloto !== 'manual';
+    if (p.abas && p.abas.alvos) p.abas.alvos.hidden = encaixado && s.modoPiloto !== 'manual';
     if (p.abrirOpcoes) p.abrirOpcoes.hidden = encaixado && s.modoPiloto !== 'manual';
-    if (s.aba === 'ajustes' && encaixado && s.modoPiloto !== 'manual') mostrarAba('avisos', true);
+    if ((s.aba === 'ajustes' || s.aba === 'alvos') && encaixado && s.modoPiloto !== 'manual') mostrarAba('avisos', true);
     pintarFaixa();
     if (s.aba === 'ajustes') pintarAjustes();
   }
@@ -903,7 +934,20 @@
       ['Pokémon', `${fmtPct(c.descontoMinimoPokemon)} · ${fmtC(c.lucroMinimoPokemon)}`, 'Desconto e lucro mínimos para pokémon'],
       ['Ouro/h base', ctx && ctx.ouroH ? fmtC(ctx.ouroH) : 'medindo', 'Enquanto mede, valem os pisos'],
     ];
-    const lims = `<div class="lims">${blocos.map(([k, v, d]) => `<div class="lim" title="${escH(d)}"><small>${k}</small><b>${v}</b></div>`).join('')}</div>`;
+    // 1.34: no Manual com o cálculo automático desligado, os limites são seus: viram campos.
+    const editavel = !b.ajusteAutomatico && (!encaixado || s.modoPiloto === 'manual') && !trava();
+    const campo = (k, v, passo, pct = false) => `<input type="number" inputmode="decimal" min="0" step="${passo}" data-lim="${k}"${pct ? ' data-pct="1"' : ''} value="${escH(v)}">`;
+    const pct = (x) => Math.round((Number(x) || 0) * 100);
+    const lims = editavel
+      ? `<div class="lims">${[
+        ['Lucro mín.', campo('lucroMinimo', b.lucroMinimo, 1000), 'O mesmo para avisar e para comprar sozinho (ouro)'],
+        ['Desconto mín. (%)', campo('descontoMinimo', pct(b.descontoMinimo), 1, true), 'Quanto abaixo do preço de revenda, de 16% a 90%'],
+        ['Por compra', campo('gastoMaximoAuto', b.gastoMaximoAuto, 100000), '0 = até o saldo. O cofre do Piloto continua segurando'],
+        ['Teto do dia', campo('gastoMaximoDia', b.gastoMaximoDia, 100000), '0 = sem teto. O cofre do Piloto continua segurando'],
+        ['Pokémon: desconto (%)', campo('descontoMinimoPokemon', pct(b.descontoMinimoPokemon), 1, true), 'De 50% a 90%'],
+        ['Pokémon: lucro mín.', campo('lucroMinimoPokemon', b.lucroMinimoPokemon, 10000), 'Depois dos 15% e de um dia de diária'],
+      ].map(([k, v, d]) => `<label class="lim editavel" title="${escH(d)}"><small>${k}</small>${v}</label>`).join('')}</div>`
+      : `<div class="lims">${blocos.map(([k, v, d]) => `<div class="lim" title="${escH(d)}"><small>${k}</small><b>${v}</b></div>`).join('')}</div>`;
     const cats = `<div class="cfg-escala">${[...catalogoCats].map(([cat, n]) => `<button type="button" class="cfg-escala-bt${b.categorias.includes(cat) ? ' on' : ''}" data-categoria="${escH(cat)}"${trava() ? ' disabled' : ''}>${escH(NOMES_CATEGORIA[cat] || cat)}${typeof n === 'number' ? ` (${n})` : ''}</button>`).join('')}</div>`;
     const html = `<div class="cfg-linhas r-linhas">
       ${linhasPrincipais(b)}
@@ -914,6 +958,120 @@
     </div>`;
     if (alvo._html !== html) { alvo._html = html; alvo.innerHTML = html; }
   }
+
+  // 1.34: salvar um limite digitado (Manual). O do automático acompanha o do aviso.
+  function aoMudarNosAjustes(ev) {
+    const t = ev.target.closest('input[data-lim]');
+    if (!t || t.disabled) return;
+    let v = Number(String(t.value).replace(',', '.'));
+    if (!Number.isFinite(v) || v < 0) return;
+    if (t.dataset.pct) v /= 100;
+    const k = t.dataset.lim;
+    const m = { [k]: v };
+    if (k === 'lucroMinimo') m.lucroMinimoAuto = v;
+    if (k === 'descontoMinimo') m.descontoMinimoAuto = v;
+    if (k === 'gastoMaximoAuto') m.gastoMaximoPorCompra = v;
+    salvarConfig(m).catch(erro);
+  }
+
+  // ---- 1.34: Alvos de compra (Manual) ---------------------------------------------------------
+  let catalogoItens = null; // [{ id, nome, categoria }]
+  let alvosConta = {};
+  let alvoEditando = null;
+  let alvoMsg = '';
+  async function carregarCatalogoItens() {
+    if (catalogoItens) return catalogoItens;
+    try {
+      const r = await chrome.storage.local.get(['radar:catalogo', 'radar:alvos-contagem']);
+      catalogoItens = ((r['radar:catalogo'] && r['radar:catalogo'].itens) || []).filter((i) => i && i.id && i.nome && !Config.CATEGORIAS_PROIBIDAS.includes(i.categoria)).sort((a, b) => a.nome.localeCompare(b.nome));
+      alvosConta = r['radar:alvos-contagem'] || {};
+    } catch (e) { erro(e); catalogoItens = []; }
+    return catalogoItens;
+  }
+  async function pintarAlvos() {
+    const alvo = p.alvos;
+    if (!alvo) return;
+    const itens = await carregarCatalogoItens();
+    const b = s.base;
+    const nomeDe = (id) => (itens.find((i) => Number(i.id) === Number(id)) || {}).nome || `item ${id}`;
+    const ed = alvoEditando ? (b.alvos || []).find((a) => a.id === alvoEditando) : null;
+    const tv = trava();
+    const lista = (b.alvos || []).map((a) => {
+      const n = alvosConta[a.id] || 0;
+      const pctB = a.max ? Math.min(100, Math.round((n / a.max) * 100)) : 0;
+      return `<div class="alv-l${a.ligado ? '' : ' off'}">
+        <span><b>${escH(nomeDe(a.itemId))}</b><small>até ${fmtC(a.teto)} de ouro · comprou ${fmtN(n)} / ${a.max ? fmtN(a.max) : '∞'}</small>${a.max ? `<span class="alv-barra"><i style="width:${pctB}%"></i></span>` : ''}</span>
+        <button type="button" class="cfg-toggle${a.ligado ? ' on' : ''}" role="switch" aria-checked="${a.ligado}" data-alvo-ligar="${escH(a.id)}" aria-label="Ligar ou desligar o alvo"${tv ? ' disabled' : ''}></button>
+        <button type="button" class="cfg-escala-bt" data-alvo-editar="${escH(a.id)}"${tv ? ' disabled' : ''}>Editar</button>
+        <button type="button" class="cfg-escala-bt" data-alvo-excluir="${escH(a.id)}"${tv ? ' disabled' : ''}>Excluir</button>
+      </div>`;
+    }).join('');
+    const ap = b.alvosPk || { p5: {}, nota: {} };
+    const html = `<div class="cfg-linhas r-linhas">
+      ${linhaR({ nome: 'Alvos de compra', status: `${(b.alvos || []).length} de ${Config.MAX_ALVOS}`, dica: 'Para cada item, o preço máximo em ouro e quantas unidades comprar. Quando aparece um anúncio de outro jogador no teto ou abaixo, o radar compra sozinho (entra no sorteio como sempre), até completar a quantidade. Passa pelo cofre do Piloto. O que um alvo compra é seu: não entra na revenda automática. Gema e diamante nunca. Só funciona no Manual e com o Radar ligado.',
+    ajustes: `<div class="alv-form" style="width:100%">
+          <label class="alv-f"><small>Item</small><input list="alv-itens" data-alvo-campo="item" placeholder="Ex.: Rock Stone" value="${ed ? escH(nomeDe(ed.itemId)) : ''}"${tv ? ' disabled' : ''}><datalist id="alv-itens">${itens.map((i) => `<option value="${escH(i.nome)}"></option>`).join('')}</datalist></label>
+          <label class="alv-f"><small>Teto em ouro</small><input type="number" min="2" step="1" data-alvo-campo="teto" placeholder="Ex.: 30000" value="${ed ? ed.teto : ''}"${tv ? ' disabled' : ''}></label>
+          <label class="alv-f"><small>Quantidade máx. (0 = sem limite)</small><input type="number" min="0" step="1" data-alvo-campo="max" value="${ed ? ed.max : 0}"${tv ? ' disabled' : ''}></label>
+          <button type="button" class="botao" data-alvo-salvar="1"${tv ? ' disabled' : ''}>${ed ? 'Salvar alvo' : 'Adicionar alvo'}</button>
+        </div>${alvoMsg ? `<p class="alv-msg">${escH(alvoMsg)}</p>` : ''}
+        <div class="alv-lista">${lista || '<p class="alv-vazio">Nenhum alvo ainda: escolha o item, o teto e a quantidade.</p>'}</div>` })}
+      ${linhaR({ nome: 'Alvos de pokémon (em ouro)', dica: 'Compra sozinho o pokémon anunciado em ouro que passa na regra, até o teto. Shiny fica de fora: no Mercado ele só se vende em Gemas. Precisa do "Pokémon em ouro" ligado em Ajustes.',
+    ajustes: `<div class="lims" style="width:100%">
+          <label class="lim editavel"><small>P5 (potência 5)</small>${tg2('p5.ligado', ap.p5.ligado)}<input type="number" min="0" step="100000" data-alvo-pk="p5.teto" value="${ap.p5.teto || ''}" placeholder="Teto em ouro"${tv ? ' disabled' : ''}></label>
+          <label class="lim editavel"><small>Nota mínima</small>${tg2('nota.ligado', ap.nota.ligado)}<input type="number" min="0" max="10" step="0.1" data-alvo-pk="nota.corte" value="${ap.nota.corte}" title="Nota mínima (0 a 10)" placeholder="Nota (0 a 10)"${tv ? ' disabled' : ''}><input type="number" min="0" step="100000" data-alvo-pk="nota.teto" value="${ap.nota.teto || ''}" placeholder="Teto em ouro"${tv ? ' disabled' : ''}></label>
+        </div>` })}
+    </div>`;
+    if (alvo._html !== html) { alvo._html = html; alvo.innerHTML = html; }
+  }
+  const tg2 = (k, on) => `<button type="button" class="cfg-toggle${on ? ' on' : ''}" role="switch" aria-checked="${!!on}" data-alvo-pk-ligar="${k}" aria-label="Ligar ou desligar"${trava() ? ' disabled' : ''}></button>`;
+  async function salvarAlvos(lista) { await salvarConfig({ alvos: lista }); }
+  function aoClicarNosAlvos(ev) {
+    const t = ev.target.closest('button');
+    if (!t || t.disabled) return;
+    if (t.matches('.cfg-ajuda')) { const l = t.closest('.cfg-linha'); if (l) { l.classList.toggle('aberta'); t.setAttribute('aria-expanded', String(l.classList.contains('aberta'))); } return; }
+    const lista = (s.base.alvos || []).map((a) => ({ ...a }));
+    if (t.dataset.alvoLigar) { const a = lista.find((x) => x.id === t.dataset.alvoLigar); if (a) { a.ligado = !a.ligado; salvarAlvos(lista).catch(erro); } return; }
+    if (t.dataset.alvoExcluir) { alvoMsg = ''; if (alvoEditando === t.dataset.alvoExcluir) alvoEditando = null; salvarAlvos(lista.filter((x) => x.id !== t.dataset.alvoExcluir)).catch(erro); return; }
+    if (t.dataset.alvoEditar) { alvoEditando = t.dataset.alvoEditar; alvoMsg = ''; p.alvos._html = ''; pintarAlvos(); return; }
+    if (t.dataset.alvoPkLigar) { const [g, k] = t.dataset.alvoPkLigar.split('.'); const ap = JSON.parse(JSON.stringify(s.base.alvosPk || {})); ap[g] = { ...(ap[g] || {}), [k]: !(ap[g] && ap[g][k]) }; salvarConfig({ alvosPk: ap }).catch(erro); return; }
+    if (t.dataset.alvoSalvar) {
+      const v = (c) => (p.alvos.querySelector(`[data-alvo-campo="${c}"]`) || {}).value || '';
+      const nome = v('item').trim().toLowerCase();
+      const item = (catalogoItens || []).find((i) => i.nome.toLowerCase() === nome);
+      const teto = Math.floor(Number(String(v('teto')).replace(/\./g, '').replace(',', '.')));
+      const max = Math.max(0, Math.floor(Number(v('max')) || 0));
+      if (!item) { alvoMsg = 'Escolha um item da lista.'; p.alvos._html = ''; pintarAlvos(); return; }
+      if (!(teto >= 2)) { alvoMsg = 'O teto em ouro precisa ser 2 ou mais.'; p.alvos._html = ''; pintarAlvos(); return; }
+      let nova = lista;
+      const ed = alvoEditando && nova.find((x) => x.id === alvoEditando);
+      if (ed) { if (Number(ed.itemId) !== Number(item.id) && nova.some((x) => Number(x.itemId) === Number(item.id))) { alvoMsg = 'Esse item já tem um alvo.'; p.alvos._html = ''; pintarAlvos(); return; } Object.assign(ed, { itemId: Number(item.id), teto, max }); }
+      else {
+        if (nova.some((x) => Number(x.itemId) === Number(item.id))) { alvoMsg = 'Esse item já tem um alvo: use Editar.'; p.alvos._html = ''; pintarAlvos(); return; }
+        if (nova.length >= Config.MAX_ALVOS) { alvoMsg = `No máximo ${Config.MAX_ALVOS} alvos.`; p.alvos._html = ''; pintarAlvos(); return; }
+        nova = [...nova, { id: `a${item.id}`, itemId: Number(item.id), teto, max, ligado: true }];
+      }
+      alvoEditando = null; alvoMsg = '';
+      salvarAlvos(nova).catch(erro);
+    }
+  }
+  function aoMudarNosAlvos(ev) {
+    const t = ev.target.closest('input[data-alvo-pk]');
+    if (!t || t.disabled) return;
+    const [g, k] = t.dataset.alvoPk.split('.');
+    const n = Number(String(t.value).replace(',', '.'));
+    if (!Number.isFinite(n) || n < 0) return;
+    const ap = JSON.parse(JSON.stringify(s.base.alvosPk || {}));
+    ap[g] = { ...(ap[g] || {}), [k]: n };
+    salvarConfig({ alvosPk: ap }).catch(erro);
+  }
+  try {
+    chrome.storage.onChanged.addListener((m, area) => {
+      if (area !== 'local' || !m['radar:alvos-contagem']) return;
+      alvosConta = m['radar:alvos-contagem'].newValue || {};
+      if (s.aberto && s.aba === 'alvos') pintarAlvos();
+    });
+  } catch { /* sem storage */ }
 
   const FONTES = { proximo: 'próximo da fila', mediana24h: 'mediana de 24 h', media7d: 'média de 7 dias' };
 
@@ -1116,6 +1274,7 @@
           pintarBarra();
           pintarCabecalho();
           if (s.aberto && s.aba === 'ajustes') pintarAjustes();
+          if (s.aberto && s.aba === 'alvos') pintarAlvos();
         }
       });
     } catch (e) {

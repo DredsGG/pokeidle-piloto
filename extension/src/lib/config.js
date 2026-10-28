@@ -58,7 +58,42 @@
     categorias: Object.freeze(['stone', 'fragment', 'boss', 'ticket', 'tm', 'mega']),
     itensBloqueados: Object.freeze([]), // desligados à mão dentro de categoria ligada
     itensLiberados: Object.freeze([]), // ligados à mão em categoria desligada
+    // 1.34 (pedido de um amigo do André, ok dele em 27/10): Alvos de compra do modo Manual — por item,
+    // um teto em OURO e a quantidade máxima (0 = sem limite). Gema nunca.
+    alvos: Object.freeze([]),
+    // Pokémon em ouro (shiny só se vende em Gemas: fica de fora): P5 até um teto; nota mínima até um teto.
+    alvosPk: Object.freeze({ p5: Object.freeze({ ligado: false, teto: 0 }), nota: Object.freeze({ ligado: false, corte: 4, teto: 0 }) }),
   });
+  const MAX_ALVOS = 30;
+  function validarAlvos(v) {
+    if (!Array.isArray(v)) return [];
+    const out = [];
+    const vistos = new Set();
+    for (const a of v) {
+      if (!a || typeof a !== 'object') continue;
+      const itemId = Number(a.itemId);
+      const teto = Math.floor(Number(a.teto));
+      const max = Math.floor(Number(a.max));
+      if (!Number.isInteger(itemId) || itemId < 1 || vistos.has(itemId)) continue;
+      if (!Number.isFinite(teto) || teto < 2 || teto > 1e12) continue;
+      vistos.add(itemId);
+      const id = typeof a.id === 'string' && /^[a-z0-9-]{1,40}$/i.test(a.id) ? a.id : `a${itemId}`;
+      out.push({ id, itemId, teto, max: Number.isFinite(max) && max > 0 ? Math.min(max, 1e7) : 0, ligado: a.ligado !== false });
+      if (out.length >= MAX_ALVOS) break;
+    }
+    return out;
+  }
+  function validarAlvosPk(v) {
+    const p = v && typeof v === 'object' ? v : {};
+    const teto = (x) => { const n = Math.floor(Number(x)); return Number.isFinite(n) && n >= 0 && n <= 1e13 ? n : 0; };
+    const p5 = p.p5 && typeof p.p5 === 'object' ? p.p5 : {};
+    const nota = p.nota && typeof p.nota === 'object' ? p.nota : {};
+    const corte = Number(nota.corte);
+    return {
+      p5: { ligado: p5.ligado === true, teto: teto(p5.teto) },
+      nota: { ligado: nota.ligado === true, corte: Number.isFinite(corte) ? Math.min(10, Math.max(0, Math.round(corte * 10) / 10)) : 4, teto: teto(nota.teto) },
+    };
+  }
 
   const LIMITES = Object.freeze({
     intervaloS: [20, 3600],
@@ -107,6 +142,8 @@
     else c.categorias = [...PADRAO.categorias];
     c.itensBloqueados = listaDeIds(p.itensBloqueados);
     c.itensLiberados = listaDeIds(p.itensLiberados);
+    c.alvos = validarAlvos(p.alvos);
+    c.alvosPk = validarAlvosPk(p.alvosPk);
     return c;
   }
 
@@ -170,5 +207,5 @@
     return config.categorias.includes(item.categoria);
   }
 
-  return { CHAVE, TAXA_VENDA, CATEGORIAS_PROIBIDAS, PADRAO, LIMITES, AUTO, PERFIS, validar, itemLiberado, calibrar, descontoAutoPara, qtdPeloVolume };
+  return { CHAVE, TAXA_VENDA, CATEGORIAS_PROIBIDAS, PADRAO, LIMITES, AUTO, PERFIS, MAX_ALVOS, validar, itemLiberado, calibrar, descontoAutoPara, qtdPeloVolume };
 });

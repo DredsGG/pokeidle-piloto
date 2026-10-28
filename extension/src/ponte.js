@@ -291,7 +291,7 @@
       try { d = JSON.parse(ev.detail) || {}; } catch { return; }
       const tipo = { checar: 'upd:checar', aplicar: 'upd:aplicar', dispensar: 'upd:dispensar' }[d.acao];
       if (!tipo || !storage()) return;
-      chrome.runtime.sendMessage({ tipo, versao: typeof d.versao === 'string' ? d.versao : null, limparAviso: d.limparAviso === true })
+      chrome.runtime.sendMessage({ tipo, versao: typeof d.versao === 'string' ? d.versao : null, limparAviso: d.limparAviso === true, minMs: Number.isFinite(Number(d.minMs)) ? Math.min(Math.max(0, Number(d.minMs)), 3_600_000) : 0 })
         .then((r) => { document.dispatchEvent(new CustomEvent('piloto:upd-resposta', { detail: JSON.stringify({ acao: d.acao, r: r && r.dados }) })); lerUpd(); })
         .catch((e) => { document.dispatchEvent(new CustomEvent('piloto:upd-resposta', { detail: JSON.stringify({ acao: d.acao, erro: String(e && e.message || e) }) })); });
     });

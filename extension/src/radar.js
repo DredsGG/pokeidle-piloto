@@ -43,6 +43,7 @@
   const INTERVALO_PEDIDO_TELA_MS = 10000;
   const CHAVE_GASTO = 'radar:gastoDia';
   const CHAVE_AUTO_DESLIGADA = 'radar:autoDesligada'; // { em, motivo }: o painel mostra por quê
+  const CHAVE_ALVOS_CONTA = 'radar:alvos-contagem'; // 1.34: quanto cada alvo de compra já comprou
   const CHAVE_MANUAIS = 'revenda:manuais:v1'; // 1.33.9: o que você comprou à mão (nunca revende sozinho)
   const CHAVE_PEDRAS_TIME = 'revenda:pedrasDoTime:v1'; // 1.33.9: as pedras que o time vai gastar
   // Na vigia contínua a pausa entre leituras cai para 0,5 s: quem segura o ritmo é o limitador do
@@ -386,9 +387,38 @@
     return [...s.catalogo.values()].filter((item) => Config.itemLiberado(s.config, item));
   }
 
+  // ---- 1.34: Alvos de compra (só no Manual) ----------------------------------------------------
+  // Por item: compra sozinho quando aparece anúncio de outro jogador no teto (em ouro) ou abaixo,
+  // até a quantidade máxima. Passa pelo cofre como toda compra automática. O que o alvo compra é
+  // SEU (não entra na revenda automática nem na reserva do radar).
+  s.alvosConta = {};
+  s.alvosPendente = {};
+  function alvosAtivos() {
+    if (s.modoPiloto !== 'manual' || !s.config.radarLigado) return [];
+    return (s.config.alvos || []).filter((a) => a.ligado && (!a.max || ((s.alvosConta || {})[a.id] || 0) + (s.alvosPendente[a.id] || 0) < a.max));
+  }
+  function comprarPorAlvo(alvo, item, linhas) {
+    const l = P.escolherCandidato(linhas || [], s.conta.id);
+    if (!l || !Number.isInteger(l.id) || !(l.preco > 0) || l.preco > alvo.teto || s.compras.has(l.id) || s.alertados.has(l.id)) return false;
+    const restante = alvo.max ? alvo.max - ((s.alvosConta || {})[alvo.id] || 0) - (s.alvosPendente[alvo.id] || 0) : Infinity;
+    const cabe = P.quantidadeCompravel({ qtdAnuncio: l.qtd ?? 1, preco: l.preco, saldo: saldoLivre(), gastoMaximo: 0 });
+    const qtd = Math.min(restante, cabe, l.qtd ?? 1);
+    if (!(qtd >= 1)) return false;
+    const nome = item.nome || `item ${alvo.itemId}`;
+    const alerta = { anuncioId: l.id, itemId: alvo.itemId, nome, preco: l.preco, qtdAnuncio: l.qtd ?? 1, qtd, compravelEm: typeof l.compravelEm === 'number' ? l.compravelEm : 0, criadoEm: l.criadoEm ?? null, lucroTotal: 0, alvo: alvo.id, qtdReservadaAlvo: qtd, em: Date.now(), resultado: null };
+    s.alertas.set(l.id, alerta);
+    s.alertados.add(l.id);
+    const ok = iniciarCompra({ anuncioId: l.id, qtd, auto: true });
+    if (ok) s.alvosPendente[alvo.id] = (s.alvosPendente[alvo.id] || 0) + qtd;
+    diarioPiloto(ok ? `alvo: comprando ${fmtN(qtd)}× ${nome} a ${fmtN(l.preco)} (teto ${fmtN(alvo.teto)})` : `alvo: a compra de ${nome} não entrou na fila`, ok ? 'ok' : 'aviso');
+    return ok;
+  }
+
   async function processarResumo(resp) {
     const agora = Date.now();
+    const alvos = alvosAtivos();
     const lista = liberados();
+    for (const a of alvos) { const it = s.catalogo.get(a.itemId); if (it && !lista.includes(it)) lista.push(it); }
     s.itensLiberados = lista.length;
     const amostras = [];
     for (const item of lista) {
@@ -406,7 +436,14 @@
     emitirMercado();
 
     const candidatos = [];
+    const alvoDe = new Map(alvos.map((x) => [x.itemId, x]));
     for (const a of amostras) {
+      const al = alvoDe.get(Number(a.itemId));
+      if (al && a.minGold > 0 && a.minGold <= al.teto) {
+        const asn = Vitrine.assinatura(a);
+        const ult = s.conferidos.get(a.itemId);
+        if (!(ult && ult.alvo && ult.assinatura === asn && agora - ult.em < 60_000)) { candidatos.push({ a, hist: historico[a.itemId] || null, assinatura: asn, prioridade: 9, alvo: al }); continue; }
+      }
       const hist = historico[a.itemId] || null;
       const pf = P.preFiltro({ minGold: a.minGold, media7d: a.mediaGold, mediana24h: hist && hist.mediana24h, volume7d: a.volume7d, config: s.config });
       const dica = s.dicas.has(a.itemId);
@@ -426,6 +463,12 @@
       if (!resp2) { falha('sem resposta aos anúncios do item'); return; }
       s.recuo = A.registrar(s.recuo, true);
       s.livros.set(c.a.itemId, { linhas: resp2.linhas || [], em: Date.now() });
+      if (c.alvo) {
+        s.conferidos.set(c.a.itemId, { assinatura: c.assinatura, em: Date.now(), alvo: true, proximo: null, candidato: null, motivos: [], motivoAuto: null, qtdAnuncio: null, lucroTotal: null });
+        comprarPorAlvo(c.alvo, s.catalogo.get(Number(c.a.itemId)) || { nome: c.a.nome }, resp2.linhas);
+        emitirMercado();
+        continue;
+      }
       const av = P.avaliar({
         linhas: resp2.linhas,
         meuId: s.conta.id,
@@ -700,6 +743,8 @@
       pk.vistos.add(a.id);
       // Em ouro, shiny não (só se vende em Gemas); em Gemas, shiny entra e compara com shiny.
       if (a.meu || a.moeda !== moeda || (moeda === 'gold' && a.shiny) || !(a.preco > 0) || (a.estado && a.estado !== 'aberto') || s.alertados.has(a.id)) continue;
+      // 1.34: alvos de pokémon do Manual (em ouro): P5 até o teto; nota mínima até o teto
+      if (moeda === 'gold' && s.modoPiloto === 'manual' && alvoPokemon(a)) continue;
       const chave = `${moeda}:${a.speciesId ?? a.nome}`;
       const e = pk.espera.get(chave) || { nome: a.nome, speciesId: a.speciesId, moeda, anuncios: [] };
       e.anuncios.push({ ...a, vistoEm: agora });
@@ -740,6 +785,20 @@
         else if (av.quase && !s.quaseRegistrados.has(a.id)) await registrarQuasePokemon(a, av);
       }
     }
+  }
+
+  function alvoPokemon(a) {
+    const ap = s.config.alvosPk || {};
+    let regra = null;
+    if (ap.p5 && ap.p5.ligado && ap.p5.teto > 0 && Number(a.potencia) === 5 && a.preco <= ap.p5.teto) regra = 'P5';
+    else if (ap.nota && ap.nota.ligado && ap.nota.teto > 0 && typeof a.nota === 'number' && a.nota >= ap.nota.corte && a.preco <= ap.nota.teto) regra = `nota ${String(ap.nota.corte).replace('.', ',')}+`;
+    if (!regra) return false;
+    if (saldoLivre() < a.preco) return false;
+    const av = { ref: { valor: null, fonte: 'alvo', n: 0 }, desconto: null, lucro: 0, ataque: null };
+    const registro = { ...registroPokemon(a, av), tipo: 'aviso', automatica: true, alvo: `pk:${regra}` };
+    publicarAviso(registro, { qtd: 1, lucro: 0 }).catch(erro);
+    diarioPiloto(`alvo: comprando ${a.nome} Nv ${a.nivel ?? '?'} (${regra}) a ${fmtN(a.preco)}`, 'ok');
+    return true;
   }
 
   async function lerVendasDaEspecie(nome, moeda = 'gold') {
@@ -1051,7 +1110,16 @@
     // 1.33.5: a pedra comprada para o time evoluir NÃO entra na reserva de revenda — antes entrava, e a
     // Rotina (que não gasta o que está reservado) nunca evoluía: o pokémon ficava esperando e o radar
     // comprava outra a cada 30 min.
-    if (C.comprou(r) && !c.alerta.pedraDoTime && c.alerta.itemId !== null && c.alerta.itemId !== undefined && ponte.reservarItens) ponte.reservarItens(c.alerta.itemId, c.estado.qtd);
+    if (C.comprou(r) && !c.alerta.pedraDoTime && !c.alerta.alvo && c.alerta.itemId !== null && c.alerta.itemId !== undefined && ponte.reservarItens) ponte.reservarItens(c.alerta.itemId, c.estado.qtd);
+    if (c.alerta.alvo) {
+      const id = c.alerta.alvo;
+      s.alvosPendente[id] = Math.max(0, (s.alvosPendente[id] || 0) - (c.alerta.qtdReservadaAlvo || 0));
+      if (C.comprou(r)) {
+        s.alvosConta = { ...(s.alvosConta || {}), [id]: ((s.alvosConta || {})[id] || 0) + c.estado.qtd };
+        const st = ponte.storage(); if (st) st.set({ [CHAVE_ALVOS_CONTA]: s.alvosConta }).catch(erro);
+        diarioPiloto(`alvo: comprei ${fmtN(c.estado.qtd)}× ${c.alerta.nome} a ${fmtN(c.alerta.preco)} de ouro`, 'ok');
+      }
+    }
     if (c.auto && C.comprou(r)) {
       s.gastoDia = Auto.somarGasto(s.gastoDia, c.estado.qtd * c.alerta.preco, Date.now());
       const st = ponte.storage();
@@ -1988,9 +2056,13 @@
   document.addEventListener('piloto:modo', (ev) => {
     (async () => {
       const d = JSON.parse(ev.detail);
+      if (d && ['desligado', 'manual', 'automatico'].includes(d.modo)) s.modoPiloto = d.modo;
       const perfil = Config.PERFIS[d && d.modo];
       const st = ponte.storage();
       if (!perfil || !st) return;
+      // 1.34: no Manual, recarregar a página não devolve o perfil (antes religava "Calcular os
+      // limites sozinho" e desligava as compras a cada F5 — o que a pessoa ajustou se perdia)
+      if (d.modo === 'manual' && d.recarga) return;
       const salvo = await st.get(Config.CHAVE);
       const atual = Config.validar(salvo[Config.CHAVE]);
       // 1.13: no Automático cada automação tem o seu interruptor. Ao recarregar a página, o perfil
@@ -2078,6 +2150,8 @@
     s.revenda.manuais = salvo[CHAVE_MANUAIS] || Rv.livroManualVazio();
     s.revenda.pedrasDoTime = salvo[CHAVE_PEDRAS_TIME] || null;
     s.revenda.manuaisProntos = true;
+    const ct = await st.get(CHAVE_ALVOS_CONTA);
+    s.alvosConta = (ct && ct[CHAVE_ALVOS_CONTA]) || {};
     aplicarConfig(salvo[Config.CHAVE]);
     // Depois de recarregar a aba, não repete aviso nem quase aviso das últimas 24 h.
     const recentes = (await sw({ tipo: 'alertas:recentes' })) || {};
