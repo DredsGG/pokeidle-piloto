@@ -235,6 +235,11 @@ html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { backgrou
 .plt-time-bt { height: 30px; padding: 0 12px 0 8px; font-size: 12px; gap: 7px; }
 .plt-time-bola { display: block; flex: none; image-rendering: pixelated; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, .55)) drop-shadow(0 0 3px rgba(255, 255, 255, .35)); }
 .plt-time-bt .plt-time-bola { width: 18px; height: 18px; }
+/* 1.34.1: o meta mudou e você ainda não viu — dourado, com um ponto, até abrir a aba Meta */
+.plt-time-bt.plt-time-novo { position: relative; color: #3a2a00; text-shadow: 0 1px 0 rgba(255, 255, 255, .45); background: linear-gradient(180deg, #ffe9a8 0 4px, #d09a17 4px calc(100% - 4px), #a8770c calc(100% - 4px) 100%); }
+.plt-time-bt.plt-time-novo::after { content: ''; position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border-radius: 50%; background: #e53935; box-shadow: 0 0 0 2px var(--mad-base, #2a1a10); animation: plt-time-pisca 1.6s ease-in-out infinite; }
+@keyframes plt-time-pisca { 50% { transform: scale(.7); opacity: .7; } }
+@media (prefers-reduced-motion: reduce) { .plt-time-bt.plt-time-novo::after { animation: none; } }
 .plt-h2 .plt-time-bola { width: 22px; height: 22px; }
 
 .plt-janela .plt-pk { grid-template-columns: 64px minmax(0, 1fr) minmax(200px, 250px) 34px; gap: 0 14px; min-height: 84px; padding: 9px 12px; }
@@ -505,3 +510,70 @@ html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { backgrou
 .plt-tdu-p, .plt-tdu-r { overflow-wrap: anywhere; }
 .plt-tdu-r { color: #bfe3ff; }
 .plt-tdu-vazio { opacity: .7; margin: 6px 0; }
+
+/* 1.34.1: o resultado da última ranqueada ao lado do rank do treinador (#tr-rank-pr do jogo) */
+.plt-pvp-ult { display: inline-block; margin-left: 6px; font: 700 10px/1 Tahoma, Verdana, sans-serif; letter-spacing: .2px; vertical-align: baseline; text-shadow: 0 1px 0 rgba(0, 0, 0, .6); }
+.plt-pvp-ult[data-res="v"] { color: #6fdc8c; }
+.plt-pvp-ult[data-res="d"] { color: #ff7a7a; }
+
+/* 1.35: Atualizar o time pelo meta — quem entra, quem sai, o que falta caçar */
+.plt-am-bts { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.plt-am { display: grid; gap: 6px; margin: -2px 0 12px; padding: 8px 10px; border-radius: 8px; background: var(--vao, rgba(0, 0, 0, .2)); box-shadow: inset 0 0 0 2px var(--mad-linha); }
+.plt-am-lin { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 8px; }
+.plt-am-lin > b { font: 700 11px/1.2 Tahoma, Verdana, sans-serif; color: var(--ouro-luz, #ffd76a); }
+.plt-am-pks { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.plt-am-pks > i { font-size: 11px; opacity: .6; }
+.plt-am-pk { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 3px; border-radius: 6px; background: rgba(255, 255, 255, .05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.plt-am-pk small { font-size: 11px; white-space: nowrap; }
+.plt-am-pk.entra { box-shadow: inset 0 0 0 1px #4fbf6f; }
+.plt-am-pk.sai { opacity: .55; box-shadow: inset 0 0 0 1px #c95454; }
+.plt-am-pk.acima { box-shadow: inset 0 0 0 1px #d0a24a; }
+.plt-am-pk.falta { opacity: .75; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); background: transparent; border: 1px dashed rgba(255, 255, 255, .25); }
+
+/* 1.35: Extrato — o que você gastou e o que entrou */
+.plt-ex-topo { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; margin-bottom: 10px; }
+.plt-ex-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.plt-ex-k-gasto strong { color: #ff8a7a; }
+.plt-ex-k-entrou strong { color: #7ee09a; }
+.plt-ex { display: flex; flex-direction: column; gap: 4px; }
+.plt-ex-dia { margin: 10px 2px 2px; font: 700 11px/1 Tahoma, Verdana, sans-serif; letter-spacing: .3px; color: var(--ouro-luz, #ffe9a3); opacity: .9; }
+.plt-ex-dia:first-child { margin-top: 0; }
+.plt-ex-l { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto 92px; align-items: center; gap: 10px; min-height: 46px; padding: 5px 10px 5px 6px; border-radius: 6px; background: var(--vao2); box-shadow: inset 0 0 0 1px var(--mad-linha); }
+.plt-ex-arte { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 6px; background: var(--vao); box-shadow: inset 0 0 0 1px var(--mad-linha); overflow: hidden; }
+.plt-ex-img { display: block; image-rendering: pixelated; object-fit: contain; }
+.plt-ex-sem svg { width: 20px; height: 20px; opacity: .7; }
+.plt-ex-nome { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.plt-ex-nome b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plt-ex-nome small { font-size: 11px; opacity: .72; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plt-ex-valor { font: 700 14px/1 Tahoma, Verdana, sans-serif; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.plt-ex-gasto .plt-ex-valor { color: #ff8a7a; }
+.plt-ex-entrada .plt-ex-valor { color: #7ee09a; }
+.plt-ex-quando { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 11.5px; white-space: nowrap; }
+.plt-ex-quando small { font-size: 10.5px; opacity: .6; }
+.plt-ex-vazio { padding: 18px 14px; border-radius: 6px; background: var(--vao2); box-shadow: inset 0 0 0 1px var(--mad-linha); font-size: 12.5px; line-height: 1.45; opacity: .85; }
+.plt-ex-mais { margin: 10px auto 0; display: flex; }
+.plt-ex-nota { margin: 10px 2px 0; font-size: 11px; opacity: .6; }
+@media (max-width: 560px) { .plt-ex-l { grid-template-columns: 36px minmax(0, 1fr) auto; } .plt-ex-quando { display: none; } .plt-ex-kpis { grid-template-columns: 1fr; } }
+
+/* 1.35: PvP ao vivo — os treinadores e os pokémon nos cantos da janelinha e da tela cheia */
+.plt-pvv { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.plt-pvv-lado { position: absolute; top: 8px; display: flex; flex-direction: column; gap: 4px; max-width: 46%; padding: 6px 8px; border-radius: 8px; background: rgba(20, 12, 18, .62); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
+.plt-pvv-lado.esq { left: 8px; align-items: flex-start; }
+.plt-pvv-lado.dir { right: 8px; align-items: flex-end; }
+.plt-pvv-lado > b { font: 700 13px/1 Tahoma, Verdana, sans-serif; color: #fff; text-shadow: 0 1px 0 #000; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plt-pvv-lado.esq > b { color: #9ee7ff; }
+.plt-pvv-lado.dir > b { color: #ffb4a8; }
+.plt-pvv-lado > small { font: 700 10px/1 Tahoma, Verdana, sans-serif; color: rgba(255, 255, 255, .7); }
+.plt-pvv-pks { display: flex; gap: 3px; }
+.plt-pvv-lado.dir .plt-pvv-pks { flex-direction: row-reverse; }
+.plt-pvv-pk { position: relative; display: grid; place-items: center; padding: 1px; border-radius: 6px; background: rgba(255, 255, 255, .08); transition: opacity .4s, filter .4s; }
+.plt-pvv-pk.fora { filter: grayscale(1) brightness(.7); }
+.plt-pvv-pk > i { position: absolute; left: 2px; bottom: 1px; height: 2px; max-width: calc(100% - 4px); border-radius: 1px; background: #6fdc8c; }
+.plt-pvv-pk.fora > i { display: none; }
+.plt-pvv-mini .plt-pvv-lado { top: 4px; padding: 3px 5px; gap: 2px; border-radius: 6px; }
+.plt-pvv-mini .plt-pvv-lado.esq { left: 4px; }
+.plt-pvv-mini .plt-pvv-lado.dir { right: 4px; }
+.plt-pvv-mini .plt-pvv-lado > b { font-size: 10px; }
+.plt-pvv-mini .plt-pvv-lado > small { display: none; }
+.plt-pvv-mini .plt-pvv-pks { gap: 1px; }
+@media (prefers-reduced-motion: reduce) { .plt-pvv-pk { transition: none; } }

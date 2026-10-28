@@ -30,6 +30,23 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.35.1': [
+        "Evoluir: um comando de evolução que se perdia (queda da conexão) travava aquele pokémon por 24 h; agora tenta de novo em 30 min.",
+        "Evoluir: quando um pokémon pronto fica de fora da regra (o seu inicial, skin, item, refino ou posto no XP Share), o diário avisa o motivo, uma vez por dia.",
+      ],
+      '1.35.0': [
+        "Aba Meta da janela Time: botão \"Atualizar time\" — troca já para o meta de agora (no Centro), mostra quem entra, quem sai e o que falta caçar; \"Caçar os que faltam\" só quando você clica.",
+        "Nova aba Extrato: o que você gastou e o que entrou, com o ícone do item ou o pokémon, quando e há quanto tempo; totais de hoje, 7 e 30 dias.",
+        "PvP ao vivo: na janelinha e na tela cheia da partida, o nome de cada treinador e os pokémon dele nos cantos — apagando conforme perdem HP e cinza quando caem.",
+      ],
+      '1.34.1': [
+        "Coleção: o pokémon que o Auto Coleção guardou abaixo do Nv 50 (o Mercado só aceita a partir dele) e que não serve para o time, o PvP ou o meta volta para o Depot e é vendido, em vez de ficar parado.",
+        "A versão do Piloto aparece, discreta, ao lado do nome na barra do Em campo.",
+        "Botão Time: fica dourado, com um ponto vermelho, quando o meta muda e você ainda não viu; abrir já mostra a aba Meta.",
+        "Ao lado do seu rank aparece o resultado da última ranqueada: ▲ os PR que ganhou ou ▼ os que perdeu.",
+        "Passe de Batalha: quando o Piloto recolhe o prêmio do dia, ele mesmo fecha o \"Incrível!\" e a janela do Passe.",
+        "Compra automática que não saiu porque a conexão do jogo caiu tenta de novo sozinha quando a conexão volta.",
+      ],
       '1.34.0': [
         "Versão nova: o Piloto procura sozinho ao abrir o jogo, a cada 30 min e quando você volta para a aba, e mostra o aviso na hora, sem recarregar. O X só adia por 1 h; atualização urgente pausa o Piloto até você atualizar.",
         "Modo Manual: aba Alvos no Mercado — para cada item, o teto em ouro e quantas unidades comprar; o Radar compra sozinho quando aparece no teto ou abaixo. Também alvos de pokémon em ouro (P5 e nota mínima).",

@@ -121,6 +121,8 @@
   text-shadow: -1px -1px 0 var(--p-rx-esc), 1px -1px 0 var(--p-rx-esc), -1px 1px 0 var(--p-rx-esc), 1px 1px 0 var(--p-rx-esc);
 }
 .plt-barra .plt-marca .plt-ico { color: var(--p-ouro-luz); width: 18px; height: 18px; }
+.plt-barra .plt-ver { font-size: 9px; font-weight: 400; text-transform: none; letter-spacing: .02em; opacity: .62; text-shadow: none; margin-left: -1px; align-self: flex-end; padding-bottom: 1px; }
+.plt-barra.plt-auto .plt-ver { opacity: .55; }
 .plt-barra.plt-auto { background: linear-gradient(180deg, #ffe9a8 0 4px, #d09a17 4px 100%); color: #3a2a00; }
 .plt-barra.plt-auto .plt-marca { text-shadow: 0 1px 0 rgba(255, 255, 255, .4); }
 .plt-barra.plt-auto .plt-marca .plt-ico { color: #fff6d0; }

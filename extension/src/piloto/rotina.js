@@ -48,7 +48,15 @@
   let eu = null;
   let welcome = null;
   PIH.on('welcome', (m) => { welcome = m; });
-  PIH.on('estado', (e) => { eu = e; });
+  // 1.34.1: o rastro da Coleção sem saída (tarefaColecaoBaixa, mais abaixo)
+  const COL_NV_MERCADO = 50;
+  const COL_JANELA_MS = 15_000;
+  let colVistos = null; // ids já vistos nesta sessão (o que já existia ao abrir nunca entra)
+  const colPendentes = new Map(); // id -> quando apareceu (esperando o cadeado da regra)
+  const colRegra = new Map(); // id -> quando entrou sozinho na Coleção
+  let colRastreadoEm = 0;
+  let colMaxId = 0; // só id maior que todos os já vistos é captura nova (lista parcial nunca vira 'nova')
+  PIH.on('estado', (e) => { eu = e; try { rastrearColecao(); } catch (err) { console.warn('[piloto] coleção:', err); } });
 
   // ---- PvP Ranqueado (1.2.1) ------------------------------------------------------------------
   // O servidor manda o guarda-chuva `pvp` (resposta do pvp.info e de cada ação): equipe salva,
@@ -56,8 +64,59 @@
   const PVP_NIVEL_MIN = 150; // shared/pvp-rank.mjs
   const PVP_TIME_MAX = 5;
   const pvp = { time: null, fila: null, lidoEm: 0, recusaEm: 0, recusa: null, esperaAte: 0 };
+  // 1.34.1 (pedido do André): o resultado da última ranqueada ao lado do rank (os PR que entraram ou
+  // saíram), sem abrir o PvP. Vem do mesmo 'pvp' do jogo: a partida ao vivo (m.partida) ou as que
+  // terminaram com você fora (m.naoVistas).
+  const CHAVE_PVP_ULT = 'piloto:pvp:ultima';
+  let pvpUlt = (() => { try { return JSON.parse(localStorage.getItem(CHAVE_PVP_ULT) || 'null'); } catch { return null; } })();
+  // A partida AO VIVO só aparece depois que o próprio jogo revela o resultado (fim da fita, o
+  // termômetro de rank, ou ninguém assistindo) — o jogo esconde o +18 até o fim de propósito.
+  let pvpEspera = null;
+  function anotarPartida(p, aoVivo = false) {
+    if (!p || typeof p !== 'object' || !Number.isFinite(Number(p.delta))) return;
+    const id = p.id != null ? String(p.id) : null;
+    if (id && ((pvpUlt && pvpUlt.id === id) || (pvpEspera && pvpEspera.id === id))) return;
+    const r = { id, venci: !!p.venci, delta: Math.round(Number(p.delta)), oponente: String((p.oponente && p.oponente.nick) || p.oponente || '').slice(0, 30), em: Date.now() };
+    if (aoVivo) { pvpEspera = r; return; }
+    pvpEspera = null;
+    gravarPvpUlt(r);
+  }
+  function gravarPvpUlt(r) {
+    pvpUlt = r;
+    try { localStorage.setItem(CHAVE_PVP_ULT, JSON.stringify(pvpUlt)); } catch { /* sem armazenamento */ }
+    pintarPvpUlt();
+  }
+  function conferirRevelado() {
+    if (!pvpEspera) return;
+    const vis = (id) => { const e = document.getElementById(id); return !!(e && !e.classList.contains('hidden') && !e.hidden); };
+    const assistindo = vis('pvp-mini') || vis('gwr');
+    const revelou = vis('pvp-mini-res') || vis('pvp-tick') || vis('gwr-pvp-resultado');
+    const t = Date.now() - pvpEspera.em;
+    if (revelou || (!assistindo && t > 15_000) || t > 6 * 60_000) gravarPvpUlt(pvpEspera), pvpEspera = null;
+  }
+  setInterval(() => { try { conferirRevelado(); } catch { /* sem a tela do jogo */ } }, 1000);
+  function pintarPvpUlt() {
+    const box = document.getElementById('tr-rank-box');
+    const pr = document.getElementById('tr-rank-pr');
+    if (!box || !pr || !pvpUlt) return;
+    let el = box.querySelector('.plt-pvp-ult');
+    if (!el) { el = document.createElement('span'); el.className = 'plt-pvp-ult'; pr.after(el); }
+    const d = pvpUlt.delta;
+    const txt = `${d >= 0 ? '▲' : '▼'} ${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d)}`;
+    const l = (PIH.idioma && PIH.idioma.atual && PIH.idioma.atual()) || 'pt';
+    const op = pvpUlt.oponente;
+    const tit = l === 'en' ? `Last ranked match: ${pvpUlt.venci ? 'won' : 'lost'}${op ? ` vs ${op}` : ''} (${txt.slice(2)} PR)`
+      : l === 'es' ? `Última clasificatoria: ${pvpUlt.venci ? 'ganó' : 'perdió'}${op ? ` contra ${op}` : ''} (${txt.slice(2)} PR)`
+        : `Última ranqueada: ${pvpUlt.venci ? 'venceu' : 'perdeu'}${op ? ` contra ${op}` : ''} (${txt.slice(2)} PR)`;
+    if (el.textContent !== txt) el.textContent = txt;
+    el.dataset.res = pvpUlt.venci ? 'v' : 'd';
+    if (el.title !== tit) el.title = tit;
+  }
+  setInterval(() => { try { pintarPvpUlt(); } catch { /* sem a tela do jogo */ } }, 3000);
   PIH.on('pvp', (m) => {
     if (!m || typeof m !== 'object') return;
+    if (m.partida) anotarPartida(m.partida, true);
+    if (Array.isArray(m.naoVistas) && m.naoVistas.length) anotarPartida([...m.naoVistas].sort((a, b) => (Number(a && a.id) || 0) - (Number(b && b.id) || 0)).at(-1));
     if (Array.isArray(m.time)) { pvp.time = m.time.map(Number); pvp.lidoEm = Date.now(); }
     if (Array.isArray(m.timeSalvo)) { pvp.time = m.timeSalvo.map(Number); diario(`PvP: equipe salva (${pvp.time.length})`, 'ok'); }
     // 1.12.3: resposta de leitura sem "fila" (ou fila null) = fora da fila; antes a fila nunca era tentada.
@@ -111,7 +170,35 @@
     const st = m.passe.estadoDoPasse({ passe: eu.passe }, agoraServidor());
     if (st.jaPegouHoje && !st.vipPendenteHoje) return false;
     marcar('passe');
-    return pedir({ t: 'passe.resgatar' }, 'resgatando o Passe de Batalha de hoje');
+    let modal = null;
+    try { modal = document.getElementById('modal'); } catch { modal = null; }
+    const ok = pedir({ t: 'passe.resgatar' }, 'resgatando o Passe de Batalha de hoje');
+    if (ok) passeLimpar = { em: Date.now(), modalAntes: !!(modal && !modal.classList.contains('hidden')), clicouOk: false };
+    return ok;
+  }
+  // 1.34.1 (pedido do André): o jogo, ao receber o resgate com o Passe fechado, abre a janela do Passe
+  // e a abertura do prêmio ("Incrível!"). Resgate feito pelo Piloto: fecha a abertura e, se nenhuma
+  // janela estava aberta antes, fecha o Passe também. Só cliques na tela, nada vai ao servidor.
+  let passeLimpar = null;
+  setInterval(() => { try { limparPasse(); } catch { /* sem a tela do jogo */ } }, 500);
+  function limparPasse() {
+    const r = passeLimpar;
+    if (!r) return;
+    if (Date.now() - r.em > 20_000) { passeLimpar = null; return; }
+    const abertura = document.getElementById('ps-abrir');
+    const okBt = document.getElementById('ps-abrir-ok');
+    if (!r.clicouOk) {
+      if (!abertura || abertura.classList.contains('hidden') || !okBt) return;
+      r.clicouOk = true; r.okEm = Date.now();
+      setTimeout(() => { try { okBt.click(); } catch { /* sumiu */ } }, 1500); // deixa ver o prêmio um instante
+      return;
+    }
+    if (Date.now() - r.okEm < 2200) return;
+    passeLimpar = null;
+    const modal = document.getElementById('modal');
+    const fechar = document.getElementById('modal-fechar');
+    if (!r.modalAntes && modal && !modal.classList.contains('hidden') && modal.querySelector('#ps-abrir, [class^="ps-"], [class*=" ps-"]') && fechar) fechar.click();
+    diario('Passe de Batalha: prêmio de hoje recolhido e janela fechada', 'ok');
   }
 
   function tarefaXpShare() {
@@ -396,9 +483,15 @@
     for (const pk of lista) {
       if (pk.shiny || pk.speciesId >= 2000) continue; // shiny pede Shiny Stone; Outland e Mega não evoluem
       // Fora também o que alguém cuidou à mão: starter, skin, refino, item segurado, posto de XP Share.
-      if (pk.starter || pk.skin || pk.heldItemId != null || noXpShare.has(pk.id)) continue;
-      if (Object.values(pk.refino || {}).some((v) => Number(v) > 0) || Number(pk.refinoTotal) > 0) continue;
-      if (!venceu(`evo:${pk.id}`, 24 * 3_600_000)) continue;
+      const cuidado = pk.starter ? 'é o seu inicial' : pk.skin ? 'tem skin' : pk.heldItemId != null ? 'segura um item'
+        : noXpShare.has(pk.id) ? 'está num posto do XP Share'
+          : (Object.values(pk.refino || {}).some((v) => Number(v) > 0) || Number(pk.refinoTotal) > 0) ? 'é refinado' : '';
+      // 1.35.1 (relato #3): antes, um envio travava o mesmo pokémon por 24 h "dê certo ou não" — se o
+      // comando se perdia (queda do socket, recusa), ele só tentava no dia seguinte. Agora: tenta de novo
+      // em 30 min enquanto não evoluir; depois de 3 envios sem evoluir, espera 24 h.
+      let tentou = Number(marcas[`evoN:${pk.id}`]) || 0;
+      if (!venceu(`evo:${pk.id}`, tentou >= 3 ? 24 * 3_600_000 : 30 * 60_000)) continue;
+      if (tentou >= 3) tentou = 0;
       const esp = porId.get(pk.speciesId);
       if (!esp || !esp.evolvesToId) continue;
       const destinos = m.ramif.destinosDeEvolucao(esp, (id) => porId.get(id)).filter((d) => d.temArte && (pk.level || 0) >= d.nivel);
@@ -409,9 +502,22 @@
       if (!pedra) continue;
       const tem = Number((eu.items || {})[pedra.itemId]) || 0;
       if (tem - PIH.itensReservados(pedra.itemId, tem) < 1) continue;
+      if (cuidado) {
+        // 1.35.1 (relato #3): pronto para evoluir mas fora da regra. Antes ficava calado e parecia defeito;
+        // agora o diário diz por que, uma vez por dia por pokémon.
+        if (venceu(`evoAviso:${pk.id}`, 24 * 3_600_000)) {
+          marcar(`evoAviso:${pk.id}`);
+          diario(`evolução: ${pk.nome} (Nv ${pk.level}) já pode virar ${d.especie.name}, mas ${cuidado} — o Piloto não evolui esse sozinho; evolua à mão se quiser`, 'aviso');
+        }
+        continue;
+      }
       marcar('evoluir');
-      marcar(`evo:${pk.id}`); // não tenta de novo o mesmo por 24 h, dê certo ou não
-      return pedir({ t: 'pokemon.evoluir', pokemonId: pk.id, alvoId: d.pokeId }, `evoluindo ${pk.nome} (Nv ${pk.level}) → ${d.especie.name} com 1× ${pedra.nome || 'pedra'}`);
+      const ok = pedir({ t: 'pokemon.evoluir', pokemonId: pk.id, alvoId: d.pokeId }, `evoluindo ${pk.nome} (Nv ${pk.level}) → ${d.especie.name} com 1× ${pedra.nome || 'pedra'}`);
+      if (ok) marcas[`evoN:${pk.id}`] = tentou + 1;
+      // nem saiu (cofre, fila cheia) → tenta de novo em 10 min
+      marcas[`evo:${pk.id}`] = ok ? Date.now() : Date.now() - 20 * 60_000;
+      gravar();
+      return ok;
     }
     return false;
   }
@@ -548,9 +654,68 @@
       if (!ateId) return false;
       const ok = pedir({ t: 'shop.sellAllPokemons', ateId }, `Depot com ${depot.length}: vender tudo ao NPC${comNota ? ` (Auto Coleção guarda os de nota alta)` : ''}`);
       // Só conta como feito se saiu; recusado, tenta de novo no próximo tique de 20 s... no máximo a cada 5 min.
-      if (ok) marcar('depot');
+      if (ok) { marcar('depot'); try { PIH.extrato?.depotVendido?.(depot.length); } catch { /* só a tela */ } }
       else { marcas.depot = Date.now() + 45_000; gravar(); } // recusado: tenta de novo em 1 min
       return ok;
+    }
+    return false;
+  }
+
+  // ---- 1.34.1: Coleção sem saída (pedido do André, 28/10) -------------------------------------
+  // O Auto Coleção guarda na captura todo pokémon de nota 3,5+, mas o Mercado só aceita anunciar
+  // (fora shiny, P5 e lendário/mítico) a partir do Nv 50 (MERCADO_POKEMON_MIN do jogo). Abaixo
+  // disso ele ficava parado na Coleção: a venda automática não lista e o NPC não compra. Agora, quem
+  // ENTROU SOZINHO na Coleção na captura (vista nesta sessão: chegou e já estava na Coleção em até
+  // 15 s), abaixo do Nv 50, volta para o Depot e sai na venda — menos o que a Guarda protege (time,
+  // PvP, XP Share, item, shiny, lendário, os melhores de farm/PvP e os que valem treinar), os do
+  // meta e quem segura item. O que estava na Coleção antes (ou que você travou à mão depois) nunca
+  // é tocado: o jogo não diz quem pôs o cadeado, então só vale o que o Piloto viu chegar.
+  // (as variáveis do rastro moram lá em cima, junto do eu: o 'estado' pode chegar antes daqui)
+  function rastrearColecao() {
+    if (!eu || !Array.isArray(eu.pokemons)) return;
+    const agora = Date.now();
+    if (colVistos && agora - colRastreadoEm < 1000 && !colPendentes.size) return;
+    colRastreadoEm = agora;
+    const col = new Set(((eu.automation && eu.automation.pokemonTravado) || []).map(Number));
+    if (!colVistos) {
+      if (!eu.pokemons.length) return;
+      colVistos = new Set(eu.pokemons.map((p) => p && p.id));
+      colMaxId = Math.max(0, ...eu.pokemons.map((p) => Number(p && p.id) || 0));
+      return;
+    }
+    let maior = colMaxId;
+    for (const p of eu.pokemons) {
+      if (!p || colVistos.has(p.id)) continue;
+      colVistos.add(p.id);
+      if (Number(p.id) > colMaxId) { colPendentes.set(p.id, agora); maior = Math.max(maior, Number(p.id)); }
+    }
+    colMaxId = maior;
+    for (const [id, em] of colPendentes) {
+      if (col.has(id)) { colPendentes.delete(id); colRegra.set(id, agora); }
+      else if (agora - em > COL_JANELA_MS) colPendentes.delete(id);
+    }
+  }
+  async function tarefaColecaoBaixa() {
+    if (!cfg.autoColecao.ligado || cfg.depot.modo === 'off' || !colRegra.size || !eu || !venceu('colBaixa', 30_000)) return false;
+    const G = PIH.guarda && PIH.guarda.resumo ? PIH.guarda.resumo() : null;
+    if (!G || !G.pronto) return false; // sem a Guarda pronta, não dá para saber quem proteger
+    const protegidos = new Set(G.ids);
+    for (const id of (PIH.time && PIH.time.doMeta ? PIH.time.doMeta() : [])) protegidos.add(id);
+    for (const id of (PIH.metaCaca ? PIH.metaCaca.protegidos() : [])) protegidos.add(id);
+    const familiaMeta = new Set(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []);
+    const a = PIH.time && PIH.time._interno && PIH.time._interno.st && PIH.time._interno.st.analise;
+    const analiseEm = (a && a.em) || 0;
+    const col = new Set(((eu.automation && eu.automation.pokemonTravado) || []).map(Number));
+    const porId = new Map(eu.pokemons.map((p) => [p && p.id, p]));
+    for (const [id, chegou] of colRegra) {
+      const p = porId.get(id);
+      // saiu da Coleção, morreu na venda, ou é dos que ficam guardados de vez
+      if (!p || !col.has(id) || (Number(p.level) || 0) >= COL_NV_MERCADO || p.shiny || Number(p.potencia) >= POTENCIA_MAX || p.slot != null || p.id === eu.activeId || Number(p.heldItemId) > 0 || familiaMeta.has(p.speciesId)) { colRegra.delete(id); continue; }
+      if (protegidos.has(id)) continue; // a Guarda pode soltar depois (outra análise)
+      if (analiseEm < chegou + 1000) { if (venceu('colBaixaAnalise', 60_000) && PIH.time && PIH.time.analisar) { marcar('colBaixaAnalise'); try { PIH.time.analisar(); } catch { /* depois */ } } continue; } // a janela Time ainda não avaliou este
+      marcar('colBaixa');
+      colRegra.delete(id);
+      return pedir({ t: 'colecao.mover', pokemonId: id, para: 'depot' }, `Coleção: ${p.nome} (Nv ${p.level}) volta para o Depot — o Mercado só aceita a partir do Nv ${COL_NV_MERCADO}`);
     }
     return false;
   }
@@ -686,7 +851,7 @@
     return pedir({ t: 'shop.autoColecao', regra: rec }, `Auto Coleção no ponto: ${resumoRegra(rec)}`);
   }
 
-  const TAREFAS = [tarefaAutoColecao, tarefaPasse, tarefaPvpTime, tarefaPvpFila, tarefaXpShare, tarefaOutland, tarefaRodizio, tarefaChocadeira, tarefaPedraDoTime, tarefaEvoluir, tarefaDepot];
+  const TAREFAS = [tarefaAutoColecao, tarefaPasse, tarefaPvpTime, tarefaPvpFila, tarefaXpShare, tarefaOutland, tarefaRodizio, tarefaChocadeira, tarefaPedraDoTime, tarefaEvoluir, tarefaColecaoBaixa, tarefaDepot];
   let rodando = false;
   async function tique() {
     if (rodando || !eu || !welcome || !PIH.cofre || !PIH.cofre.liberado('rotina')) return;
@@ -739,13 +904,13 @@
       ${L({ icone: 'radar', nome: 'Fila automática', alvo: 'rotina:pvp.fila', on: cfg.pvp.fila, dica: 'Com VIP liga a fila automática do jogo; sem VIP, entra na fila quando estiver fora (no máximo a cada 3 min).',
         status: pvp.fila ? (pvp.fila.na ? 'na fila agora' : 'fora da fila') : '' })}
       ${K.grupo('Sem volta')}
-      ${L({ icone: 'evoluir', nome: 'Evoluir', classe: 'plt-l-perigo', alvo: 'rotina:evoluir.ligado', on: cfg.evoluir.ligado, dica: 'Evolui quem tem nível e pedra na mochila. Nunca shiny, Outland nem Mega. Um por minuto.',
+      ${L({ icone: 'evoluir', nome: 'Evoluir', classe: 'plt-l-perigo', alvo: 'rotina:evoluir.ligado', on: cfg.evoluir.ligado, dica: 'Evolui quem tem nível e pedra na mochila. Nunca shiny, Outland, Mega, o inicial, nem quem tem skin, item, refino ou posto no XP Share (o diário avisa). Um por minuto.',
         status: cfg.evoluir.ligado ? (cfg.evoluir.escopo === 'tudo' ? 'equipe, Depot e Coleção' : 'só a equipe') : '',
         ajustes: `${K.fcampo('Quem', K.escala('rotina:evoluir.escopo', cfg.evoluir.escopo, [['equipe', 'Só a equipe'], ['tudo', 'Todos']], trava))}${K.mini('rotina:evoluir.ramificada', cfg.evoluir.ramificada, 'Cadeias com escolha', 'Eevee e outras: vai para o primeiro destino', trava)}${K.mini('rotina:evoluir.comprarPedra', cfg.evoluir.comprarPedra !== false, 'Comprar a pedra do time', 'Pokémon do time pronto para evoluir sem a pedra: compra 1 no Mercado, em ouro, pelo cofre', trava)}` })}
       ${L({ icone: 'ovo', nome: 'Chocadeira', classe: 'plt-l-perigo', alvo: 'rotina:chocadeira.ligado', on: cfg.chocadeira.ligado, dica: 'Põe na chocadeira o ovo que você tem (Shiny, P4, P3, P2).',
         ajustes: K.mini('rotina:chocadeira.comprarP2', cfg.chocadeira.comprarP2, 'Comprar P2 (100 mi)', 'Só com teto da categoria "ovos" no Cofre (padrão 0 = proibido)', trava) })}
       ${L({ icone: 'check', nome: 'Auto Coleção no ponto', alvo: 'rotina:autoColecao.ligado', on: cfg.autoColecao.ligado, status: !cfg.autoColecao.ligado ? (ultimaRegra ? `no jogo: ${resumoRegra(ultimaRegra)}` : '') : autoColecaoOk && ultimaRegra ? `no jogo: ${resumoRegra(ultimaRegra)}` : `vai salvar: Lendário · Shiny · P5+ · Nota ${String(notaMercado ?? 3.5).replace('.', ',')}+`,
-        dica: 'Deixa o Auto Coleção do jogo guardando tudo o que vale mais no Mercado que no NPC: lendário/mítico, shiny, P5 e nota a partir do mínimo que o Mercado aceita (3,5 hoje, lido do jogo). Assim a venda imediata do Depot nunca leva uma oportunidade. Se alguém mudar a regra, o Piloto põe de volta.' })}
+        dica: 'Deixa o Auto Coleção do jogo guardando tudo o que vale mais no Mercado que no NPC: lendário/mítico, shiny, P5 e nota a partir do mínimo que o Mercado aceita (3,5 hoje, lido do jogo). Assim a venda imediata do Depot nunca leva uma oportunidade. Se alguém mudar a regra, o Piloto põe de volta. O que a regra guardou abaixo do Nv 50 (o Mercado só aceita a partir dele) e não serve para o time, o PvP ou o meta volta para o Depot e é vendido.' })}
       ${L({ icone: 'depot', nome: 'Limpar o Depot', classe: 'plt-l-perigo', alvo: 'rotina:depot.ligado', on: d.modo !== 'off', dica: 'Na hora: pokémon que entrou no Depot e não foi para a Coleção (pelo Auto Coleção do jogo) é vendido em segundos — igual ao botão "Vender todo o Depot". Antes de vender, guarda na Coleção a equipe do PvP, os shiny, os P5 e quem a janela Time tirou do campo. A Coleção, o ativo e quem segura a Exp. Share nunca vão.',
         status: `${nfR.format(noDepot)} no Depot${d.modo !== 'off' ? ` · ${d.modo === 'oferenda' ? 'oferenda' : 'vende'} assim que entra` : ''}`,
         ajustes: `${K.fcampo('Como', K.escala('rotina:depot.modo', d.modo === 'off' ? (d.ultimoModo || 'vender') : d.modo, [['vender', 'Vender ao NPC'], ['oferenda', 'Oferenda']], trava))}` })}`;
@@ -819,5 +984,5 @@
       gravar();
     }
   } catch { /* sem armazenamento */ }
-  PIH.rotina = { html, linhasCaca, ligar, aplicar, definir, proximoRodizio, filaRodizio, resumoAutoColecao: () => resumoRegra(ultimaRegra), pvpTime: () => (Array.isArray(pvp.time) ? pvp.time.slice() : null), equipePvpAlvo: () => (eu ? equipeAlvo(Array.isArray(pvp.time) ? pvp.time : []).map((p) => p.id) : []), _interno: { cfg: () => cfg, tique, TAREFAS, marcas: () => marcas, rodCentro: () => rodCentro, andarRodCentro, VALVULA_MS } };
+  PIH.rotina = { html, linhasCaca, ligar, aplicar, definir, proximoRodizio, filaRodizio, resumoAutoColecao: () => resumoRegra(ultimaRegra), pvpTime: () => (Array.isArray(pvp.time) ? pvp.time.slice() : null), equipePvpAlvo: () => (eu ? equipeAlvo(Array.isArray(pvp.time) ? pvp.time : []).map((p) => p.id) : []), _interno: { cfg: () => cfg, tique, TAREFAS, marcas: () => marcas, rodCentro: () => rodCentro, andarRodCentro, VALVULA_MS, colRegra: () => colRegra, rastrearColecao, armarPasse: () => { passeLimpar = { em: Date.now(), modalAntes: false, clicouOk: false }; } } };
 })(globalThis);

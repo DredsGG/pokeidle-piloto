@@ -611,6 +611,68 @@
     return `${topo}${bloco(`Melhores para farm${a.slug ? ` em ${esc(nomeHunt(a.slug))}` : ''}`, a.farmTop, 'farm', 'esteja numa hunt para medir o farm')}${bloco('Melhores para PvP (Poder de hoje)', a.pvpTop, 'pvp', 'nenhum')}${bloco(`Vale treinar (até o Nv ${nf.format(a.alvoNivel)})`, a.treinar, 'treinar', a.semNota ? 'o módulo de nota do jogo não carregou' : 'nenhum fraco com potencial acima dos de cima')}`;
   }
 
+  // ---- 1.35 (pedido do André): "Atualizar time" pelo meta de AGORA ------------------------------
+  // O time do meta segue uma comp estável (uma espécie só sai depois de 24 h fora). Este botão é
+  // para quando você quer trocar já: a comp do time vira a do meta de agora, e a troca acontece no
+  // Centro como sempre (sai quem não é do meta, entra o seu melhor de cada família que você pode
+  // usar). O que você não tem fica listado como "falta caçar" — o Piloto só vai caçar se você
+  // clicar em "Caçar os que faltam".
+  const recorteMeta = () => { try { return JSON.parse(localStorage.getItem('piloto:metacaca:v1') || 'null')?.recorte === 'faixa' ? 'faixa' : 'topo'; } catch { return 'topo'; } };
+  function previaMeta() {
+    const F = PIH.meta && PIH.meta.familia;
+    if (!eu || !F || !PIH.meta.agregar) return null;
+    const recorte = recorteMeta();
+    const viva = (PIH.meta.agregar(recorte) || {}).comp || [];
+    if (!viva.length) return { recorte, viva, entra: [], fica: [], sai: [], falta: [], acima: [] };
+    const serve = F.serve ? (x, a) => F.serve(x, a) : (x, a) => { const r = F.raizDoMeta(a); return r != null && F.raizDePk(x) === r; };
+    const todos = meus().filter((p) => p.stats && poderDe(p) > 0);
+    const usados = new Set();
+    const entra = []; const fica = []; const falta = []; const acima = [];
+    for (const a of viva.slice(0, MAX_EQUIPE)) {
+      const daFam = todos.filter((x) => !usados.has(x.id) && serve(x, a));
+      const p = daFam.filter(podeUsar).sort((x, y) => poderDe(y) - poderDe(x))[0];
+      if (p) { usados.add(p.id); (p.slot == null ? entra : fica).push({ p, a }); continue; }
+      if (daFam.length) acima.push({ a, p: daFam.sort((x, y) => poderDe(y) - poderDe(x))[0] }); else falta.push({ a });
+    }
+    const dosMeta = new Set([...entra, ...fica].map((x) => x.p.id));
+    const sai = timeCampo().filter((p) => !dosMeta.has(p.id) && !travado('time', p.id)).slice(0, entra.length);
+    return { recorte, viva, entra, fica, sai, falta, acima };
+  }
+  function atualizarPeloMeta() {
+    const pv = previaMeta();
+    if (!pv || !pv.viva.length) return 'a aba Meta ainda não leu times suficientes';
+    cfg.compEstavel[pv.recorte] = { lista: pv.viva.slice(0, MAX_EQUIPE).map((a) => ({ speciesId: a.speciesId, nome: a.nome })), fora: {} };
+    cfg.doMeta = true;
+    gravar();
+    diario(`você atualizou o time pelo meta de agora (${pv.recorte === 'faixa' ? 'sua faixa' : 'Topo 20'}): ${pv.viva.slice(0, MAX_EQUIPE).map((a) => a.nome).join(', ')}`, 'ok');
+    if (!pv.entra.length) return pv.falta.length || pv.acima.length ? 'nada para trocar agora: falta caçar o resto' : 'o time já é o do meta';
+    if (st.sessao) return 'já tem uma troca no Centro andando';
+    st.ultimaTroca = 0; st.sessaoFalhouEm = 0;
+    return iniciarSessao('você atualizou o time pelo meta') ? `indo ao Centro: entra ${pv.entra.map((x) => x.p.nome).join(', ')}` : (st.motivo || 'não deu para ir ao Centro agora');
+  }
+  async function cacarOsQueFaltam() {
+    if (!PIH.metaCaca) return 'o Caçar o meta não carregou';
+    if (PIH.metaCaca.ativo()) return 'o Caçar o meta já está ligado';
+    await PIH.metaCaca.definir('recorte', recorteMeta());
+    const r = await PIH.metaCaca.definir('ligado', true);
+    return r && r.ok === false ? `não liguei: ${r.motivo}` : 'Caçar o meta ligado: vai atrás dos que faltam (os que você já tem ficam)';
+  }
+  function htmlAtualizarMeta(modo, arte) {
+    const pv = previaMeta();
+    if (!pv) return '';
+    const trava = modo === 'desligado';
+    const pk = (p, cls = '') => `<span class="plt-am-pk ${cls}" title="${esc(p.nome)} Nv ${nf.format(p.level || 0)}">${arte({ speciesId: p.speciesId, shiny: !!p.shiny, nome: p.nome }, 30, `am:${p.id}`)}<small>${esc(p.nome)}</small></span>`;
+    const esp = (a, cls = '') => `<span class="plt-am-pk ${cls}" title="${esc(a.nome)}">${arte({ speciesId: a.speciesId, shiny: false, nome: a.nome }, 30, `amf:${a.speciesId}`)}<small>${esc(a.nome)}</small></span>`;
+    const lista = (rot, itens, vazio) => `<div class="plt-am-lin"><b>${rot}</b><span class="plt-am-pks">${itens.length ? itens.join('') : `<i>${vazio}</i>`}</span></div>`;
+    const msg = st.metaMsg && Date.now() - st.metaMsg.em < 120_000 ? st.metaMsg.txt : null;
+    const status = !pv.viva.length ? 'a aba Meta ainda não leu times suficientes' : msg ? esc(msg) : pv.entra.length ? `${pv.entra.length} troca${pv.entra.length === 1 ? '' : 's'} para fazer` : 'o time já segue o meta de agora';
+    const linha = K.linha({ id: 'atualizar-meta', icone: 'pvp', nome: 'Atualizar o time pelo meta', status,
+      dica: 'Compara o meta de agora com o seu time. Entra o seu melhor de cada família do meta que você já pode usar; sai quem não é do meta (o cadeado segura). A troca é no Centro, como sempre. O que você não tem aparece em "Falta caçar": o Piloto só vai atrás se você clicar em "Caçar os que faltam".',
+      direita: `<span class="plt-am-bts">${K.acao('Atualizar time', 'data-acao="atualizar-meta"', 'raio', trava || !pv.viva.length || !!st.sessao)}${pv.falta.length ? K.acao('Caçar os que faltam', 'data-acao="cacar-faltam"', 'cacar', trava || (PIH.metaCaca && PIH.metaCaca.ativo())) : ''}</span>` });
+    if (!pv.viva.length) return linha;
+    return `${linha}<div class="plt-am">${lista('Entra', pv.entra.map((x) => pk(x.p, 'entra')), 'ninguém')}${lista('Sai', pv.sai.map((p) => pk(p, 'sai')), 'ninguém')}${lista('Já no time', pv.fica.map((x) => pk(x.p)), '—')}${pv.acima.length ? lista('Acima do seu nível', pv.acima.map((x) => pk(x.p, 'acima')), '') : ''}${lista('Falta caçar', pv.falta.map((x) => esp(x.a, 'falta')), 'nada — você tem todos')}</div>`;
+  }
+
   function montarBotao() {
     if (botao && botao.isConnected) return;
     const cab = document.querySelector('#p-equipe .painel-cab-equipe');
@@ -624,8 +686,38 @@
     botao.addEventListener('click', (ev) => { ev.stopPropagation(); alternar(); });
     const tg = cab.querySelector('#btn-equipe-toggle');
     if (tg) cab.insertBefore(botao, tg); else cab.append(botao);
+    pintarMetaNovo();
   }
   setInterval(montarBotao, 2000);
+
+  // 1.34.1 (pedido do André): o meta mudou e você não viu o aviso — o botão Time fica dourado, com um
+  // pontinho, até você abrir a aba Meta da janela Time. Abrir o Time nessa hora já cai na aba Meta.
+  const CHAVE_META_NOVO = 'piloto:meta:naoVisto';
+  const metaNovo = () => { try { return JSON.parse(localStorage.getItem(CHAVE_META_NOVO) || 'null'); } catch { return null; } };
+  function pintarMetaNovo() {
+    if (!botao) return;
+    const m = metaNovo();
+    botao.classList.toggle('plt-time-novo', !!m);
+    if (!m) { botao.title = 'Time: o seu time de campo e o do PvP, e a análise dos seus pokémon (Piloto)'; return; }
+    const l = (PIH.idioma && PIH.idioma.atual && PIH.idioma.atual()) || 'pt';
+    const ent = (m.entrou || []).join(', ');
+    const sai = (m.saiu || []).join(', ');
+    const faixa = /faixa/i.test(m.recorte || '');
+    botao.title = l === 'en' ? `The meta changed (${faixa ? 'your bracket' : 'Top 20'}): in ${ent}${sai ? ` · out ${sai}` : ''} — click to see`
+      : l === 'es' ? `El meta cambió (${faixa ? 'tu franja' : 'Top 20'}): entra ${ent}${sai ? ` · sale ${sai}` : ''} — clic para ver`
+        : `O meta mudou (${faixa ? 'sua faixa' : 'Topo 20'}): entrou ${ent}${sai ? ` · saiu ${sai}` : ''} — clique para ver`;
+  }
+  function metaVisto() {
+    if (!metaNovo()) return;
+    try { localStorage.removeItem(CHAVE_META_NOVO); } catch { /* sem armazenamento */ }
+    pintarMetaNovo();
+  }
+  PIH.on('piloto.meta-mudou', (d) => {
+    const linha = String((d && d.linha) || '');
+    const pega = (re) => ((re.exec(linha) || [])[1] || '').split(', ').filter(Boolean).slice(0, 5);
+    try { localStorage.setItem(CHAVE_META_NOVO, JSON.stringify({ em: Date.now(), entrou: pega(/entrou (.+?)(?: · saiu|$)/), saiu: pega(/saiu (.+)$/), recorte: (d && d.recorte) || '' })); } catch { /* sem armazenamento */ }
+    pintarMetaNovo();
+  });
 
   // ---- 1.28.1 (pedido do André): o timer de cada pokémon no painel EQUIPE do próprio jogo ---------
   // O jogo refaz as linhas da Equipe (#time > .poke-linha[data-id]) a cada estado; um observador
@@ -791,6 +883,7 @@
 
   function alternar() {
     if (janela) return fechar();
+    if (metaNovo() && ABAS.some(([k]) => k === 'meta')) { cfg.aba = 'meta'; gravar(); }
     PIH.arte?.preparar?.();
     janela = document.createElement('div');
     janela.className = 'plt-janela plt-janela-time modal-caixa';
@@ -848,6 +941,7 @@
     const modo = modoPiloto();
     janela.dataset.modo = modo;
     const aba = cfg.aba;
+    if (aba === 'meta') metaVisto();
     for (const b of janela.querySelectorAll('.cfg-cat[data-aba]')) { const on = b.dataset.aba === aba; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); }
     const [, rot, ic] = ABAS.find((x) => x[0] === aba);
     const tit = janela.querySelector('[data-titulo]');
@@ -861,7 +955,7 @@
     dadosArte.clear();
     const off = modo === 'desligado' ? K.linha({ id: 'off', icone: 'fechar', nome: 'Piloto desligado', classe: 'plt-l-off', status: 'Nada automático roda. O cadeado e a análise continuam.' }) : '';
     const arteMeta = (d, px, chave) => arte({ ...d, id: chave }, px, 'meta');
-    const corpoMeta = () => (PIH.meta ? `${PIH.metaCaca ? PIH.metaCaca.html({ modo, arte: arteMeta }) : ''}${PIH.meta.html({ modo, arte: arteMeta })}` : '<div class="pih-erro">O módulo do meta não carregou.</div>');
+    const corpoMeta = () => (PIH.meta ? `${htmlAtualizarMeta(modo, arteMeta)}${PIH.metaCaca ? PIH.metaCaca.html({ modo, arte: arteMeta }) : ''}${PIH.meta.html({ modo, arte: arteMeta })}` : '<div class="pih-erro">O módulo do meta não carregou.</div>');
     const html = !eu ? '<div class="pih-carga">Esperando o jogo conectar…</div>' : off + (aba === 'meta' ? corpoMeta() : corpoTime(modo));
     if (forcar || html !== ultimoHtml) {
       ultimoHtml = html;
@@ -902,6 +996,8 @@
       return;
     }
     if (t.matches('[data-acao="analisar"]')) { analisar(); return; }
+    if (t.matches('[data-acao="atualizar-meta"]')) { st.metaMsg = { txt: atualizarPeloMeta(), em: Date.now() }; pintar(true); return; }
+    if (t.matches('[data-acao="cacar-faltam"]')) { Promise.resolve(cacarOsQueFaltam()).then((m) => { st.metaMsg = { txt: m, em: Date.now() }; pintar(true); }); return; }
     if (t.matches('[data-escolha^="meta:"]')) { PIH.meta?.definir?.(t.dataset.escolha.slice(5), t.dataset.valor); pintar(true); return; }
     if (t.matches('[data-escolha^="metacaca:"]')) { PIH.metaCaca?.definir?.(t.dataset.escolha.slice(9), t.dataset.valor); pintar(true); return; }
     const m = /^campo:(\d+)$/.exec(t.dataset.acao || '');
@@ -955,5 +1051,5 @@
     cfg.aba = aba; gravar();
     if (!janela) alternar(); else pintar(true);
   }
-  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, marcarPonte, ganhoDeNivel, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), compEstavel: (r) => compEstavel(r || "topo").map((a) => a.speciesId), _cfgTime: () => cfg, campoAuto, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
+  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, marcarPonte, ganhoDeNivel, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), compEstavel: (r) => compEstavel(r || "topo").map((a) => a.speciesId), _cfgTime: () => cfg, campoAuto, metaNovo, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
 })(globalThis);

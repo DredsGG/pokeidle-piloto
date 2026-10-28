@@ -70,13 +70,21 @@
   botao.type = 'button';
   botao.className = 'plt-barra';
   botao.setAttribute('aria-haspopup', 'dialog');
-  botao.innerHTML = `<span class="plt-marca">${ico('leme')}Piloto</span>
+  botao.innerHTML = `<span class="plt-marca">${ico('leme')}Piloto<small class="plt-ver" aria-hidden="true"></small></span>
     <span class="plt-chips">
       <span class="plt-chip" data-chip="hunt" title="Hunt">${ico('cacar')}</span>
       <span class="plt-chip" data-chip="rotina" title="Rotina">${ico('rotina')}</span>
       <span class="plt-chip" data-chip="radar" title="Radar">${ico('radar')}<b hidden></b></span>
     </span>
     <span class="plt-medidor" aria-hidden="true"><span></span></span>`;
+  // 1.34.1 (pedido do André): a versão, bem discreta, ao lado do nome — sem abrir o Piloto
+  const pintarVersaoBarra = () => {
+    const v = document.documentElement.dataset.pilotoVersao || '';
+    const el = botao.querySelector('.plt-ver');
+    if (el && v && el.textContent !== `v${v}`) { el.textContent = `v${v}`; }
+    return !!v;
+  };
+  if (!pintarVersaoBarra()) { const t = setInterval(() => { if (pintarVersaoBarra()) clearInterval(t); }, 2000); }
   botao.addEventListener('click', (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
@@ -370,6 +378,7 @@
     ['rotina', 'Rotina', 'rotina', 'Passe, XP Share, PvP, Depot e o resto'],
     ['mercado', 'Mercado', 'mercado', 'O Radar: compra, sorteios e revenda'],
     ['cofre', 'Cofre', 'cofre', 'Quanto pode gastar, e onde gastou'],
+    ['extrato', 'Extrato', 'gasto', 'O que você gastou e o que entrou'],
   ];
   // 1.33.8: a aba Teste só existe na build de teste do André (o módulo não vai para o Release público)
   if (PIH.testeDuvidas) ABAS.push(['teste', 'Teste', 'radar', 'Testes que só existem na sua build']);
@@ -445,9 +454,11 @@
       voltas++;
       if (['resumo', 'hunts', 'rotina', 'cofre'].includes(prefs.aba)) desenhar();
       else if (prefs.aba === 'meta' && voltas % 10 === 0) desenhar();
+      else if (prefs.aba === 'extrato' && voltas % 15 === 0) desenhar();
       else pintarMoldura();
     }, 1_000);
   }
+  PIH.on?.('extrato.mudou', () => { if (painel && prefs.aba === 'extrato') { ultimoHtml = ''; desenhar(); } });
   function fecharPainel() {
     clearInterval(relogio);
     soltarMercado();
@@ -480,6 +491,7 @@
     else if (mod === 'plateia') PIH.plateia?.definir?.(caminho, valor);
     else if (mod === 'torneio') PIH.torneio?.definir?.(caminho, valor);
     else if (mod === 'teste') PIH.testeDuvidas?.definir?.(caminho, valor);
+    else if (mod === 'extrato') PIH.extrato?.definir?.(caminho, valor);
     ultimoHtml = '';
     desenhar();
   }
@@ -518,6 +530,7 @@
     if (acao === 'fechar') fecharPainel();
     else if (acao === 'tema') { definirTema(temaAtual() === 'claro' ? 'escuro' : 'claro'); pintarBotaoTema(); }
     else if (acao === 'mais') { mostrando += POR_PAGINA; ultimoHtml = ''; desenhar(); }
+    else if (acao === 'extrato-mais') { PIH.extrato?.mais?.(); ultimoHtml = ''; desenhar(); }
     else if (acao === 'plateia-abrir') PIH.plateia?.abrirAgora?.();
     else if (acao === 'torneio-conferir') PIH.torneio?.conferir?.();
     else if (acao.startsWith('religar:')) { PIH.cofre?.religar?.(acao.slice(8)); ultimoHtml = ''; desenhar(); }
@@ -971,6 +984,7 @@
     if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '') + (PIH.plateia ? PIH.plateia.linha(layout) : '') + (PIH.torneio ? PIH.torneio.linha(layout) : '')); return; }
     if (aba === 'cofre') { pintarSeMudou(alvo, aba, topo + (PIH.cofre ? PIH.cofre.html(layout) : '')); return; }
     if (aba === 'teste') { pintarSeMudou(alvo, aba, topo + (PIH.testeDuvidas ? PIH.testeDuvidas.html(layout) : '')); return; }
+    if (aba === 'extrato') { if (pintarSeMudou(alvo, aba, topo + (PIH.extrato ? PIH.extrato.html(layout) : ''))) PIH.extrato?.hidratar?.(alvo); return; }
     const pk = pkAtivo();
     const linhasCaca = aba === 'hunts' ? `${PIH.auto ? PIH.auto.linhas(layout) : ''}${PIH.rotina && PIH.rotina.linhasCaca ? PIH.rotina.linhasCaca(layout) : ''}${PIH.captura ? PIH.captura.linha(layout) : ''}${PIH.volta ? PIH.volta.linha(layout) : ''}${K.grupo('Onde render mais')}` : '';
     if (!welcome || !eu) { pintarSeMudou(alvo, aba, `${topo}${linhasCaca}<div class="pih-carga">Esperando o jogo conectar…</div>`); return; }

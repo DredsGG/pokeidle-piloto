@@ -30,6 +30,23 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.35.1': [
+        "Evolve: an evolution command lost to a dropped connection locked that Pokémon for 24 h; now it tries again in 30 min.",
+        "Evolve: when a ready Pokémon is left out by the rule (your starter, skin, held item, refinement or XP Share post), the log tells you why, once a day.",
+      ],
+      '1.35.0': [
+        "Meta tab in the Team window: \"Update team\" button — switches to the current meta right away (at the Center), shows who comes in, who goes out and what's still to catch; \"Hunt the missing ones\" only when you click.",
+        "New Statement tab: what you spent and what came in, with the item icon or the Pokémon, when and how long ago; totals for today, 7 and 30 days.",
+        "Live PvP: in the small window and the full screen of the match, each trainer's name and Pokémon in the corners — fading as they lose HP and grey when they faint.",
+      ],
+      '1.34.1': [
+        "Collection: a Pokémon the Auto Collection kept below Lv 50 (the Market only takes it from there) that isn't useful for the team, PvP or the meta goes back to the Depot and is sold instead of sitting there.",
+        "The Pilot's version shows, discreetly, next to its name on the In the field bar.",
+        "Team button: turns gold with a red dot when the meta changes and you haven't seen it yet; opening it goes straight to the Meta tab.",
+        "Next to your rank you see the last ranked result: ▲ the PR you won or ▼ the PR you lost.",
+        "Battle Pass: when the Pilot collects the daily reward, it closes the \"Amazing!\" box and the Pass window by itself.",
+        "An automatic buy that didn't go out because the game connection dropped tries again by itself when the connection is back.",
+      ],
       '1.34.0': [
         "New version: the Pilot checks on its own when the game opens, every 30 min and when you come back to the tab, and shows the notice right away, without reloading. The X only postpones it for 1 h; an urgent update pauses the Pilot until you update.",
         "Manual mode: Targets tab in the Market — for each item, the max price in gold and how many to buy; the Radar buys on its own when a listing shows up at or below it. Also Pokémon targets in gold (P5 and minimum grade).",

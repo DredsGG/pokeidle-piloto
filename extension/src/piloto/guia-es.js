@@ -30,6 +30,23 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.35.1': [
+        "Evolucionar: un comando de evolución perdido por una caída de conexión bloqueaba a ese pokémon por 24 h; ahora lo intenta de nuevo en 30 min.",
+        "Evolucionar: cuando un pokémon listo queda fuera de la regla (tu inicial, skin, objeto, refinamiento o puesto en el XP Share), el diario avisa el motivo, una vez al día.",
+      ],
+      '1.35.0': [
+        "Pestaña Meta de la ventana Equipo: botón \"Actualizar equipo\" — cambia ya al meta actual (en el Centro), muestra quién entra, quién sale y qué falta cazar; \"Cazar los que faltan\" solo cuando haces clic.",
+        "Nueva pestaña Extracto: lo que gastaste y lo que entró, con el ícono del ítem o el pokémon, cuándo y hace cuánto; totales de hoy, 7 y 30 días.",
+        "PvP en vivo: en la ventanita y en la pantalla completa de la partida, el nombre de cada entrenador y sus pokémon en las esquinas — apagándose al perder HP y grises cuando caen.",
+      ],
+      '1.34.1': [
+        "Colección: el pokémon que la Auto Colección guardó por debajo del Nv 50 (el Mercado solo lo acepta desde ahí) y que no sirve para el equipo, el PvP ni el meta vuelve al Depot y se vende, en vez de quedarse parado.",
+        "La versión del Piloto aparece, discreta, al lado del nombre en la barra de En campo.",
+        "Botón Equipo: se pone dorado, con un punto rojo, cuando el meta cambia y aún no lo viste; al abrirlo va directo a la pestaña Meta.",
+        "Al lado de tu rango aparece el resultado de la última clasificatoria: ▲ los PR que ganaste o ▼ los que perdiste.",
+        "Pase de Batalla: cuando el Piloto recoge el premio del día, él mismo cierra el \"¡Increíble!\" y la ventana del Pase.",
+        "La compra automática que no salió porque se cayó la conexión del juego lo intenta de nuevo sola cuando la conexión vuelve.",
+      ],
       '1.34.0': [
         "Versión nueva: el Piloto busca solo al abrir el juego, cada 30 min y cuando vuelves a la pestaña, y muestra el aviso al instante, sin recargar. La X solo lo pospone 1 h; una actualización urgente pausa el Piloto hasta que actualices.",
         "Modo Manual: pestaña Objetivos en el Mercado — para cada ítem, el tope en oro y cuántas unidades comprar; el Radar compra solo cuando aparece en el tope o por debajo. También objetivos de pokémon en oro (P5 y nota mínima).",

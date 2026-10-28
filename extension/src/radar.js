@@ -77,6 +77,8 @@
     conta: { id: null, gold: null, itens: null },
     amostrasRelogio: [],
     socketAberto: false,
+    retentar: new Map(), // 1.34.1: anúncioId -> compra automática que não saiu com a conexão caída
+    quedas: [], // 1.34.1: as últimas quedas da conexão do jogo (para o diagnóstico)
     sessaoTomada: false,
     mercadoDom: false,
     temModalDom: false, // o #modal do jogo existe: a pausa segue o que está na tela
@@ -1062,8 +1064,32 @@
       if (c.alerta.resultado) resolverAviso(c.alerta.anuncioId);
       if (c.estado.resultado === 'sem-resposta') conferirNoHistorico(c).catch(erro).finally(() => finalizarCompra(c));
       else finalizarCompra(c);
+      // 1.34.1 (o André viu "Não enviada: socket do jogo fechado" numa Earth Stone 100% abaixo): a
+      // compra automática que não saiu porque a conexão do jogo estava caída tenta de novo sozinha
+      // quando ela volta (até 3 vezes, por 3 min). Nada chegou ao servidor, então não há risco de
+      // comprar em dobro; o cofre confere tudo de novo no envio.
+      if (c.auto && c.estado.resultado === 'nao-enviada' && /socket|conex/i.test(String(c.estado.msg || ''))) agendarRetentativa(c);
       agendarFila();
       publicarEstado();
+    }
+  }
+
+  const RETENTAR_MS = 3 * 60_000;
+  const RETENTAR_MAX = 3;
+  function agendarRetentativa(c) {
+    const id = c.alerta.anuncioId;
+    const ant = s.retentar.get(id);
+    const n = (ant ? ant.n : 0) + 1;
+    if (n > RETENTAR_MAX) { s.retentar.delete(id); return; }
+    s.retentar.set(id, { qtd: c.estado.qtd, ate: ant ? ant.ate : Date.now() + RETENTAR_MS, n, nome: c.alerta.nome || 'item' });
+    if (s.socketAberto) setTimeout(retentarCompras, 2000);
+  }
+  function retentarCompras() {
+    if (!s.socketAberto || !s.retentar.size) return;
+    for (const [id, r] of [...s.retentar]) {
+      const alerta = s.alertas.get(id);
+      if (Date.now() > r.ate || !alerta || alerta.sumiu || alerta.resultado || s.compras.has(id) || !s.config.compraAutomatica) { s.retentar.delete(id); continue; }
+      if (iniciarCompra({ anuncioId: id, qtd: r.qtd, auto: true })) diarioPiloto(`radar: a conexão do jogo voltou — tentando de novo a compra de ${r.nome} (${r.n}ª vez)`, 'ok');
     }
   }
 
@@ -1133,6 +1159,10 @@
         desligarAutomatica(`${Auto.FALHAS_PARA_DESLIGAR} compras seguidas sem resposta ou com erro do servidor`);
       }
     }
+    if (C.comprou(r)) {
+      const a = c.alerta;
+      paraExtrato([{ id: `r:${a.anuncioId}`, em: c.estado.concluidoEm || Date.now(), tipo: 'gasto', fonte: 'mercado', origem: c.auto ? 'radar' : 'voce-radar', nome: a.nome, qtd: c.estado.qtd, valor: c.estado.qtd * a.preco, itemId: a.itemId ?? null, speciesId: a.speciesId ?? null, shiny: !!(a.pokemon && a.pokemon.shiny) }]);
+    }
     if (c.auto && enviada) notificarResultado(c);
     if (C.comprou(r)) { s.revenda.registroEm = 0; s.revenda.historicoEm = 0; }
     s.compras.delete(c.alerta.anuncioId);
@@ -1176,6 +1206,26 @@
   }
   // "Últimas ações" no Resumo do Piloto.
   const ultimoDiario = new Map();
+  // 1.35: o Extrato do Piloto (o outro mundo) guarda as compras e vendas do Mercado.
+  function paraExtrato(lista) {
+    if (!lista || !lista.length) return;
+    try { document.dispatchEvent(new CustomEvent('piloto:extrato', { detail: JSON.stringify({ lista }) })); } catch (e) { erro(e); }
+  }
+  function linhasParaExtrato(linhas, tipo) {
+    const porNome = new Map([...s.catalogo.values()].map((i) => [String(i.nome).toLowerCase(), i.id]));
+    const brutas = new Map((linhas || []).filter(Boolean).map((l) => [l.id, l]));
+    return Pessoal.normalizarHistorico(linhas || [], tipo).filter((l) => l.moeda === 'gold' && l.em && (tipo === 'venda' ? (l.liquido ?? l.bruto) : l.bruto) > 0).map((l) => {
+      const b = brutas.get(l.id) || {};
+      const f = b.ficha || {};
+      const pk = l.tipoItem === 'pokemon' || f.speciesId != null;
+      return {
+        id: `${tipo === 'venda' ? 'hv' : 'hc'}:${l.id}`, em: l.em, tipo: tipo === 'venda' ? 'entrada' : 'gasto', fonte: 'mercado', origem: 'mercado',
+        nome: l.nome, qtd: l.qtd, valor: tipo === 'venda' ? (l.liquido ?? l.bruto) : l.bruto,
+        itemId: pk ? null : (b.itemId ?? porNome.get(String(l.nome).toLowerCase()) ?? null), speciesId: pk ? (f.speciesId ?? b.speciesId ?? null) : null, shiny: !!(f.shiny || b.shiny),
+      };
+    });
+  }
+
   function diarioPiloto(txt, tipo = 'ok', chave = null) {
     if (chave) {
       const ant = ultimoDiario.get(chave);
@@ -1671,6 +1721,8 @@
     if (!dados) return;
     if (aba === 'meus') { s.revenda.meus = dados; s.revenda.meusEm = Date.now(); }
     if (aba === 'historicoCompras') { s.revenda.historico = dados; s.revenda.historicoEm = Date.now(); try { atualizarLivroManual(); } catch (e) { erro(e); } }
+    if (aba === 'historicoCompras') { try { paraExtrato(linhasParaExtrato(dados.linhas, 'compra')); } catch (e) { erro(e); } }
+    if (aba === 'historico') { try { paraExtrato(linhasParaExtrato(dados.linhas, 'venda')); } catch (e) { erro(e); } }
     // Lucro realizado (0.9.0): as suas vendas, sem quem comprou, e a diária dos seus anúncios de pokémon.
     if (aba === 'historico') {
       s.ultimoHistoricoVendas = Date.now();
@@ -2119,6 +2171,12 @@
   setInterval(() => { publicarEstoque(); }, 2 * 60000);
   setTimeout(() => { publicarEstoque(); }, 8000);
 
+  // 1.34.1: as quedas da conexão do jogo, conferíveis pela página /terms ('piloto:diag:quedas')
+  function gravarQuedas() {
+    try { localStorage.setItem('piloto:diag:quedas', JSON.stringify(s.quedas)); } catch { /* sem espaço */ }
+  }
+  try { const q = JSON.parse(localStorage.getItem('piloto:diag:quedas') || '[]'); if (Array.isArray(q)) s.quedas = q.slice(-30); } catch { /* começa vazio */ }
+
   // 1.33.1: um retrato do radar no localStorage do pokeidle.io ('piloto:diag:radar'), a cada 1 min,
   // para conferir pela página /terms (sem abrir o /app) por que um item foi ou não comprado,
   // anunciado ou teve o preço mudado. Fica só neste navegador; não vai a lugar nenhum.
@@ -2175,6 +2233,9 @@
       if (m.evento === 'aberto') {
         s.socketAberto = true;
         s.sessaoTomada = false;
+        const q = s.quedas[s.quedas.length - 1];
+        if (q && !q.voltouEm) { q.voltouEm = Date.now(); gravarQuedas(); }
+        setTimeout(retentarCompras, 3000); // 1.34.1: a compra automática que caiu com a conexão
         // Conexão nova (o jogo reconectou depois de uma queda ou de uma atualização): as falhas de
         // antes eram da conexão velha, e a pausa por elas acaba aqui.
         if (s.recuo.pausado || s.recuo.falhas) {
@@ -2187,6 +2248,10 @@
       if (m.evento === 'fechado') {
         s.socketAberto = false;
         if (m.codigo === 4001) s.sessaoTomada = true;
+        // 1.34.1: anota a queda (código do fechamento, motivo, se estava escondida) para descobrir o porquê
+        s.quedas.push({ em: Date.now(), codigo: m.codigo ?? null, motivo: String(m.motivo || '').slice(0, 80), limpo: !!m.limpo, oculta: typeof document !== 'undefined' ? document.hidden : null, voltouEm: null });
+        if (s.quedas.length > 30) s.quedas.splice(0, s.quedas.length - 30);
+        gravarQuedas();
         for (const p of [...s.pendentes]) p.terminar(null);
       }
       s.motivo = A.motivoDePausa(contextoDePausa());
@@ -2194,7 +2259,7 @@
     });
     bus.on('status', (m) => {
       s.socketAberto = m.conectado;
-      if (m.conectado) acordar();
+      if (m.conectado) { acordar(); setTimeout(retentarCompras, 3000); }
     });
     bus.on('contexto-perdido', () => {
       s.parado = true;

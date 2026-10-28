@@ -1,5 +1,62 @@
 {
   "versoes": {
+    "1.35.1": {
+      "pt": [
+        "Evoluir: um comando de evolução que se perdia (queda da conexão) travava aquele pokémon por 24 h; agora tenta de novo em 30 min.",
+        "Evoluir: quando um pokémon pronto fica de fora da regra (o seu inicial, skin, item, refino ou posto no XP Share), o diário avisa o motivo, uma vez por dia."
+      ],
+      "en": [
+        "Evolve: an evolution command lost to a dropped connection locked that Pokémon for 24 h; now it tries again in 30 min.",
+        "Evolve: when a ready Pokémon is left out by the rule (your starter, skin, held item, refinement or XP Share post), the log tells you why, once a day."
+      ],
+      "es": [
+        "Evolucionar: un comando de evolución perdido por una caída de conexión bloqueaba a ese pokémon por 24 h; ahora lo intenta de nuevo en 30 min.",
+        "Evolucionar: cuando un pokémon listo queda fuera de la regla (tu inicial, skin, objeto, refinamiento o puesto en el XP Share), el diario avisa el motivo, una vez al día."
+      ]
+    },
+    "1.35.0": {
+      "pt": [
+        "Aba Meta da janela Time: botão \"Atualizar time\" — troca já para o meta de agora (no Centro), mostra quem entra, quem sai e o que falta caçar; \"Caçar os que faltam\" só quando você clica.",
+        "Nova aba Extrato: o que você gastou e o que entrou, com o ícone do item ou o pokémon, quando e há quanto tempo; totais de hoje, 7 e 30 dias.",
+        "PvP ao vivo: na janelinha e na tela cheia da partida, o nome de cada treinador e os pokémon dele nos cantos — apagando conforme perdem HP e cinza quando caem."
+      ],
+      "en": [
+        "Meta tab in the Team window: \"Update team\" button — switches to the current meta right away (at the Center), shows who comes in, who goes out and what's still to catch; \"Hunt the missing ones\" only when you click.",
+        "New Statement tab: what you spent and what came in, with the item icon or the Pokémon, when and how long ago; totals for today, 7 and 30 days.",
+        "Live PvP: in the small window and the full screen of the match, each trainer's name and Pokémon in the corners — fading as they lose HP and grey when they faint."
+      ],
+      "es": [
+        "Pestaña Meta de la ventana Equipo: botón \"Actualizar equipo\" — cambia ya al meta actual (en el Centro), muestra quién entra, quién sale y qué falta cazar; \"Cazar los que faltan\" solo cuando haces clic.",
+        "Nueva pestaña Extracto: lo que gastaste y lo que entró, con el ícono del ítem o el pokémon, cuándo y hace cuánto; totales de hoy, 7 y 30 días.",
+        "PvP en vivo: en la ventanita y en la pantalla completa de la partida, el nombre de cada entrenador y sus pokémon en las esquinas — apagándose al perder HP y grises cuando caen."
+      ]
+    },
+    "1.34.1": {
+      "pt": [
+        "Coleção: o pokémon que o Auto Coleção guardou abaixo do Nv 50 (o Mercado só aceita a partir dele) e que não serve para o time, o PvP ou o meta volta para o Depot e é vendido, em vez de ficar parado.",
+        "A versão do Piloto aparece, discreta, ao lado do nome na barra do Em campo.",
+        "Botão Time: fica dourado, com um ponto vermelho, quando o meta muda e você ainda não viu; abrir já mostra a aba Meta.",
+        "Ao lado do seu rank aparece o resultado da última ranqueada: ▲ os PR que ganhou ou ▼ os que perdeu.",
+        "Passe de Batalha: quando o Piloto recolhe o prêmio do dia, ele mesmo fecha o \"Incrível!\" e a janela do Passe.",
+        "Compra automática que não saiu porque a conexão do jogo caiu tenta de novo sozinha quando a conexão volta."
+      ],
+      "en": [
+        "Collection: a Pokémon the Auto Collection kept below Lv 50 (the Market only takes it from there) that isn't useful for the team, PvP or the meta goes back to the Depot and is sold instead of sitting there.",
+        "The Pilot's version shows, discreetly, next to its name on the In the field bar.",
+        "Team button: turns gold with a red dot when the meta changes and you haven't seen it yet; opening it goes straight to the Meta tab.",
+        "Next to your rank you see the last ranked result: ▲ the PR you won or ▼ the PR you lost.",
+        "Battle Pass: when the Pilot collects the daily reward, it closes the \"Amazing!\" box and the Pass window by itself.",
+        "An automatic buy that didn't go out because the game connection dropped tries again by itself when the connection is back."
+      ],
+      "es": [
+        "Colección: el pokémon que la Auto Colección guardó por debajo del Nv 50 (el Mercado solo lo acepta desde ahí) y que no sirve para el equipo, el PvP ni el meta vuelve al Depot y se vende, en vez de quedarse parado.",
+        "La versión del Piloto aparece, discreta, al lado del nombre en la barra de En campo.",
+        "Botón Equipo: se pone dorado, con un punto rojo, cuando el meta cambia y aún no lo viste; al abrirlo va directo a la pestaña Meta.",
+        "Al lado de tu rango aparece el resultado de la última clasificatoria: ▲ los PR que ganaste o ▼ los que perdiste.",
+        "Pase de Batalla: cuando el Piloto recoge el premio del día, él mismo cierra el \"¡Increíble!\" y la ventana del Pase.",
+        "La compra automática que no salió porque se cayó la conexión del juego lo intenta de nuevo sola cuando la conexión vuelve."
+      ]
+    },
     "1.34.0": {
       "pt": [
         "Versão nova: o Piloto procura sozinho ao abrir o jogo, a cada 30 min e quando você volta para a aba, e mostra o aviso na hora, sem recarregar. O X só adia por 1 h; atualização urgente pausa o Piloto até você atualizar.",

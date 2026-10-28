@@ -653,7 +653,7 @@
       return { t: 'ball.throw', ballId: p.ballId, slot: p.slot };
     },
     'shop.sellAllPokemons': (p) => (int(p.ateId, 1, ID) ? { t: 'shop.sellAllPokemons', ateId: p.ateId } : null),
-    // 1.12.4: guardar um pokémon SEU na Coleção (protege da venda do Depot). Só para dentro, nunca "depot".
+    // 1.12.4: guardar um pokémon SEU na Coleção (protege da venda do Depot). Para fora ("depot"), só o caso da 1.34.1 abaixo.
     // 1.16: montar o time de campo (janela Time). Entrar: um pokémon SEU, numa vaga livre (0 a 4),
     // que o seu nível de treinador deixa usar (nível do pokémon ≤ treinador + 5, ou o inicial). Sair
     // (slot null): nunca o que está em campo lutando.
@@ -671,8 +671,17 @@
       return { t: 'team.move', pokemonId: p.pokemonId, slot: p.slot };
     },
     'colecao.mover': (p) => {
-      const meus = new Set(((pihUltimo.get('estado') || {}).pokemons || []).map((x) => x && x.id));
-      return int(p.pokemonId, 1, ID) && meus.has(p.pokemonId) && p.para === 'colecao' ? { t: 'colecao.mover', pokemonId: p.pokemonId, para: 'colecao' } : null;
+      const e = pihUltimo.get('estado') || {};
+      const pk = (e.pokemons || []).find((x) => x && x.id === p.pokemonId);
+      if (!int(p.pokemonId, 1, ID) || !pk) return null;
+      if (p.para === 'colecao') return { t: 'colecao.mover', pokemonId: p.pokemonId, para: 'colecao' };
+      // 1.34.1 (pedido do André): de volta ao Depot SÓ o que o Mercado ainda não aceita (abaixo do
+      // Nv 50) e que está na Coleção — nunca shiny, P5, quem está no time, o ativo ou quem segura item.
+      const naColecao = ((e.automation && e.automation.pokemonTravado) || []).map(Number).includes(pk.id);
+      if (p.para === 'depot' && naColecao && pk.slot == null && pk.id !== e.activeId && !pk.shiny && (Number(pk.potencia) || 0) < 5 && (Number(pk.level) || 0) < 50 && !(Number(pk.heldItemId) > 0)) {
+        return { t: 'colecao.mover', pokemonId: p.pokemonId, para: 'depot' };
+      }
+      return null;
     },
     // PvP Ranqueado (1.2.1): ler, montar a equipe (1 a 5 pokémon seus, sem repetir) e entrar na fila.
     'pvp.info': () => ({ t: 'pvp.info' }),
@@ -801,8 +810,9 @@
     }
     if (agora() < st.avisoLivreAte || !temFicha(proximo.pedido.t)) { agendarFilaPih(); return; }
     // 1.33.4: a fila (o freio de ritmo) podia soltar duas bolas juntas — 151 ms entre elas no teste.
-    // No fio, nunca mais rápido que o lançamento do VIP: 1,2 s entre bolas, contado na SAÍDA.
-    if (proximo.pedido.t === 'ball.throw' && agora() - ultimaBolaNoFio < 1200) {
+    // No fio, nunca mais rápido que o lançamento do VIP: 1,3 s entre bolas, contado na SAÍDA
+    // (1.34.1: era 1,2 s — a fila soltava a 2ª bola 1,2 s depois, mais rápido que o VIP e que a captura pede).
+    if (proximo.pedido.t === 'ball.throw' && agora() - ultimaBolaNoFio < 1300) {
       if (agora() - proximo.em > 5000) { filaPih.shift(); cofreRef.estornar(proximo.reserva); } // o corpo já sumiu
       agendarFilaPih();
       return;
@@ -1163,7 +1173,7 @@
     const compra = pedido.t === 'market.comprar';
     if (compra && st.comprados.has(pedido.id)) return responder(ref, false, 'compra já enviada para esse anúncio');
     const ws = st.atual;
-    if (!ws || ws.readyState !== 1) return responder(ref, false, 'socket do jogo fechado');
+    if (!ws || ws.readyState !== 1) return responder(ref, false, 'sem conexão com o jogo (a automática tenta de novo quando voltar)');
     // Leitura do radar espera ficha (até 2 s; a ponte espera 3 s). Só a compra não espera: ela tem
     // hora marcada no sorteio.
     // 1.12.3: passou de 2,6 s sem ficha, não sai "de graça": volta como limite de leituras (o radar

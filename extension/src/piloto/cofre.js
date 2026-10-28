@@ -219,6 +219,8 @@
       const res = Object.freeze({ id: ++ultimaReserva, categoria, custo, dia: s.dia });
       reservasAbertas.add(res.id);
       pendentes.push({ id: res.id, custo, em: Date.now() });
+      // 1.35: o Extrato anota o gasto (a compra do Mercado vem do Radar, que sabe se ganhou o sorteio)
+      if (pedido.t !== 'market.comprar') { try { PIH.extrato?.doCofre?.(pedido, custo, res, origem); } catch { /* o extrato é só a tela */ } }
       return { ok: true, motivo: null, custo, categoria, reserva: res };
     }
     return { ok: true, motivo: null, custo: 0, categoria, reserva: null };
@@ -230,6 +232,7 @@
   function estornar(reserva) {
     if (!reserva || !reservasAbertas.has(reserva.id)) return;
     reservasAbertas.delete(reserva.id);
+    try { PIH.extrato?.estornoDoCofre?.(reserva); } catch { /* o extrato é só a tela */ }
     pendentes = pendentes.filter((r) => r.id !== reserva.id);
     virarDia();
     if (reserva.dia !== s.dia) return;
