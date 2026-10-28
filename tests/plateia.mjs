@@ -120,12 +120,36 @@ const antesMigr = await ctx.serviceWorkers()[0].evaluate(async () => (await chro
 await page.reload(); await sleep(14000);
 r.migracao = (await ctx.serviceWorkers()[0].evaluate(async () => (await chrome.windows.getAll()).length)) - antesMigr;
 r.migracaoIds = await ctx.serviceWorkers()[0].evaluate(async () => { const s = await chrome.storage.local.get(['plateia:janela:twitch', 'plateia:janela:kick']); return Object.values(s).filter((x) => typeof x === 'number').length; });
+// 1.36.0: "Reabrir se fechar" — desligado não reabre; ligado reabre a sala fechada e recarrega a descartada
+// o service worker do MV3 dorme depois de ~30 s parado: acorda com uma mensagem inofensiva
+const swE = async (f, a) => {
+  for (let i = 0; i < 3; i++) {
+    const sw = ctx.serviceWorkers()[0];
+    if (sw) { try { return await sw.evaluate(f, a); } catch (e) { if (i === 2) throw e; } }
+    const espera = ctx.waitForEvent('serviceworker', { timeout: 8000 }).catch(() => null);
+    await page.evaluate(() => document.dispatchEvent(new CustomEvent('piloto:voto-fechar')));
+    await espera; await sleep(500);
+  }
+  return null;
+};
+await swE(async () => { const { 'plateia:janela:twitch': id } = await chrome.storage.local.get('plateia:janela:twitch'); await chrome.windows.remove(id); });
+await sleep(65000);
+r.desligadoNaoReabre = !(await swE(async () => { const { 'plateia:janela:twitch': id } = await chrome.storage.local.get('plateia:janela:twitch'); return !!(await chrome.windows.get(id).catch(() => null)); }));
+await page.evaluate(() => window.__pokeidleHunt.plateia.definir('reabrir', true));
+await sleep(5000);
+r.reabriu = await swE(async () => { const { 'plateia:janela:twitch': id } = await chrome.storage.local.get('plateia:janela:twitch'); return !!(await chrome.windows.get(id).catch(() => null)); });
+// (descartar a aba no Chromium headless derruba o contexto do Playwright: o recarregar da aba descartada
+// fica sem teste de ponta a ponta)
+r.diarioReabrir = await page.evaluate(() => (window.__pokeidleHunt.cofre.ultimos ? window.__pokeidleHunt.cofre.ultimos(20) : []).map((d) => d.txt || d).filter((t) => /reabri|recarreguei/.test(String(t))));
 let falhasP = 0;
 const okP = (c, m) => { console.log(`${c ? 'ok  ' : 'FALHOU'} ${m}`); if (!c) falhasP++; };
 okP(r.depoisDoF5 === r.janelasAntes, `F5 no jogo não abre de novo (${r.janelasAntes} → ${r.depoisDoF5})`);
 okP(r.depoisDeRecarregarExtensao === r.janelasAntes, `extensão recarregada não abre de novo (${r.depoisDeRecarregarExtensao})`);
 okP(r.soAFaltante === 1, `fechou a Kick: só ela volta (+${r.soAFaltante})`);
 okP(r.migracao === 0 && r.migracaoIds === 2, `depois de atualizar (ids perdidos, janela de outro tamanho): adota as abertas, não abre outra (+${r.migracao}, ${r.migracaoIds} adotadas)`);
+okP(r.desligadoNaoReabre, 'Reabrir desligado: a sala fechada não volta sozinha');
+okP(r.reabriu, 'Reabrir ligado: a sala da Twitch fechada volta');
+okP((r.diarioReabrir || []).some((t) => /reabri/.test(t)), `o diário conta que reabriu: ${JSON.stringify(r.diarioReabrir)}`);
 if (falhasP) process.exitCode = 1;
 // 2. a faixa na janela do bônus da Twitch do jogo
 await page.evaluate(() => { const m = document.createElement('div'); m.className = 'modal-caixa'; m.innerHTML = '<div class="vt-modal tw-modal" id="tw-corpo">canais...</div>'; document.body.append(m); });

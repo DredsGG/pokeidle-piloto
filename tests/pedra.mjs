@@ -55,7 +55,9 @@ const welcome = {
 
 const meusFake = [];
 const ofertaFake = { on: false };
+const servidor = { ws: null, enviar: (o) => servidor.ws && servidor.ws.send(JSON.stringify(o)) };
 await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
+  servidor.ws = ws;
   ws.onMessage((m) => {
     const o = JSON.parse(m);
     o._em = Date.now();
@@ -71,7 +73,7 @@ await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
     if (o.t === 'market.comprar') {
       const id = o.id;
       ws.send(JSON.stringify({ t: 'batalha', ev: [{ k: 'mktSorteio', id, fase: 'entrou', total: id === 950 ? 3 : 9, quem: ['andre', 'zeca'] }] }));
-      if (id === 901) { // 1.33.5: a pedra do time sai no sorteio e chega na mochila
+      if (id === 901 || id === 902) { // 1.33.5: a pedra do time sai no sorteio e chega na mochila
         setTimeout(() => { ws.send(JSON.stringify({ t: 'batalha', ev: [{ k: 'mktSorteio', id, fase: 'fim', ok: true, descricao: '1× Fire Stone', total: 9, levaram: [{ nick: 'andre', sobra: 0 }] }, { k: 'marketComprado', descricao: '1× Fire Stone', valor: 5000, moeda: 'gold' }] })); ws.send(JSON.stringify({ t: 'estado', estado: { items: { 200: 10, 205: 2, 300: 1 } } })); }, 3500);
         return;
       }
@@ -124,6 +126,23 @@ r.evoluiu = recebidos.slice(a2).filter((m) => m.t === 'pokemon.evoluir').map((m)
 const okFluxo = r.comprou.length === 1 && r.comprou[0].id === 901 && r.reservaDepois === 0 && r.evoluiu.length === 1 && r.evoluiu[0].pokemonId === 3 && r.evoluiu[0].alvoId === 5;
 console.log(okFluxo ? 'ok   evolução: compra a pedra mais barata em ouro, ela não vai para a revenda e o pokémon evolui' : 'FALHOU evolução ' + JSON.stringify({ c: r.comprou, res: r.reservaDepois, ev: r.evoluiu }));
 if (!okFluxo) process.exitCode = 1;
+// 1.36.0: tudo sozinho, sem tique forçado — o inicial do time sobe para o Nv 16 sem a pedra: a Rotina pede,
+// o Radar compra, a pedra chega e o pokémon evolui, em segundos.
+const a3 = recebidos.length;
+await page.evaluate(() => { const c = window.__pokeidleHunt.rotina._interno.cfg(); c.evoluir.ligado = true; c.evoluir.comprarPedra = true; });
+const t0 = Date.now();
+r.estadoNovo = await page.evaluate(() => typeof window.__pokeidleHunt.rotina._interno.tique === 'function');
+servidor.enviar({ t: 'estado', estado: { items: { 200: 10, 205: 2, 300: 0 }, pokemons: [
+  { id: 3, slot: 0, level: 20, xp: 9000, nome: 'Charmeleon', speciesId: 5, tipos: ['FIRE'], quality: 1.2, potencia: 1, ivs: { hp: 16, atk: 16, def: 16, spAtk: 16, spDef: 16, speed: 16 }, stats: { hp: 60, atk: 30, def: 25, spAtk: 35, spDef: 30, speed: 35 }, maxHp: 720, hp: 720 },
+  { id: 9, slot: 1, level: 16, xp: 2000, nome: 'Charmander', speciesId: 4, starter: true, tipos: ['FIRE'], quality: 1.0, potencia: 1, ivs: { hp: 10, atk: 10, def: 10, spAtk: 10, spDef: 10, speed: 10 }, stats: { hp: 30, atk: 12, def: 15, spAtk: 13, spDef: 15, speed: 10 }, maxHp: 360, hp: 360 },
+] } });
+for (let i = 0; i < 90 && !recebidos.slice(a3).some((m) => m.t === 'pokemon.evoluir'); i++) await sleep(1000);
+const seq = recebidos.slice(a3).filter((m) => ['market.item', 'market.comprar', 'pokemon.evoluir'].includes(m.t));
+r.sozinho = { seg: Math.round((Date.now() - t0) / 1000), seq: seq.map((m) => m.t + (m.pokemonId ? ':' + m.pokemonId : '') + (m.id ? ':' + m.id : '')) };
+const okSozinho = seq.some((m) => m.t === 'market.comprar') && seq.some((m) => m.t === 'pokemon.evoluir' && m.pokemonId === 9 && m.alvoId === 5) && r.sozinho.seg <= 90;
+console.log(okSozinho ? `ok   1.36.0: inicial sobe de nível sem pedra → compra e evolui sozinho em ${r.sozinho.seg} s` : 'FALHOU 1.36.0 sozinho ' + JSON.stringify(r.sozinho));
+if (!okSozinho) process.exitCode = 1;
+r.diagEvo = await page.evaluate(() => JSON.parse(localStorage.getItem('piloto:diag:evo') || '[]').map((d) => d.txt));
 r.erros = erros.filter((e) => /error|Error/.test(e) && !/404/.test(e));
 console.log(JSON.stringify(r, null, 1));
 setTimeout(() => process.exit(0), 500); await ctx.close();

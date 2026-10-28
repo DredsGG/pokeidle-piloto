@@ -99,6 +99,9 @@ await ctx.addInitScript(() => {
 });
 await ctx.addInitScript(() => { try { if (!localStorage.getItem('piloto:idioma')) localStorage.setItem('piloto:idioma', 'pt'); localStorage.removeItem('piloto:dev:manual'); } catch {} if (location.hostname === 'pokeidle.io') window.__plateiaPonte = true; });
 await ctx.route(/https:\/\/(www\.twitch\.tv|kick\.com|github\.com)\/.*/, (rota) => rota.fulfill({ status: 200, contentType: 'text/html', body: 'ok' }));
+// o fundo procura o Release de verdade (ao abrir, a cada 30 min): no teste a rede do GitHub falha, e a
+// falha só grava o erro (o aviso falso do teste fica) — antes, uma procura real no meio apagava o aviso
+await ctx.route(/https:\/\/(api\.github\.com|raw\.githubusercontent\.com)\/.*/, (rota) => rota.abort());
 const page = await ctx.newPage();
 page.on('console', (m) => { if (m.type() === 'error' || /radar|piloto/i.test(m.text())) erros.push(m.type() + ': ' + m.text().slice(0, 300)); });
 page.on('pageerror', (e) => erros.push(String(e)));
@@ -106,6 +109,9 @@ page.on('pageerror', (e) => erros.push(String(e)));
 let falhas = 0;
 const ok = (c, msg) => { console.log(`${c ? 'ok  ' : 'FALHOU'} ${msg}`); if (!c) falhas++; };
 const sw = ctx.serviceWorkers()[0] || await ctx.waitForEvent('serviceworker');
+// o ctx.route não pega o fetch do service worker da extensão: corta ali mesmo a procura real no GitHub
+const cortarGithub = () => sw.evaluate(() => { if (self.__fetchOrig) return; self.__fetchOrig = self.fetch; self.fetch = (u, o) => (/api\.github\.com|raw\.githubusercontent\.com/.test(String(u && u.url || u)) ? Promise.reject(new Error('teste: sem GitHub')) : self.__fetchOrig(u, o)); });
+await cortarGithub();
 const aberto = () => page.evaluate(() => window.__pokeidleHunt.guia && window.__pokeidleHunt.guia.aberto());
 const janelaAberta = () => page.evaluate(() => !!document.querySelector('.plt-janela:not(.plt-janela-time)'));
 const caixa = () => page.locator('.plt-guia-solto .plt-guia-caixa');
@@ -115,7 +121,8 @@ await sw.evaluate(() => chrome.alarms.clear('piloto-upd'));
 const pedidosChecar = () => page.evaluate(() => window.__checar || 0);
 const esperar = async (cond, ms = 15000) => { const fim = Date.now() + ms; let a = null; while (Date.now() < fim) { a = await aberto().catch(() => null); if (cond(a)) return a; await sleep(400); } return a; };
 const VER = JSON.parse(fs.readFileSync(`${EXT}/manifest.json`, 'utf8')).version;
-const updFalso = (ultima, extra = {}) => sw.evaluate(([u, ver, ex]) => chrome.storage.local.set({ 'piloto:update': { checadoEm: Date.now(), atual: ver, instalacao: 'development', disponivel: true, ultima: u, pagina: 'https://github.com/DredsGG/pokeidle-piloto/releases/tag/v' + u, zip: 'https://github.com/DredsGG/pokeidle-piloto/releases/download/v' + u + '/x.zip',
+const updFalso = async (ultima, extra = {}) => { await cortarGithub().catch(() => {}); return updFalso0(ultima, extra); };
+const updFalso0 = (ultima, extra = {}) => sw.evaluate(([u, ver, ex]) => chrome.storage.local.set({ 'piloto:update': { checadoEm: Date.now(), atual: ver, instalacao: 'development', disponivel: true, ultima: u, pagina: 'https://github.com/DredsGG/pokeidle-piloto/releases/tag/v' + u, zip: 'https://github.com/DredsGG/pokeidle-piloto/releases/download/v' + u + '/x.zip',
   mudancas: { pt: ['Coisa nova em português.', 'Outra mudança.'], en: ['New thing in English.', 'Another change.'], es: ['Cosa nueva en español.', 'Otro cambio.'] }, notas: '- Release note', ...ex } }), [ultima, VER, extra]);
 
 // 1) instalação nova: o guia aparece sozinho, sem clicar em nada
