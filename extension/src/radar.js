@@ -237,7 +237,29 @@
   // Resolve com a resposta (dados da aba) ou null (recusado, sem resposta em 8 s, erro).
   // casa(dados): diz se uma resposta de mercado é a deste pedido. Espera a janela de silêncio
   // das compras: nenhuma leitura sai com uma compra enviada ou a 2 s do envio.
-  async function pedir(pedido, casa) {
+  // 1.36.0: a leitura da pedra do time passa na frente. As leituras do radar dividem um balde só no
+  // gancho (com o freio do "Devagar aí" chega a 1 a cada 8 s) e a da pedra perdia a vez para a
+  // varredura, voltando "limite de leituras" — o time ficava sem a pedra. Enquanto ela espera, as
+  // outras leituras aguardam (no máximo 20 s).
+  let prioridade = 0;
+  async function esperarPrioridade() {
+    const ate = Date.now() + 20_000;
+    while (prioridade > 0 && Date.now() < ate) await new Promise((r) => setTimeout(r, 250));
+  }
+  async function pedirPrioritario(pedido, casa, tentativas = 6) {
+    prioridade++;
+    try {
+      for (let i = 0; i < tentativas; i++) {
+        const r = await pedir(pedido, casa, true);
+        if (r) return r;
+        if (!(s.ultimoErro && /limite de leituras/.test(s.ultimoErro.motivo || '') && Date.now() - s.ultimoErro.em < 5000)) return r;
+        await new Promise((res) => setTimeout(res, 1500));
+      }
+      return null;
+    } finally { prioridade--; }
+  }
+  async function pedir(pedido, casa, prio = false) {
+    if (!prio && prioridade > 0) await esperarPrioridade();
     await esperarJanelaDeCompra();
     s.leituras.push({ t: pedido.t, em: Date.now() });
     if (s.leituras.length > 30) s.leituras.shift();
@@ -1137,6 +1159,11 @@
     // Rotina (que não gasta o que está reservado) nunca evoluía: o pokémon ficava esperando e o radar
     // comprava outra a cada 30 min.
     if (C.comprou(r) && !c.alerta.pedraDoTime && !c.alerta.alvo && c.alerta.itemId !== null && c.alerta.itemId !== undefined && ponte.reservarItens) ponte.reservarItens(c.alerta.itemId, c.estado.qtd);
+    // 1.36.0: o resultado da compra da pedra do time vai para o diário (e libera um pedido novo se falhou)
+    if (c.alerta.pedraDoTime) {
+      c.alerta.resultado = r || 'sem-resposta';
+      diarioPiloto(C.comprou(r) ? `pedra: comprei 1× ${c.alerta.nome} a ${fmtN(c.alerta.preco)} de ouro — o time evolui em seguida` : `pedra: a compra de ${c.alerta.nome} não deu certo (${r || 'sem resposta'}${c.estado.msg ? `: ${String(c.estado.msg).slice(0, 60)}` : ''}) — tento de novo em 30 s`, C.comprou(r) ? 'ok' : 'aviso');
+    }
     if (c.alerta.alvo) {
       const id = c.alerta.alvo;
       s.alvosPendente[id] = Math.max(0, (s.alvosPendente[id] || 0) - (c.alerta.qtdReservadaAlvo || 0));
@@ -1550,23 +1577,32 @@
     const itemId = Number(d && d.itemId);
     if (!Number.isInteger(itemId) || itemId < 1) return;
     const ant = pedrasDoTime.get(itemId);
-    if (ant && Date.now() - ant.em < 25 * 60_000) return;
+    // 1.36.0: aceita pedido novo (era 1 a cada 25 min) — a Rotina segura por pokémon; aqui só não compra
+    // duas vezes ao mesmo tempo a mesma pedra
+    if (ant && Date.now() - ant.em < 30_000) return;
+    if ([...s.alertas.values()].some((a) => a && a.pedraDoTime && a.itemId === itemId && !a.resultado && Date.now() - (a.em || 0) < 10 * 60_000)) return;
     const nome = String(d.nome || 'pedra').slice(0, 40);
     const para = String(d.para || '').slice(0, 80);
     pedrasDoTime.set(itemId, { em: Date.now(), nome, para });
     comprarPedraDoTime(itemId, nome, para).catch(erro);
   });
+  const pedraAnunciosUsados = new Set();
   async function comprarPedraDoTime(itemId, nome, para) {
     if (!s.socketAberto) { diarioPiloto(`pedra: sem conexão com o jogo para comprar ${nome}`, 'aviso'); return; }
-    const dados = await pedir({ t: 'market.item', itemId, moeda: 'gold' }, casaItem(itemId));
+    const dados = await pedirPrioritario({ t: 'market.item', itemId, moeda: 'gold' }, casaItem(itemId));
     if (!dados) { diarioPiloto(`pedra: o Mercado não respondeu (${nome})`, 'aviso'); return; }
     s.livros.set(itemId, { linhas: dados.linhas || [], em: Date.now() });
-    const l = P.escolherCandidato(dados.linhas || [], s.conta.id);
-    if (!l || !Number.isInteger(l.id)) { diarioPiloto(`pedra: ninguém vende ${nome} em ouro agora — tento de novo em 30 min`, 'aviso'); return; }
+    // 1.36.0: o gancho só deixa UMA compra por anúncio em cada abertura da página (trava contra compra
+    // dupla). A segunda pedra do mesmo vendedor era recusada e o time nunca evoluía: pula o anúncio já
+    // usado e vai no próximo mais barato.
+    const usado = (l) => pedraAnunciosUsados.has(l.id) || !!(s.alertas.get(l.id) && s.alertas.get(l.id).resultado);
+    const l = P.escolherCandidato((dados.linhas || []).filter((x) => x && !usado(x)), s.conta.id);
+    if (!l || !Number.isInteger(l.id)) { diarioPiloto(`pedra: ninguém vende ${nome} em ouro agora — tento de novo em 2 min`, 'aviso'); return; }
     if (s.compras.has(l.id)) return;
     const alerta = { anuncioId: l.id, itemId, nome, preco: l.preco, qtdAnuncio: l.qtd ?? 1, qtd: 1, compravelEm: typeof l.compravelEm === 'number' ? l.compravelEm : 0, criadoEm: l.criadoEm ?? null, lucroTotal: 0, pedraDoTime: true, em: Date.now(), resultado: null };
     s.alertas.set(l.id, alerta);
     const ok = iniciarCompra({ anuncioId: l.id, qtd: 1, auto: true });
+    if (ok) pedraAnunciosUsados.add(l.id);
     diarioPiloto(ok ? `pedra: comprando 1× ${nome} por ${fmtN(l.preco)} de ouro${para ? ` para ${para}` : ''}` : `pedra: a compra de ${nome} não entrou na fila`, ok ? 'ok' : 'aviso');
   }
 

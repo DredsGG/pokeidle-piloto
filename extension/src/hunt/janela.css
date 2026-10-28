@@ -557,23 +557,27 @@ html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { backgrou
 
 /* 1.35: PvP ao vivo — os treinadores e os pokémon nos cantos da janelinha e da tela cheia */
 .plt-pvv { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
-.plt-pvv-lado { position: absolute; top: 8px; display: flex; flex-direction: column; gap: 4px; max-width: 46%; padding: 6px 8px; border-radius: 8px; background: rgba(20, 12, 18, .62); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
+.plt-pvv-lado { position: absolute; top: 8px; display: flex; flex-direction: column; gap: 4px; max-width: 30%; padding: 6px; border-radius: 8px; background: rgba(20, 12, 18, .62); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
 .plt-pvv-lado.esq { left: 8px; align-items: flex-start; }
 .plt-pvv-lado.dir { right: 8px; align-items: flex-end; }
-.plt-pvv-lado > b { font: 700 13px/1 Tahoma, Verdana, sans-serif; color: #fff; text-shadow: 0 1px 0 #000; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plt-pvv-lado > b { font: 700 12px/1 Tahoma, Verdana, sans-serif; color: #fff; text-shadow: 0 1px 0 #000; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plt-pvv-lado.esq > b { color: #9ee7ff; }
 .plt-pvv-lado.dir > b { color: #ffb4a8; }
 .plt-pvv-lado > small { font: 700 10px/1 Tahoma, Verdana, sans-serif; color: rgba(255, 255, 255, .7); }
-.plt-pvv-pks { display: flex; gap: 3px; }
-.plt-pvv-lado.dir .plt-pvv-pks { flex-direction: row-reverse; }
-.plt-pvv-pk { position: relative; display: grid; place-items: center; padding: 1px; border-radius: 6px; background: rgba(255, 255, 255, .08); transition: opacity .4s, filter .4s; }
+.plt-pvv-pks { display: flex; flex-direction: column; gap: 3px; }
+.plt-pvv-pk { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 2px 3px 3px; border-radius: 6px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px transparent; transition: opacity .4s, filter .4s, box-shadow .2s; }
+.plt-pvv-lado.esq .plt-pvv-pk.ativo { box-shadow: inset 0 0 0 2px #9ee7ff, 0 0 8px rgba(158, 231, 255, .55); background: rgba(158, 231, 255, .14); }
+.plt-pvv-lado.dir .plt-pvv-pk.ativo { box-shadow: inset 0 0 0 2px #ffb4a8, 0 0 8px rgba(255, 180, 168, .55); background: rgba(255, 180, 168, .14); }
 .plt-pvv-pk.fora { filter: grayscale(1) brightness(.7); }
-.plt-pvv-pk > i { position: absolute; left: 2px; bottom: 1px; height: 2px; max-width: calc(100% - 4px); border-radius: 1px; background: #6fdc8c; }
-.plt-pvv-pk.fora > i { display: none; }
-.plt-pvv-mini .plt-pvv-lado { top: 4px; padding: 3px 5px; gap: 2px; border-radius: 6px; }
+.plt-pvv-vida { display: block; width: 100%; height: 3px; border-radius: 2px; background: rgba(0, 0, 0, .45); overflow: hidden; }
+.plt-pvv-vida > i { display: block; height: 100%; border-radius: 2px; transition: width .3s; }
+.plt-pvv-pk.fora .plt-pvv-vida { visibility: hidden; }
+.plt-pvv-mini .plt-pvv-lado { top: 4px; padding: 3px; gap: 2px; border-radius: 6px; }
 .plt-pvv-mini .plt-pvv-lado.esq { left: 4px; }
 .plt-pvv-mini .plt-pvv-lado.dir { right: 4px; }
-.plt-pvv-mini .plt-pvv-lado > b { font-size: 10px; }
+.plt-pvv-mini .plt-pvv-lado > b { font-size: 9px; max-width: 56px; }
 .plt-pvv-mini .plt-pvv-lado > small { display: none; }
 .plt-pvv-mini .plt-pvv-pks { gap: 1px; }
-@media (prefers-reduced-motion: reduce) { .plt-pvv-pk { transition: none; } }
+.plt-pvv-mini .plt-pvv-pk { padding: 1px 2px 2px; gap: 1px; }
+.plt-pvv-mini .plt-pvv-vida { height: 2px; }
+@media (prefers-reduced-motion: reduce) { .plt-pvv-pk, .plt-pvv-vida > i { transition: none; } }

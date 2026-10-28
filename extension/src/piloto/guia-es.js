@@ -30,9 +30,11 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
-      '1.35.1': [
-        "Evolucionar: un comando de evolución perdido por una caída de conexión bloqueaba a ese pokémon por 24 h; ahora lo intenta de nuevo en 30 min.",
-        "Evolucionar: cuando un pokémon listo queda fuera de la regla (tu inicial, skin, objeto, refinamiento o puesto en el XP Share), el diario avisa el motivo, una vez al día.",
+      '1.36.0': [
+        "Evolucionar: el equipo evoluciona en cuanto llega al nivel — cualquier pokémon, el inicial también. Sin la piedra, el Piloto la compra al momento en el Mercado (con oro) y nunca va a la reventa.",
+        "Evolucionar: corregido lo que trababa la evolución — la consulta de la piedra perdía el turno frente al Radar, la segunda piedra del mismo vendedor era rechazada y un comando perdido retenía al pokémon por 24 h.",
+        "Plateia: opción \"Reabrir si se cierra\" — si la ventana de Twitch o Kick se cierra o se descarta de la memoria, el Piloto la reabre en hasta 1 min.",
+        "PvP en vivo: los 6 de cada lado aparecen desde el inicio, en una lista vertical en cada esquina — marco en quien está luchando, apagándose al perder HP y gris cuando cae.",
       ],
       '1.35.0': [
         "Pestaña Meta de la ventana Equipo: botón \"Actualizar equipo\" — cambia ya al meta actual (en el Centro), muestra quién entra, quién sale y qué falta cazar; \"Cazar los que faltan\" solo cuando haces clic.",

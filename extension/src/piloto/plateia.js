@@ -27,7 +27,7 @@
   };
   const BAIXAR = 'https://github.com/DredsGG/plateia/releases/latest';
 
-  const ler = () => { try { const c = JSON.parse(localStorage.getItem(CHAVE) || 'null') || {}; return { abrirAoEntrar: c.abrirAoEntrar !== false }; } catch { return { abrirAoEntrar: true }; } };
+  const ler = () => { try { const c = JSON.parse(localStorage.getItem(CHAVE) || 'null') || {}; return { abrirAoEntrar: c.abrirAoEntrar !== false, reabrir: c.reabrir === true }; } catch { return { abrirAoEntrar: true, reabrir: false }; } };
   const cfg = ler();
   const gravar = () => { try { localStorage.setItem(CHAVE, JSON.stringify(cfg)); } catch { /* sem armazenamento */ } };
   const diario = (txt, tipo) => PIH.cofre?.diario?.(`plateia: ${txt}`, tipo);
@@ -54,6 +54,28 @@
     diario(`abrindo a sala da ${plataformas.map((p) => SALAS[p].nome).join(' e da ')} (uma vez por sessão do navegador)`);
   }
   PIH.on('estado', (e) => { eu = e; setTimeout(autoAbrir, 8000); });
+
+  // 1.36.0 (relato #3, ZaryImortal): programas que "limpam a memória" (IdleDeck e afins) fecham ou
+  // descartam a janela da sala e o bônus para de render. Com "Reabrir se fechar" (desligado de
+  // fábrica, para não teimar com quem fecha de propósito), a cada 1 min confere e reabre a sala que
+  // sumiu — ou recarrega a aba descartada. Só com o Piloto ligado e o jogo aberto.
+  const REABRIR_MS = 60_000;
+  function conferirSalas() {
+    if (!cfg.reabrir || !naPaginaDoJogo() || !temPlateia()) return;
+    if (!PIH.cofre || !PIH.cofre.ligado || !PIH.cofre.ligado()) return;
+    const plataformas = vinculadas();
+    if (!plataformas.length) return;
+    document.dispatchEvent(new CustomEvent('piloto:plateia-abrir', { detail: JSON.stringify({ plataformas, reabrir: true }) }));
+  }
+  setInterval(() => { try { conferirSalas(); } catch { /* segue */ } }, REABRIR_MS);
+  document.addEventListener('piloto:plateia-reaberta', (ev) => {
+    try {
+      const d = JSON.parse(ev.detail) || {};
+      const nomes = (l) => (Array.isArray(l) ? l : []).filter((p) => SALAS[p]).map((p) => SALAS[p].nome).join(' e da ');
+      if (nomes(d.abertas)) diario(`a sala da ${nomes(d.abertas)} tinha fechado — reabri`, 'ok');
+      if (nomes(d.recarregadas)) diario(`a sala da ${nomes(d.recarregadas)} tinha sido descartada da memória — recarreguei`, 'ok');
+    } catch { /* segue */ }
+  });
 
   // Com clique (gesto do usuário): reaproveita a janela da sala se já estiver aberta.
   function abrirSala(p) {
@@ -111,17 +133,25 @@
     const ps = vinculadas();
     const status = !temPlateia() ? 'Plateia não instalada'
       : !ps.length ? 'nenhuma Twitch/Kick vinculada no jogo'
-      : `${ps.map((p) => SALAS[p].nome).join(' e ')} · ${cfg.abrirAoEntrar ? 'abre ao entrar no jogo' : 'só no botão'}`;
+      : `${ps.map((p) => SALAS[p].nome).join(' e ')} · ${cfg.abrirAoEntrar ? 'abre ao entrar no jogo' : 'só no botão'}${cfg.reabrir ? ' · reabre se fechar' : ''}`;
+    const reabrir = temPlateia() ? K.mini('plateia:reabrir', cfg.reabrir, 'Reabrir se fechar', 'Se a janela da sala fechar ou for descartada da memória (IdleDeck e afins), reabre em até 1 min. Só com o Piloto ligado e o jogo aberto.', modo === 'desligado') : '';
     return `${K.grupo('Bônus de live')}${K.linha({ id: 'plateia', icone: 'xp', nome: 'Plateia (Twitch e Kick)', alvo: 'plateia:abrirAoEntrar', on: cfg.abrirAoEntrar, trava: modo === 'desligado', status: esc(status),
       dica: 'Liga o Piloto à Plateia, a outra extensão do Dreds que assiste as lives com bônus do PokeIdle. Ao abrir o jogo (uma vez por sessão do navegador), abre a sala da Twitch e/ou da Kick que estiverem vinculadas na sua conta, numa janela à parte. Na janela do bônus da Twitch/Kick do jogo aparece o botão "Abrir a sala". Sem a Plateia, aparece o link para baixar.',
-      ajustes: modo === 'manual' ? (temPlateia() ? K.acao('Abrir as salas agora', 'data-acao="plateia-abrir"', 'xp', modo === 'desligado') : `<a class="cfg-escala-bt plt-acao on" href="${BAIXAR}" target="_blank" rel="noopener noreferrer">Baixar a Plateia</a>`) : '' })}`;
+      ajustes: (modo === 'manual' ? (temPlateia() ? K.acao('Abrir as salas agora', 'data-acao="plateia-abrir"', 'xp', modo === 'desligado') : `<a class="cfg-escala-bt plt-acao on" href="${BAIXAR}" target="_blank" rel="noopener noreferrer">Baixar a Plateia</a>`) : '') + reabrir })}`;
   }
   function definir(caminho, v) {
+    if (caminho === 'reabrir') {
+      cfg.reabrir = !!v;
+      gravar();
+      diario(`reabrir as salas se fecharem ${v ? 'ligado' : 'desligado'}`);
+      if (v) setTimeout(() => { try { conferirSalas(); } catch { /* segue */ } }, 1000);
+      return;
+    }
     if (caminho !== 'abrirAoEntrar') return;
     cfg.abrirAoEntrar = !!v;
     gravar();
     diario(`abrir as salas ao entrar no jogo ${v ? 'ligado' : 'desligado'}`);
   }
 
-  PIH.plateia = { linha, definir, abrirAgora, abrirSala, temPlateia, vinculadas, _interno: { pintarFaixas, autoAbrir, cfg: () => cfg } };
+  PIH.plateia = { linha, definir, abrirAgora, abrirSala, temPlateia, vinculadas, _interno: { pintarFaixas, autoAbrir, conferirSalas, cfg: () => cfg } };
 })(globalThis);

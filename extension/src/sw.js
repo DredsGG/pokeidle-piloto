@@ -667,11 +667,23 @@ async function abrirSalasPlateia(m) {
   const guardadas = chaves.length ? await chrome.storage.local.get(chaves) : {};
   const vivas = new Set();
   const faltam = [];
+  const recarregadas = [];
   for (const p of pedidas) {
     const id = guardadas[`plateia:janela:${p}`];
-    if (await janelaViva(id)) vivas.add(id); else faltam.push(p);
+    if (await janelaViva(id)) {
+      vivas.add(id);
+      // 1.36.0: "Reabrir se fechar" — programa que limpa memória (IdleDeck e afins) também pode
+      // descartar a aba da sala sem fechar a janela: aí recarrega a aba.
+      if (m && m.reabrir) {
+        try {
+          const w = await chrome.windows.get(id, { populate: true });
+          const aba = w && Array.isArray(w.tabs) ? w.tabs[0] : null;
+          if (aba && aba.discarded && typeof aba.id === 'number') { await chrome.tabs.reload(aba.id); recarregadas.push(p); }
+        } catch { /* segue */ }
+      }
+    } else faltam.push(p);
   }
-  if (!faltam.length) return [];
+  if (!faltam.length) return m && m.reabrir ? { abertas: [], recarregadas } : [];
   // depois de reiniciar o navegador ou de atualizar a extensão: as janelas que já estão abertas têm id
   // que o Piloto não conhece — adota as janelas popup de uma aba só (é assim que a sala abre).
   // 1.32.2 (o André, depois da atualização: "abriu outras duas abas"): não exige mais o tamanho
@@ -692,7 +704,7 @@ async function abrirSalasPlateia(m) {
       .catch(() => chrome.windows.create({ url: SALAS_PLATEIA[p], type: 'popup', width: 1440, height: 900 })).catch(() => null); // sem 'focused' se o navegador recusar
     if (w && typeof w.id === 'number') { await chrome.storage.local.set({ [chave]: w.id }); abertas.push(p); }
   }
-  return abertas;
+  return m && m.reabrir ? { abertas, recarregadas } : abertas;
 }
 
 chrome.runtime.onMessage.addListener((m, remetente, responder) => {

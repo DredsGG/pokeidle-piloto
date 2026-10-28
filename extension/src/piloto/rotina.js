@@ -57,6 +57,18 @@
   let colRastreadoEm = 0;
   let colMaxId = 0; // só id maior que todos os já vistos é captura nova (lista parcial nunca vira 'nova')
   PIH.on('estado', (e) => { eu = e; try { rastrearColecao(); } catch (err) { console.warn('[piloto] coleção:', err); } });
+  // 1.36.0: subiu de nível ou a pedra chegou → confere a evolução na hora (não espera o tique de 20 s).
+  let evoAssin = '', evoTimer = null;
+  PIH.on('estado', () => {
+    try {
+      if (!cfg.evoluir || !cfg.evoluir.ligado) return;
+      const a = equipe().map((p) => `${p.id}:${p.speciesId}:${p.level}`).join(',') + '|' + JSON.stringify((eu && eu.items) || {});
+      if (a === evoAssin) return;
+      evoAssin = a;
+      clearTimeout(evoTimer);
+      evoTimer = setTimeout(() => { Promise.resolve().then(tique).catch(() => { /* segue */ }); }, 2500);
+    } catch { /* segue */ }
+  });
 
   // ---- PvP Ranqueado (1.2.1) ------------------------------------------------------------------
   // O servidor manda o guarda-chuva `pvp` (resposta do pvp.info e de cada ação): equipe salva,
@@ -473,104 +485,154 @@
     return null;
   }
 
+  // 1.36.0 (pedido do André, 28/10: "nenhuma vez funcionou"): o time evolui NA HORA, qualquer
+  // pokémon — inicial, com skin, item, refino, tanto faz. Ficam de fora só o que o jogo não deixa
+  // (Outland, Mega, sem arte do destino, cadeia com escolha sem a opção ligada) e o shiny sem a Shiny
+  // Stone na mochila (essa o Piloto nunca compra: é o item mais raro do jogador). Quem NÃO é do time
+  // (escopo "Todos") segue a regra antiga: nada que alguém cuidou à mão.
+  // Confere a cada mudança no estado (subiu de nível, a pedra chegou) e a cada tique.
+  function cuidadoAMao(pk, noXpShare) {
+    if (pk.starter) return 'é o seu inicial';
+    if (pk.skin) return 'tem skin';
+    if (pk.heldItemId != null) return 'segura um item';
+    if (noXpShare.has(pk.id)) return 'está num posto do XP Share';
+    if (Object.values(pk.refino || {}).some((v) => Number(v) > 0) || Number(pk.refinoTotal) > 0) return 'é refinado';
+    return '';
+  }
+  function pedraShinyDe(tipo) {
+    const lista = (welcome && welcome.shinyStone && welcome.shinyStone.pedras) || [];
+    const p = lista.find((x) => x && x.tipo === tipo && x.itemId != null);
+    return p ? { itemId: Number(p.itemId), nome: p.nome || `${tipo} Shiny Stone`, shiny: true } : null;
+  }
+  // O que falta para este pokémon evoluir agora: null (não evolui) ou { d, pedra, tem, livre }.
+  function prontoParaEvoluir(pk, m, porId, jogo) {
+    if (pk.speciesId >= 2000) return null; // Outland e Mega não evoluem
+    const esp = porId.get(pk.speciesId);
+    if (!esp || !esp.evolvesToId) return null;
+    const destinos = m.ramif.destinosDeEvolucao(esp, (id) => porId.get(id)).filter((d) => d.temArte && (pk.level || 0) >= d.nivel);
+    if (!destinos.length || (destinos.length > 1 && !cfg.evoluir.ramificada)) return null;
+    const d = destinos[0];
+    const tipo = m.ramif.tipoDaPedraDeEvolucao(esp, d.especie);
+    let pedra;
+    if (pk.shiny) {
+      // o servidor recusa shiny sem forma shiny no destino (e o jogo esconde a opção)
+      const looks = welcome && welcome.shinyLooks;
+      if (!looks || looks[d.pokeId] == null) return null;
+      pedra = pedraShinyDe(tipo);
+    } else pedra = pedraDe(tipo, jogo);
+    if (!pedra) return null;
+    const tem = Number((eu.items || {})[pedra.itemId]) || 0;
+    return { d, pedra, tem, livre: tem - PIH.itensReservados(pedra.itemId, tem) };
+  }
+  function xpSharePostos() {
+    const s = new Set();
+    for (const c of (eu.casa && eu.casa.lista) || []) for (const id of c.postos || []) if (id) s.add(id);
+    return s;
+  }
+  // Diário da evolução guardado no navegador (também lido pelo /terms na vigia): sem ele não dá para
+  // saber depois por que não evoluiu.
+  function diagEvo(txt) {
+    try {
+      const l = JSON.parse(localStorage.getItem('piloto:diag:evo') || '[]');
+      l.push({ em: Date.now(), txt: String(txt).slice(0, 200) });
+      localStorage.setItem('piloto:diag:evo', JSON.stringify(l.slice(-60)));
+    } catch { /* sem armazenamento */ }
+  }
+
+  // o que o jogo respondeu (recusas) e o que o Radar fez com a pedra também vão para o diário da evolução
+  let evoUltimo = 0;
+  PIH.on('piloto.diario', (reg) => {
+    try {
+      for (const r of (reg || []).slice(0, 5).reverse()) {
+        if (!r || r.t <= evoUltimo) continue;
+        evoUltimo = r.t;
+        if (/^(rotina: |radar: )?pedra:|^rotina: o servidor recusou|evolu/i.test(r.txt) && !/^rotina: (evoluindo|pedra: .+ pedi 1×)/.test(r.txt)) diagEvo(r.txt);
+      }
+    } catch { /* segue */ }
+  });
+
+  document.addEventListener('piloto:radar-diario', (ev) => {
+    try {
+      const d = JSON.parse(ev.detail);
+      if (!d || typeof d.txt !== 'string' || !/^pedra:/.test(d.txt)) return;
+      diagEvo(`radar: ${d.txt}`);
+      // compra perdida no sorteio do Mercado ou recusada: pede de novo já no próximo tique (não em 5 min)
+      const daqui = /não deu certo|não entrou na fila|não respondeu|sem conexão/.test(d.txt) ? 30_000 : /ninguém vende/.test(d.txt) ? 2 * 60_000 : 0;
+      if (daqui) for (const [k, em] of pedidoPedra) pedidoPedra.set(k, Math.min(em, Date.now() - 5 * 60_000 + daqui));
+    } catch { /* segue */ }
+  });
+
   async function tarefaEvoluir() {
-    if (!cfg.evoluir.ligado || !venceu('evoluir', 60_000)) return false;
+    if (!cfg.evoluir.ligado || !venceu('evoluir', 8_000)) return false;
     const m = await modulos();
     const { porId, jogo } = await catalogoEvolucao();
-    const lista = cfg.evoluir.escopo === 'tudo' ? (eu.pokemons || []) : equipe();
-    const noXpShare = new Set();
-    for (const c of (eu.casa && eu.casa.lista) || []) for (const id of c.postos || []) if (id) noXpShare.add(id);
+    const doTime = new Set(equipe().map((p) => p.id));
+    // o time primeiro
+    const lista = cfg.evoluir.escopo === 'tudo' ? [...equipe(), ...(eu.pokemons || []).filter((p) => !doTime.has(p.id))] : equipe();
+    const noXpShare = xpSharePostos();
     for (const pk of lista) {
-      if (pk.shiny || pk.speciesId >= 2000) continue; // shiny pede Shiny Stone; Outland e Mega não evoluem
-      // Fora também o que alguém cuidou à mão: starter, skin, refino, item segurado, posto de XP Share.
-      const cuidado = pk.starter ? 'é o seu inicial' : pk.skin ? 'tem skin' : pk.heldItemId != null ? 'segura um item'
-        : noXpShare.has(pk.id) ? 'está num posto do XP Share'
-          : (Object.values(pk.refino || {}).some((v) => Number(v) > 0) || Number(pk.refinoTotal) > 0) ? 'é refinado' : '';
-      // 1.35.1 (relato #3): antes, um envio travava o mesmo pokémon por 24 h "dê certo ou não" — se o
-      // comando se perdia (queda do socket, recusa), ele só tentava no dia seguinte. Agora: tenta de novo
-      // em 30 min enquanto não evoluir; depois de 3 envios sem evoluir, espera 24 h.
+      const time = doTime.has(pk.id);
+      if (!time && (pk.shiny || cuidadoAMao(pk, noXpShare))) continue;
+      // Um envio por pokémon a cada 2 min enquanto não evoluir (o estado novo mostra a espécie nova);
+      // depois de 3 envios sem evoluir, espera 6 h e avisa — o servidor está recusando.
       let tentou = Number(marcas[`evoN:${pk.id}`]) || 0;
-      if (!venceu(`evo:${pk.id}`, tentou >= 3 ? 24 * 3_600_000 : 30 * 60_000)) continue;
+      const evoluiu = marcas[`evoSp:${pk.id}`] != null && marcas[`evoSp:${pk.id}`] !== pk.speciesId;
+      if (evoluiu || (tentou && marcas[`evoSp:${pk.id}`] == null)) { tentou = 0; delete marcas[`evo:${pk.id}`]; delete marcas[`evoSp:${pk.id}`]; } // evoluiu: a próxima etapa já pode
+      if (!venceu(`evo:${pk.id}`, tentou >= 3 ? 6 * 3_600_000 : 2 * 60_000)) continue;
       if (tentou >= 3) tentou = 0;
-      const esp = porId.get(pk.speciesId);
-      if (!esp || !esp.evolvesToId) continue;
-      const destinos = m.ramif.destinosDeEvolucao(esp, (id) => porId.get(id)).filter((d) => d.temArte && (pk.level || 0) >= d.nivel);
-      if (!destinos.length || (destinos.length > 1 && !cfg.evoluir.ramificada)) continue;
-      const d = destinos[0];
-      const pedra = pedraDe(m.ramif.tipoDaPedraDeEvolucao(esp, d.especie), jogo);
-      // Pedra que o radar comprou para revender não é gasta aqui (auditoria, item 5).
-      if (!pedra) continue;
-      const tem = Number((eu.items || {})[pedra.itemId]) || 0;
-      if (tem - PIH.itensReservados(pedra.itemId, tem) < 1) continue;
-      if (cuidado) {
-        // 1.35.1 (relato #3): pronto para evoluir mas fora da regra. Antes ficava calado e parecia defeito;
-        // agora o diário diz por que, uma vez por dia por pokémon.
-        if (venceu(`evoAviso:${pk.id}`, 24 * 3_600_000)) {
-          marcar(`evoAviso:${pk.id}`);
-          diario(`evolução: ${pk.nome} (Nv ${pk.level}) já pode virar ${d.especie.name}, mas ${cuidado} — o Piloto não evolui esse sozinho; evolua à mão se quiser`, 'aviso');
-        }
-        continue;
-      }
+      const pr = prontoParaEvoluir(pk, m, porId, jogo);
+      if (!pr || pr.livre < 1) continue;
+      const { d, pedra } = pr;
       marcar('evoluir');
-      const ok = pedir({ t: 'pokemon.evoluir', pokemonId: pk.id, alvoId: d.pokeId }, `evoluindo ${pk.nome} (Nv ${pk.level}) → ${d.especie.name} com 1× ${pedra.nome || 'pedra'}`);
-      if (ok) marcas[`evoN:${pk.id}`] = tentou + 1;
-      // nem saiu (cofre, fila cheia) → tenta de novo em 10 min
-      marcas[`evo:${pk.id}`] = ok ? Date.now() : Date.now() - 20 * 60_000;
+      const txt = `evoluindo ${pk.nome} (Nv ${pk.level}) → ${d.especie.name} com 1× ${pedra.nome || 'pedra'}`;
+      const ok = pedir({ t: 'pokemon.evoluir', pokemonId: pk.id, alvoId: d.pokeId }, txt);
+      diagEvo(ok ? txt : `${txt} — não saiu`);
+      if (ok) { marcas[`evoN:${pk.id}`] = tentou + 1; marcas[`evoSp:${pk.id}`] = pk.speciesId; }
+      if (ok && tentou + 1 >= 3) diario(`evolução: ${pk.nome} não evoluiu depois de 3 envios — o jogo está recusando; tento de novo em 6 h`, 'aviso');
+      marcas[`evo:${pk.id}`] = ok ? Date.now() : Date.now() - 90_000; // nem saiu: tenta em 30 s
       gravar();
       return ok;
     }
     return false;
   }
 
-  // 1.27 (pedido do André): pokémon do TIME pronto para evoluir por pedra e sem a pedra na mochila →
-  // pede ao Radar para comprar UMA no Mercado, em ouro (nunca diamante/gema: o gancho só deixa
-  // ouro), pelo cofre. Quando a pedra chega, o "Evoluir" acima evolui. Confere sempre (a cada 2 min);
-  // a mesma pedra só é pedida de novo depois de 30 min.
-  const pedidoPedra = new Map(); // itemId -> quando pediu
+  // Pokémon do TIME no nível de evoluir e sem a pedra → pede ao Radar UMA no Mercado, em ouro (nunca
+  // diamante/gema: o gancho só deixa ouro), pelo cofre, na hora. Quando a pedra chega, o Evoluir acima
+  // evolui. Sem vendedor ou com a compra recusada, pede de novo em 5 min. Shiny Stone nunca é comprada.
+  const pedidoPedra = new Map(); // 'pokémon:itemId' -> quando pediu
   async function tarefaPedraDoTime() {
-    if (!cfg.evoluir.ligado || !venceu('pedraTime', 2 * 60_000)) return false;
+    if (!cfg.evoluir.ligado || !venceu('pedraTime', 10_000)) return false;
     marcar('pedraTime');
     const m = await modulos();
     const { porId, jogo } = await catalogoEvolucao();
-    const noXpShare = new Set();
-    for (const c of (eu.casa && eu.casa.lista) || []) for (const id of c.postos || []) if (id) noXpShare.add(id);
-    // 1.33.9 (o André viu a pedra comprada para evoluir ir para a revenda): avisa o Radar de TODAS as
-    // pedras que o time vai gastar (de quem já pode evoluir), para a revenda automática não vendê-las.
+    // 1.33.9: avisa o Radar de TODAS as pedras que o time vai gastar, para a revenda automática não
+    // vendê-las (1.36.0: o time inteiro, inicial e cuidados à mão incluídos).
     const precisa = {};
+    const prontos = [];
     for (const pk of equipe()) {
-      if (pk.shiny || pk.speciesId >= 2000 || pk.starter || pk.skin || pk.heldItemId != null || noXpShare.has(pk.id)) continue;
-      const esp = porId.get(pk.speciesId);
-      if (!esp || !esp.evolvesToId) continue;
-      const dest = m.ramif.destinosDeEvolucao(esp, (id) => porId.get(id)).filter((d) => d.temArte && (pk.level || 0) >= d.nivel);
-      if (!dest.length || (dest.length > 1 && !cfg.evoluir.ramificada)) continue;
-      const pd = pedraDe(m.ramif.tipoDaPedraDeEvolucao(esp, dest[0].especie), jogo);
-      if (pd) precisa[pd.itemId] = (precisa[pd.itemId] || 0) + 1;
+      const pr = prontoParaEvoluir(pk, m, porId, jogo);
+      if (!pr) continue;
+      precisa[pr.pedra.itemId] = (precisa[pr.pedra.itemId] || 0) + 1;
+      prontos.push({ pk, ...pr });
     }
     document.dispatchEvent(new CustomEvent('piloto:pedras-do-time', { detail: JSON.stringify({ itens: precisa }) }));
     if (cfg.evoluir.comprarPedra === false) return false;
-    for (const pk of equipe()) {
-      if (pk.shiny || pk.speciesId >= 2000 || pk.starter || pk.skin || pk.heldItemId != null || noXpShare.has(pk.id)) continue;
-      if (Object.values(pk.refino || {}).some((v) => Number(v) > 0) || Number(pk.refinoTotal) > 0) continue;
-      const esp = porId.get(pk.speciesId);
-      if (!esp || !esp.evolvesToId) continue;
-      const destinos = m.ramif.destinosDeEvolucao(esp, (id) => porId.get(id)).filter((d) => d.temArte && (pk.level || 0) >= d.nivel);
-      if (!destinos.length || (destinos.length > 1 && !cfg.evoluir.ramificada)) continue;
-      const d = destinos[0];
-      const pedra = pedraDe(m.ramif.tipoDaPedraDeEvolucao(esp, d.especie), jogo);
-      if (!pedra) continue; // evolui por nível: não precisa de pedra
-      const tem = Number((eu.items || {})[pedra.itemId]) || 0;
-      if (tem - PIH.itensReservados(pedra.itemId, tem) >= 1) continue; // já tem: o Evoluir resolve
-      // 1.33.5: o radar tem essa pedra no estoque de revenda → uma sai do estoque para o time (é o jeito
-      // mais barato: ele comprou abaixo do Mercado) e o Evoluir usa no próximo minuto.
+    for (const { pk, d, pedra, tem, livre } of prontos) {
+      if (pedra.shiny || livre >= 1) continue; // já tem: o Evoluir resolve
+      // 1.33.5: o radar tem essa pedra no estoque de revenda → uma sai do estoque para o time
       if (tem >= 1 && PIH.liberarItemParaEvoluir && PIH.liberarItemParaEvoluir(pedra.itemId)) {
         marcas.evoluir = 0; gravar();
         diario(`pedra: ${pk.nome} (Nv ${pk.level}) já pode virar ${d.especie.name} — usei 1× ${pedra.nome || 'pedra'} do estoque do Radar`);
+        diagEvo(`pedra do estoque do Radar para ${pk.nome} → ${d.especie.name}`);
+        setTimeout(() => { Promise.resolve().then(tique).catch(() => { /* segue */ }); }, 1500);
         return true;
       }
-      if (Date.now() - (pedidoPedra.get(pedra.itemId) || 0) < 30 * 60_000) continue;
-      pedidoPedra.set(pedra.itemId, Date.now());
+      const chave = `${pk.id}:${pedra.itemId}`; // por pokémon: dois do time com a mesma pedra pedem duas
+      if (Date.now() - (pedidoPedra.get(chave) || 0) < 5 * 60_000) continue;
+      pedidoPedra.set(chave, Date.now());
       document.dispatchEvent(new CustomEvent('piloto:pedra-precisa', { detail: JSON.stringify({ itemId: pedra.itemId, nome: pedra.nome || 'pedra', para: `${pk.nome} → ${d.especie.name}` }) }));
       diario(`pedra: ${pk.nome} (Nv ${pk.level}) já pode virar ${d.especie.name} — pedi 1× ${pedra.nome || 'pedra'} ao Radar (Mercado, em ouro)`);
+      diagEvo(`pedi 1× ${pedra.nome || 'pedra'} ao Radar para ${pk.nome} → ${d.especie.name}`);
       return true;
     }
     return false;
@@ -851,7 +913,9 @@
     return pedir({ t: 'shop.autoColecao', regra: rec }, `Auto Coleção no ponto: ${resumoRegra(rec)}`);
   }
 
-  const TAREFAS = [tarefaAutoColecao, tarefaPasse, tarefaPvpTime, tarefaPvpFila, tarefaXpShare, tarefaOutland, tarefaRodizio, tarefaChocadeira, tarefaPedraDoTime, tarefaEvoluir, tarefaColecaoBaixa, tarefaDepot];
+  // 1.36.0: evoluir e a pedra do time vêm primeiro — antes, qualquer tarefa da frente que mandasse algo
+  // encerrava o tique e a evolução esperava a próxima volta.
+  const TAREFAS = [tarefaEvoluir, tarefaPedraDoTime, tarefaAutoColecao, tarefaPasse, tarefaPvpTime, tarefaPvpFila, tarefaXpShare, tarefaOutland, tarefaRodizio, tarefaChocadeira, tarefaColecaoBaixa, tarefaDepot];
   let rodando = false;
   async function tique() {
     if (rodando || !eu || !welcome || !PIH.cofre || !PIH.cofre.liberado('rotina')) return;
@@ -904,7 +968,7 @@
       ${L({ icone: 'radar', nome: 'Fila automática', alvo: 'rotina:pvp.fila', on: cfg.pvp.fila, dica: 'Com VIP liga a fila automática do jogo; sem VIP, entra na fila quando estiver fora (no máximo a cada 3 min).',
         status: pvp.fila ? (pvp.fila.na ? 'na fila agora' : 'fora da fila') : '' })}
       ${K.grupo('Sem volta')}
-      ${L({ icone: 'evoluir', nome: 'Evoluir', classe: 'plt-l-perigo', alvo: 'rotina:evoluir.ligado', on: cfg.evoluir.ligado, dica: 'Evolui quem tem nível e pedra na mochila. Nunca shiny, Outland, Mega, o inicial, nem quem tem skin, item, refino ou posto no XP Share (o diário avisa). Um por minuto.',
+      ${L({ icone: 'evoluir', nome: 'Evoluir', classe: 'plt-l-perigo', alvo: 'rotina:evoluir.ligado', on: cfg.evoluir.ligado, dica: 'O time evolui na hora em que chega no nível, qualquer pokémon (inicial também). Sem a pedra, compra uma no Mercado em ouro e ela não vai para a revenda. Shiny só com a Shiny Stone na mochila (essa nunca é comprada). Outland e Mega não evoluem.',
         status: cfg.evoluir.ligado ? (cfg.evoluir.escopo === 'tudo' ? 'equipe, Depot e Coleção' : 'só a equipe') : '',
         ajustes: `${K.fcampo('Quem', K.escala('rotina:evoluir.escopo', cfg.evoluir.escopo, [['equipe', 'Só a equipe'], ['tudo', 'Todos']], trava))}${K.mini('rotina:evoluir.ramificada', cfg.evoluir.ramificada, 'Cadeias com escolha', 'Eevee e outras: vai para o primeiro destino', trava)}${K.mini('rotina:evoluir.comprarPedra', cfg.evoluir.comprarPedra !== false, 'Comprar a pedra do time', 'Pokémon do time pronto para evoluir sem a pedra: compra 1 no Mercado, em ouro, pelo cofre', trava)}` })}
       ${L({ icone: 'ovo', nome: 'Chocadeira', classe: 'plt-l-perigo', alvo: 'rotina:chocadeira.ligado', on: cfg.chocadeira.ligado, dica: 'Põe na chocadeira o ovo que você tem (Shiny, P4, P3, P2).',

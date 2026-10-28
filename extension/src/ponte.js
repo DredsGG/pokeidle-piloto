@@ -320,7 +320,15 @@
       try { d = JSON.parse(ev.detail) || {}; } catch { return; }
       const plataformas = (Array.isArray(d.plataformas) ? d.plataformas : []).filter((x) => x === 'twitch' || x === 'kick');
       if (!plataformas.length || !storage()) return;
-      chrome.runtime.sendMessage({ tipo: 'plateia:abrir', plataformas }).catch(() => {});
+      const reabrir = d.reabrir === true;
+      chrome.runtime.sendMessage({ tipo: 'plateia:abrir', plataformas, reabrir }).then((r) => {
+        // 1.36.0: o que foi reaberto volta para a página (diário)
+        const feitas = r && r.dados && typeof r.dados === 'object' ? r.dados : null;
+        const lista = (x) => (Array.isArray(x) ? x.filter((y) => y === 'twitch' || y === 'kick') : []);
+        const abertas = Array.isArray(feitas) ? lista(feitas) : lista(feitas && feitas.abertas);
+        const recarregadas = Array.isArray(feitas) ? [] : lista(feitas && feitas.recarregadas);
+        if (reabrir && (abertas.length || recarregadas.length)) document.dispatchEvent(new CustomEvent('piloto:plateia-reaberta', { detail: JSON.stringify({ abertas, recarregadas }) }));
+      }).catch(() => {});
     });
   } catch (e) {
     erro(e);

@@ -1,17 +1,23 @@
 {
   "versoes": {
-    "1.35.1": {
+    "1.36.0": {
       "pt": [
-        "Evoluir: um comando de evolução que se perdia (queda da conexão) travava aquele pokémon por 24 h; agora tenta de novo em 30 min.",
-        "Evoluir: quando um pokémon pronto fica de fora da regra (o seu inicial, skin, item, refino ou posto no XP Share), o diário avisa o motivo, uma vez por dia."
+        "Evoluir: o time evolui na hora em que chega no nível — qualquer pokémon, o inicial também. Sem a pedra, o Piloto compra na hora no Mercado (em ouro) e ela nunca vai para a revenda.",
+        "Evoluir: corrigido o que travava a evolução — a leitura da pedra perdia a vez para o Radar, a segunda pedra do mesmo vendedor era recusada e um comando perdido segurava o pokémon por 24 h.",
+        "Plateia: opção \"Reabrir se fechar\" — se a janela da Twitch ou da Kick fechar ou for descartada da memória, o Piloto reabre em até 1 min.",
+        "PvP ao vivo: os 6 de cada lado aparecem desde o começo, numa lista vertical em cada canto — moldura em quem está lutando, apagando conforme perde HP e cinza quando cai."
       ],
       "en": [
-        "Evolve: an evolution command lost to a dropped connection locked that Pokémon for 24 h; now it tries again in 30 min.",
-        "Evolve: when a ready Pokémon is left out by the rule (your starter, skin, held item, refinement or XP Share post), the log tells you why, once a day."
+        "Evolve: the team evolves the moment it reaches the level — any Pokémon, the starter too. Without the stone, the Piloto buys one on the Market right away (for gold) and it never goes to resale.",
+        "Evolve: fixed what blocked evolutions — the stone lookup lost its turn to the Radar, a second stone from the same seller was refused and a lost command held the Pokémon for 24 h.",
+        "Plateia: \"Reopen if it closes\" option — if the Twitch or Kick window closes or is discarded from memory, the Piloto reopens it within 1 min.",
+        "Live PvP: all 6 on each side show from the start, in a vertical list in each corner — a frame on whoever is fighting, fading as they lose HP and grey when they faint."
       ],
       "es": [
-        "Evolucionar: un comando de evolución perdido por una caída de conexión bloqueaba a ese pokémon por 24 h; ahora lo intenta de nuevo en 30 min.",
-        "Evolucionar: cuando un pokémon listo queda fuera de la regla (tu inicial, skin, objeto, refinamiento o puesto en el XP Share), el diario avisa el motivo, una vez al día."
+        "Evolucionar: el equipo evoluciona en cuanto llega al nivel — cualquier pokémon, el inicial también. Sin la piedra, el Piloto la compra al momento en el Mercado (con oro) y nunca va a la reventa.",
+        "Evolucionar: corregido lo que trababa la evolución — la consulta de la piedra perdía el turno frente al Radar, la segunda piedra del mismo vendedor era rechazada y un comando perdido retenía al pokémon por 24 h.",
+        "Plateia: opción \"Reabrir si se cierra\" — si la ventana de Twitch o Kick se cierra o se descarta de la memoria, el Piloto la reabre en hasta 1 min.",
+        "PvP en vivo: los 6 de cada lado aparecen desde el inicio, en una lista vertical en cada esquina — marco en quien está luchando, apagándose al perder HP y gris cuando cae."
       ]
     },
     "1.35.0": {

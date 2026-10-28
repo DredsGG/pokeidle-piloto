@@ -30,9 +30,11 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
-      '1.35.1': [
-        "Evolve: an evolution command lost to a dropped connection locked that Pokémon for 24 h; now it tries again in 30 min.",
-        "Evolve: when a ready Pokémon is left out by the rule (your starter, skin, held item, refinement or XP Share post), the log tells you why, once a day.",
+      '1.36.0': [
+        "Evolve: the team evolves the moment it reaches the level — any Pokémon, the starter too. Without the stone, the Piloto buys one on the Market right away (for gold) and it never goes to resale.",
+        "Evolve: fixed what blocked evolutions — the stone lookup lost its turn to the Radar, a second stone from the same seller was refused and a lost command held the Pokémon for 24 h.",
+        "Plateia: \"Reopen if it closes\" option — if the Twitch or Kick window closes or is discarded from memory, the Piloto reopens it within 1 min.",
+        "Live PvP: all 6 on each side show from the start, in a vertical list in each corner — a frame on whoever is fighting, fading as they lose HP and grey when they faint.",
       ],
       '1.35.0': [
         "Meta tab in the Team window: \"Update team\" button — switches to the current meta right away (at the Center), shows who comes in, who goes out and what's still to catch; \"Hunt the missing ones\" only when you click.",
