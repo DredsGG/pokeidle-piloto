@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.37.1': [
+        'Equipo: un pokémon fuera del meta ya no se queda con el lugar. Si atrapas otro fuera del meta con más Poder, entra en lugar del más débil. Los del meta siguen teniendo prioridad.',
+      ],
       '1.37.0': [
         "Nueva pestaña Dudas: el Piloto puede responder solo preguntas en el canal Dudas del chat, con 53 respuestas sacadas de la Pokepedia del juego. Viene apagado; actívalo en la pestaña si quieres. Espera 20 s, no responde si alguien ya ayudó y habla como máximo 1 vez cada 5 min.",
       ],

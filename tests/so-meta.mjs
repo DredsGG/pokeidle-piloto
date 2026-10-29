@@ -144,6 +144,30 @@ ok(r2.includes(7), `Squirtle fora da comp ao vivo há pouco: fica (${r2})`);
 await page.evaluate(() => { const c = window.__pokeidleHunt.time._cfgTime(); const e = c.compEstavel.topo; for (const k of Object.keys(e.fora)) e.fora[k] = Date.now() - 25 * 3600_000; });
 const r3 = await page.evaluate(() => window.__pokeidleHunt.time.compEstavel('topo'));
 ok(!r3.includes(7) && r3.includes(19), `25 h fora: sai o Squirtle, entra o Rattata (${r3})`);
+
+// 1.37.1 (relato #3): quem é de fora do meta não prende a vaga
+await page.evaluate(() => { const c = window.__pokeidleHunt.time._cfgTime(); c.compEstavel = {}; c.travados.time = []; });
+await prep([[[7, 'Squirtle']], [[7, 'Squirtle']], [[7, 'Squirtle']]]);
+const base = { level: 30, xp: 9000, quality: 1.2, potencia: 1, tipos: ['FIRE'], ivs: { hp: 16, atk: 16, def: 16, spAtk: 16, spDef: 16, speed: 16 }, stats: { hp: 160, atk: 90, def: 75, spAtk: 95, spDef: 80, speed: 85 }, maxHp: 1720, hp: 1720 };
+const cenario = async (ps) => {
+  srv({ t: 'estado', estado: { pokemons: ps, activeId: 3 } });
+  await sleep(700);
+  return page.evaluate(() => { const P = window.__pokeidleHunt; let e = null; P.on('estado', (x) => { e = x; }); return P.time.alvoPrincipal().map((id) => (e.pokemons.find((p) => p.id === id) || {}).nome); });
+};
+const ps1 = [
+  { ...base, id: 3, slot: 0, nome: 'Charmander', speciesId: 4, poder: 3000 },
+  { ...base, id: 50, slot: 1, nome: 'Pidgey', speciesId: 16, poder: 2000 },
+  { ...base, id: 41, slot: 2, nome: 'Squirtle', speciesId: 7, poder: 1500 },
+  { ...base, id: 40, slot: null, nome: 'Rattata', speciesId: 19, poder: 90000 },
+  { ...base, id: 51, slot: null, nome: 'Spearow', speciesId: 21, poder: 2030 },
+];
+const a1 = await cenario(ps1);
+ok(a1.includes('Rattata') && !a1.includes('Pidgey'), `de fora do meta com mais Poder entra no lugar do mais fraco de fora do meta (${a1})`);
+ok(a1.includes('Squirtle'), `o do meta não sai, mesmo com menos Poder (${a1})`);
+ok(a1.includes('Charmander'), `o que está lutando fica (${a1})`);
+ok(a1.length === 3 && !a1.includes('Spearow'), `vaga vazia não é preenchida por quem é de fora do meta (${a1})`);
+const a2 = await cenario(ps1.filter((p) => p.id !== 40));
+ok(a2.includes('Pidgey') && !a2.includes('Spearow'), `só 1,5% a mais de Poder: não troca (margem de 2%) (${a2})`);
 console.log(falhas ? `${falhas} FALHA(S)` : 'TUDO PASSOU');
 setTimeout(() => process.exit(falhas ? 1 : 0), 200);
 await ctx.close();

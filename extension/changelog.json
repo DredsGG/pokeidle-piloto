@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.37.1": {
+      "pt": [
+        "Time: um pokémon de fora do meta não prende mais a vaga. Se você pegar outro de fora do meta com mais Poder, ele entra no lugar do mais fraco. Os do meta continuam com prioridade."
+      ],
+      "en": [
+        "Team: a Pokémon outside the meta no longer holds its slot. If you catch another one outside the meta with more Power, it takes the weakest one's place. The meta ones still come first."
+      ],
+      "es": [
+        "Equipo: un pokémon fuera del meta ya no se queda con el lugar. Si atrapas otro fuera del meta con más Poder, entra en lugar del más débil. Los del meta siguen teniendo prioridad."
+      ]
+    },
     "1.37.0": {
       "pt": [
         "Nova aba Dúvidas: o Piloto pode responder sozinho perguntas no canal Dúvidas do chat, com 53 respostas tiradas da Pokepédia do jogo. Vem desligado; ligue na aba se quiser. Ele espera 20 s, não responde se alguém já ajudou e fala no máximo 1 vez a cada 5 min."

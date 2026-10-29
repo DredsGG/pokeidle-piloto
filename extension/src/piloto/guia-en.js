@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.37.1': [
+        'Team: a Pokémon outside the meta no longer holds its slot. If you catch another one outside the meta with more Power, it takes the weakest one\'s place. The meta ones still come first.',
+      ],
       '1.37.0': [
         "New Questions tab: the Piloto can answer questions in the chat's Questions channel by itself, with 53 answers taken from the game's Pokepedia. It comes off; turn it on in the tab if you want. It waits 20 s, stays quiet if someone already helped and speaks at most once every 5 min.",
       ],

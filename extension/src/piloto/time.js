@@ -334,6 +334,17 @@
     const soMeta = cfg.doMeta !== false;
     if (soMeta) {
       for (const p of timeCampo()) { const c = porIdC.get(p.id); if (c && !time.includes(c) && time.length < MAX_EQUIPE) time.push(c); }
+      // 1.37.1 (relato #3, ok do André): quem não é do meta não prende a vaga. Um de fora do meta
+      // com 2% mais Poder entra no lugar do mais fraco de fora do meta. Os do meta e os travados
+      // nunca saem por isso, e vaga vazia continua sem ser preenchida por quem é de fora do meta.
+      for (const c of cand) {
+        if (time.includes(c)) continue;
+        const trocaveis = time.filter((p) => !fixos.has(p.id) && p.id !== eu.activeId);
+        if (!trocaveis.length) break;
+        const fraco = trocaveis.reduce((m, p) => (poderDe(p) < poderDe(m) ? p : m), trocaveis[0]);
+        if (poderDe(c) <= poderDe(fraco) * MARGEM_PODER) break;
+        time[time.indexOf(fraco)] = c;
+      }
       return time.sort((a, b) => poderDe(b) - poderDe(a));
     }
     for (const p of timeCampo()) { const c = porIdC.get(p.id); if (c && !time.includes(c) && time.length < MAX_EQUIPE) time.push(c); }
@@ -565,7 +576,7 @@
     const base = cfg.doMeta ? `${nMeta} do meta + os de maior Poder` : 'os 5 de maior Poder';
     const status = !on ? 'desligado' : st.sessao && !st.troca ? `${esc(st.motivo || 'trocando o time no Centro')} · ${pvpTxt}` : st.troca ? `trocando: entra ${esc(st.troca.nomeEntra)}` : `${st.motivo ? esc(st.motivo) : base} · ${pvpTxt}`;
     const linha = K.linha({ id: 'principal', icone: 'pvp', nome: 'Montar o time principal sozinho', alvo: 'time:principalAuto', on, trava, status,
-      dica: "Um time só para o campo e para o PvP. Com \"Usar os do meta\" ligado, só entram os do meta que você tem (para cada pokémon da comp da aba Meta, o seu melhor da mesma família; Mega X conta como X): nenhum pokémon de fora do meta entra, e quem já está no time fica até um do meta precisar da vaga. A comp que o time segue só muda quando o meta muda de verdade (24 h). Desligado, entram os de maior Poder que você já pode usar (treinador + 5), com 2% de margem. Quem sai vai para a Coleção (a venda nunca leva). O cadeado fixa no time; o que está lutando só sai depois do rodízio. O PvP recebe a mesma equipe (treinador Nv 150+).",
+      dica: "Um time só para o campo e para o PvP. Com \"Usar os do meta\" ligado, só entram os do meta que você tem (para cada pokémon da comp da aba Meta, o seu melhor da mesma família; Mega X conta como X): quem é de fora do meta não ocupa vaga vazia, mas sai para um de fora do meta com 2% mais Poder, e um do meta toma a vaga de quem não é. A comp que o time segue só muda quando o meta muda de verdade (24 h). Desligado, entram os de maior Poder que você já pode usar (treinador + 5), com 2% de margem. Quem sai vai para a Coleção (a venda nunca leva). O cadeado fixa no time; o que está lutando só sai depois do rodízio. O PvP recebe a mesma equipe (treinador Nv 150+).",
       ajustes: modo === 'manual' ? K.mini('time:doMeta', cfg.doMeta, 'Usar os do meta', 'Põe no time, primeiro, os pokémon do meta que você tem', trava) : '' });
     const r = rc && rc.rodizio;
     const rod = K.linha({ id: 'rodizio', icone: 'nivel', nome: 'Rodízio do time', alvo: 'rotina:rodizio.ligado', on: !!(r && r.ligado), trava,
