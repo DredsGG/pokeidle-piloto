@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.47.0": {
+      "pt": [
+        "Novo Modo farm (aba Caçar): o Piloto calcula qual pokémon rende mais XP no seu nível, de treinador e do próprio pokémon, e farma com ele sem parar. Se você não tem, ele captura um, que entra na hora e evolui sozinho até o escolhido. Recalcula 1x por dia e quando abre hunt nova."
+      ],
+      "en": [
+        "New Farm mode (Hunt tab): the Pilot works out which Pokémon earns the most XP at your level, for the trainer and for itself, and farms with it nonstop. If you don't have it, it catches one, which steps in right away and evolves by itself into the chosen one. Recalculates once a day and when a new hunt unlocks."
+      ],
+      "es": [
+        "Nuevo Modo farm (pestaña Cazar): el Piloto calcula qué pokémon rinde más XP en tu nivel, del entrenador y del propio pokémon, y farmea con él sin parar. Si no lo tienes, captura uno, que entra al momento y evoluciona solo hasta el elegido. Recalcula 1 vez al día y cuando se abre una hunt nueva."
+      ]
+    },
     "1.46.0": {
       "pt": [
         "Conta pequena agora usa o Automático: a reposição (bola, poção e revive) ficou fora do teto do dia, porque no começo do jogo quase todo o ouro vai para item. Sempre sobram pelo menos 10% do saldo, e o Diário avisa se a reposição passar do teto. O Mercado continua com a reserva."

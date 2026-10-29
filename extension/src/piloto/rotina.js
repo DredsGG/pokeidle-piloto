@@ -61,7 +61,7 @@
   let evoAssin = '', evoTimer = null;
   PIH.on('estado', () => {
     try {
-      if (!cfg.evoluir || !cfg.evoluir.ligado) return;
+      if (!evoluirLigado()) return;
       const a = equipe().map((p) => `${p.id}:${p.speciesId}:${p.level}`).join(',') + '|' + JSON.stringify((eu && eu.items) || {});
       if (a === evoAssin) return;
       evoAssin = a;
@@ -401,6 +401,7 @@
     if (rotAuto && (rotAuto.ficar || !['esperar', 'indo', 'centro', 'sair'].includes(rotAuto.etapa))) return false;
     if (PIH.metaCaca && PIH.metaCaca.ativo()) return false; // 1.24: caçando o meta, quem luta é o mais forte
     if (PIH.cacadas && PIH.cacadas.ativo()) return false; // 1.41.0: Melhorar o time / Completar a Pokédex escolhem quem caça
+    if (PIH.farm && PIH.farm.ativo()) return false; // 1.47.0: no Modo farm quem luta é o farmador
     if (PIH.time && PIH.time.emSessao && PIH.time.emSessao()) return false; // 1.26.3: trocando o time no Centro
     const h = huntAtual();
     const at = ativo();
@@ -518,13 +519,18 @@
     const p = lista.find((x) => x && x.tipo === tipo && x.itemId != null);
     return p ? { itemId: Number(p.itemId), nome: p.nome || `${tipo} Shiny Stone`, shiny: true } : null;
   }
+  // 1.47.0 (pedido do André): o farmador do Modo farm evolui sozinho até a espécie escolhida, mesmo
+  // com o Evoluir desligado — só ele, e só pelo caminho que chega no escolhido.
+  const farmEvo = () => { try { const id = PIH.farm && PIH.farm.pkId ? PIH.farm.pkId() : null; const p = id ? (eu.pokemons || []).find((x) => x.id === id) : null; return p ? { pk: p, caminho: PIH.farm.caminhoEvolucao() } : null; } catch { return null; } };
+  const evoluirLigado = () => !!(cfg.evoluir && cfg.evoluir.ligado) || !!farmEvo();
   // O que falta para este pokémon evoluir agora: null (não evolui) ou { d, pedra, tem, livre }.
-  function prontoParaEvoluir(pk, m, porId, jogo) {
+  function prontoParaEvoluir(pk, m, porId, jogo, caminho = null) {
     if (pk.speciesId >= 2000) return null; // Outland e Mega não evoluem
     const esp = porId.get(pk.speciesId);
     if (!esp || !esp.evolvesToId) return null;
-    const destinos = m.ramif.destinosDeEvolucao(esp, (id) => porId.get(id)).filter((d) => d.temArte && (pk.level || 0) >= d.nivel);
-    if (!destinos.length || (destinos.length > 1 && !cfg.evoluir.ramificada)) return null;
+    let destinos = m.ramif.destinosDeEvolucao(esp, (id) => porId.get(id)).filter((d) => d.temArte && (pk.level || 0) >= d.nivel);
+    if (caminho) destinos = destinos.filter((d) => caminho.has(d.pokeId)); // 1.47.0: o farmador vai só pelo caminho do escolhido
+    if (!destinos.length || (destinos.length > 1 && !cfg.evoluir.ramificada && !caminho)) return null;
     const d = destinos[0];
     const tipo = m.ramif.tipoDaPedraDeEvolucao(esp, d.especie);
     let pedra;
@@ -578,12 +584,13 @@
   });
 
   async function tarefaEvoluir() {
-    if (!cfg.evoluir.ligado || !venceu('evoluir', 8_000)) return false;
+    if (!evoluirLigado() || !venceu('evoluir', 8_000)) return false;
     const m = await modulos();
     const { porId, jogo } = await catalogoEvolucao();
     const doTime = new Set(equipe().map((p) => p.id));
-    // o time primeiro
-    const lista = cfg.evoluir.escopo === 'tudo' ? [...equipe(), ...(eu.pokemons || []).filter((p) => !doTime.has(p.id))] : equipe();
+    const fe = farmEvo();
+    // o time primeiro (1.47.0: com o Evoluir desligado, só o farmador do Modo farm)
+    const lista = !cfg.evoluir.ligado ? (fe ? [fe.pk] : []) : cfg.evoluir.escopo === 'tudo' ? [...equipe(), ...(eu.pokemons || []).filter((p) => !doTime.has(p.id))] : equipe();
     const noXpShare = xpSharePostos();
     for (const pk of lista) {
       const time = doTime.has(pk.id);
@@ -595,7 +602,7 @@
       if (evoluiu || (tentou && marcas[`evoSp:${pk.id}`] == null)) { tentou = 0; delete marcas[`evo:${pk.id}`]; delete marcas[`evoSp:${pk.id}`]; } // evoluiu: a próxima etapa já pode
       if (!venceu(`evo:${pk.id}`, tentou >= 3 ? 6 * 3_600_000 : 2 * 60_000)) continue;
       if (tentou >= 3) tentou = 0;
-      const pr = prontoParaEvoluir(pk, m, porId, jogo);
+      const pr = prontoParaEvoluir(pk, m, porId, jogo, fe && fe.pk.id === pk.id ? fe.caminho : null);
       if (!pr || pr.livre < 1) continue;
       const { d, pedra } = pr;
       marcar('evoluir');
@@ -616,7 +623,7 @@
   // evolui. Sem vendedor ou com a compra recusada, pede de novo em 5 min. Shiny Stone nunca é comprada.
   const pedidoPedra = new Map(); // 'pokémon:itemId' -> quando pediu
   async function tarefaPedraDoTime() {
-    if (!cfg.evoluir.ligado || !venceu('pedraTime', 10_000)) return false;
+    if (!evoluirLigado() || !venceu('pedraTime', 10_000)) return false;
     marcar('pedraTime');
     const m = await modulos();
     const { porId, jogo } = await catalogoEvolucao();
@@ -624,8 +631,9 @@
     // vendê-las (1.36.0: o time inteiro, inicial e cuidados à mão incluídos).
     const precisa = {};
     const prontos = [];
-    for (const pk of equipe()) {
-      const pr = prontoParaEvoluir(pk, m, porId, jogo);
+    const fe = farmEvo();
+    for (const pk of (cfg.evoluir.ligado ? equipe() : fe ? [fe.pk] : [])) {
+      const pr = prontoParaEvoluir(pk, m, porId, jogo, fe && fe.pk.id === pk.id ? fe.caminho : null);
       if (!pr) continue;
       precisa[pr.pedra.itemId] = (precisa[pr.pedra.itemId] || 0) + 1;
       prontos.push({ pk, ...pr });
@@ -686,7 +694,8 @@
     for (const id of (PIH.metaCaca ? PIH.metaCaca.protegidos() : [])) ids.add(id);
     // 1.41.0: as promessas do Melhorar o time e, enquanto ele caça, a família do alvo (até ser avaliada)
     for (const id of (PIH.cacadas ? PIH.cacadas.protegidos() : [])) ids.add(id);
-    const familiaMeta = new Set([...(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []), ...(PIH.cacadas ? PIH.cacadas.especiesAlvo() : [])]);
+    for (const id of (PIH.farm ? PIH.farm.protegidos() : [])) ids.add(id);
+    const familiaMeta = new Set([...(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []), ...(PIH.cacadas ? PIH.cacadas.especiesAlvo() : []), ...(PIH.farm ? PIH.farm.especiesAlvo() : [])]);
     for (const p of livres) if (familiaMeta.has(p.speciesId)) ids.add(p.id);
     if (cfg.pvp.time && Array.isArray(pvp.time)) for (const p of equipeAlvo(pvp.time)) ids.add(p.id);
     return livres.filter((p) => ids.has(p.id) || p.shiny || Number(p.potencia) >= POTENCIA_MAX);
@@ -782,7 +791,8 @@
     for (const id of (PIH.time && PIH.time.doMeta ? PIH.time.doMeta() : [])) protegidos.add(id);
     for (const id of (PIH.metaCaca ? PIH.metaCaca.protegidos() : [])) protegidos.add(id);
     for (const id of (PIH.cacadas ? PIH.cacadas.protegidos() : [])) protegidos.add(id);
-    const familiaMeta = new Set([...(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []), ...(PIH.cacadas ? PIH.cacadas.especiesAlvo() : [])]);
+    for (const id of (PIH.farm ? PIH.farm.protegidos() : [])) protegidos.add(id);
+    const familiaMeta = new Set([...(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []), ...(PIH.cacadas ? PIH.cacadas.especiesAlvo() : []), ...(PIH.farm ? PIH.farm.especiesAlvo() : [])]);
     const a = PIH.time && PIH.time._interno && PIH.time._interno.st && PIH.time._interno.st.analise;
     const analiseEm = (a && a.em) || 0;
     const col = new Set(((eu.automation && eu.automation.pokemonTravado) || []).map(Number));
@@ -1050,6 +1060,8 @@
       return;
     }
     if (caminho === 'depot.modo') { cfg.depot.ultimoModo = v; if (cfg.depot.modo !== 'off') cfg.depot.modo = v; gravar(); return; }
+    // 1.47.0: ligar o rodízio desliga o Modo farm (no farm quem luta é o farmador)
+    if (caminho === 'rodizio.ligado' && v === true && PIH.farm && PIH.farm.ativo()) PIH.farm.desligar('o rodízio foi ligado');
     setCaminho(caminho, v);
     if (typeof v === 'boolean') diario(`${caminho} ${v ? 'ligado' : 'desligado'}`);
   }
@@ -1060,6 +1072,7 @@
   function aplicar(m) {
     const rodAntes = cfg.rodizio.ligado;
     for (const k of ['passe', 'xpshare', 'outland', 'rodizio']) if (m && k in m) cfg[k].ligado = !!m[k];
+    if (PIH.farm && PIH.farm.ativo()) cfg.rodizio.ligado = rodAntes; // 1.47.0: com o Modo farm o rodízio fica como está
     if (cfg.rodizio.ligado && !rodAntes) comecarCiclo();
     if (m && 'pvp' in m) { cfg.pvp.fila = !!m.pvp; cfg.pvp.time = !!m.pvp; }
     if (m && 'autoColecao' in m) cfg.autoColecao.ligado = !!m.autoColecao;

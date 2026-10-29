@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.47.0': [
+        "New Farm mode (Hunt tab): the Pilot works out which Pokémon earns the most XP at your level, for the trainer and for itself, and farms with it nonstop. If you don't have it, it catches one, which steps in right away and evolves by itself into the chosen one. Recalculates once a day and when a new hunt unlocks.",
+      ],
       '1.46.0': [
         "Small accounts can now use Auto: restock (balls, potions and revives) is outside the daily cap, since early in the game almost all gold goes to items. At least 10% of the balance is always kept, and the journal warns if restock goes past the cap. The Market keeps its reserve.",
       ],

@@ -864,6 +864,10 @@
   // Trechos trocados dentro de qualquer texto (do mais longo para o mais curto).
   const trechos = [
     ['esperando a nota do jogo carregar ("Só aceitar um bom")', 'waiting for the game grade to load ("Only accept a good one")', 'esperando que cargue la nota del juego ("Solo aceptar uno bueno")'],
+    ['montar o time principal sozinho ligado pelo Modo farm', 'build the main team on its own turned on by Farm mode', 'armar el equipo principal solo encendido por el Modo farm'],
+    ['montar o time principal sozinho volta como estava (o Modo farm acabou)', 'build the main team on its own back as it was (Farm mode ended)', 'armar el equipo principal solo vuelve como estaba (terminó el Modo farm)'],
+    ['o rodízio foi ligado', 'the rotation was turned on', 'se encendió la rotación'],
+    ['ligou o Caçar o meta', 'turned on Hunt the meta', 'encendió Cazar el meta'],
     ['ligue a Pokébola automática!', 'turn on the automatic Poké Ball!', '¡activa la Poké Ball automática!'],
     ['sem hunt: pulado', 'no hunt: skipped', 'sin hunt: saltado'],
     ['nenhum pokémon do time pode lutar', 'no team pokémon can fight', 'ningún pokémon del equipo puede luchar'],

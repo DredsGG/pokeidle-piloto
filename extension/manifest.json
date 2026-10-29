@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PokeIdle Piloto",
-  "version": "1.46.0",
+  "version": "1.47.0",
   "author": "Dreds",
   "description": "Radar do Mercado + /hunt numa extensão só: onde caçar, troca de hunt, reposição, rotina diária, XP Share, revenda e compra no Mercado em ouro, tudo com um cofre de orçamento. Nunca gasta Gema nem diamante.",
   "minimum_chrome_version": "121",
@@ -89,6 +89,7 @@
         "src/piloto/guarda.js",
         "src/piloto/metacaca.js",
         "src/piloto/cacadas.js",
+        "src/piloto/farm.js",
         "src/piloto/saude.js",
         "src/piloto/volta.js",
         "src/piloto/acordado.js",

@@ -116,6 +116,8 @@
     }
     // 1.41.0: só uma caçada por vez (Melhorar o time e Completar a Pokédex devolvem a Troca de hunt e o rodízio antes)
     try { if (PIH.cacadas && PIH.cacadas.ativo()) PIH.cacadas.desligar('ligou o Caçar o meta'); } catch { /* sem caçadas */ }
+    // 1.47.0: o Modo farm também (ele devolve o rodízio e a Troca de hunt antes; daqui o Caçar o meta cuida)
+    try { if (PIH.farm && PIH.farm.ativo()) PIH.farm.desligar('ligou o Caçar o meta'); } catch { /* sem farm */ }
     cfg = { ...cfg, ligado: true, alvos, vistos: meus().map((p) => p.id), desde: Date.now(), fim: null };
     gravar();
     // os dois não andam juntos: a Troca de hunt levaria o Piloto para longe do alvo

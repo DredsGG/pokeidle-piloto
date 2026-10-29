@@ -120,6 +120,8 @@
     if (!F() || !(await F().pronta())) return { ok: false, motivo: t3('o catálogo do jogo ainda não carregou', "the game catalog hasn't loaded yet", 'el catálogo del juego aún no cargó') };
     const nomeModo = modo === 'dex' ? t3('Completar a Pokédex', 'Complete the Pokédex', 'Completar la Pokédex') : t3('Melhorar o time', 'Improve the team', 'Mejorar el equipo');
     if (cfg.modo && cfg.modo !== modo) desligar(t3(`ligou ${nomeModo}`, `turned on ${nomeModo}`, `encendió ${nomeModo}`));
+    // 1.47.0: um modo de cada vez — o Modo farm desliga (e devolve o rodízio e a Troca de hunt antes)
+    try { if (PIH.farm && PIH.farm.ativo()) PIH.farm.desligar(t3(`ligou ${nomeModo}`, `turned on ${nomeModo}`, `encendió ${nomeModo}`)); } catch { /* sem farm */ }
     let alvos = [];
     if (modo === 'melhorar') {
       const time = timeCampo().filter((p) => p.stats);

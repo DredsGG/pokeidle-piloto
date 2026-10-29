@@ -325,7 +325,10 @@
     const cand = meus().filter((p) => p.stats && podeUsar(p) && poderDe(p) > 0).sort((a, b) => poderDe(b) - poderDe(a));
     const porIdC = new Map(cand.map((p) => [p.id, p]));
     const time = [];
-    for (const id of cfg.travados.time) { const p = porIdC.get(id); if (p && time.length < MAX_EQUIPE) time.push(p); }
+    // 1.47.0: o farmador do Modo farm entra primeiro e nunca sai (mesmo de fora do meta)
+    const farmId = PIH.farm && PIH.farm.pkId ? PIH.farm.pkId() : null;
+    if (farmId) { const p = porIdC.get(farmId); if (p) time.push(p); }
+    for (const id of cfg.travados.time) { const p = porIdC.get(id); if (p && time.length < MAX_EQUIPE && !time.includes(p)) time.push(p); }
     const fixos = new Set(time.map((p) => p.id));
     for (const { p } of doMetaAgora()) { if (time.length < MAX_EQUIPE && !fixos.has(p.id)) { time.push(p); fixos.add(p.id); } }
     // 1.31 (pedido do André): com "Usar os do meta" ligado, SÓ os do meta entram no time. Quem já
@@ -692,7 +695,7 @@
     if (!cfg.metaAuto || !eu || !campoAuto() || st.sessao) return;
     if (!PIH.cofre || !PIH.cofre.liberado || !PIH.cofre.liberado('time')) return;
     anotarSemHunt();
-    if ((PIH.metaCaca && PIH.metaCaca.ativo()) || (PIH.cacadas && PIH.cacadas.ativo && PIH.cacadas.ativo())) { autoVisto = { chave: '', desde: 0 }; return; }
+    if ((PIH.metaCaca && PIH.metaCaca.ativo()) || (PIH.cacadas && PIH.cacadas.ativo && PIH.cacadas.ativo()) || (PIH.farm && PIH.farm.ativo && PIH.farm.ativo())) { autoVisto = { chave: '', desde: 0 }; return; }
     const pv = previaMeta();
     if (!pv || !pv.viva.length) return;
     const falta = pv.falta.filter((x) => !cfg.metaSemHunt.includes(Number(x.a.speciesId)));
@@ -1111,5 +1114,11 @@
     cfg.aba = aba; gravar();
     if (!janela) alternar(); else pintar(true);
   }
-  PIH.time = { metaAuto: { tique: tiqueMetaAuto, forcar: (o) => { if ('desde' in o) autoVisto.desde = o.desde; if ('ultimo' in o) autoUltimo = o.ultimo; }, visto: () => ({ ...autoVisto }) }, alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, marcarPonte, ganhoDeNivel, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), compEstavel: (r) => compEstavel(r || "topo").map((a) => a.speciesId), _cfgTime: () => cfg, campoAuto, metaNovo, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
+  // 1.47.0: o Modo farm precisa do "Montar o time principal sozinho" para pôr o farmador no time;
+  // liga e devolve o que estava antes (para ele desligar de novo no fim, se estava desligado)
+  function campoDoFarm(v, valorAntes) {
+    if (v) { if (campoAuto()) return { mexeu: false }; const raw = cfg.campoAuto; cfg.campoAuto = true; gravar(); st.ultimaTroca = 0; diario('montar o time principal sozinho ligado pelo Modo farm'); return { mexeu: true, raw }; }
+    cfg.campoAuto = valorAntes === undefined ? null : valorAntes; gravar(); diario('montar o time principal sozinho volta como estava (o Modo farm acabou)'); return null;
+  }
+  PIH.time = { campoDoFarm, metaAuto: { tique: tiqueMetaAuto, forcar: (o) => { if ('desde' in o) autoVisto.desde = o.desde; if ('ultimo' in o) autoUltimo = o.ultimo; }, visto: () => ({ ...autoVisto }) }, alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, marcarPonte, ganhoDeNivel, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), compEstavel: (r) => compEstavel(r || "topo").map((a) => a.speciesId), _cfgTime: () => cfg, campoAuto, metaNovo, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
 })(globalThis);

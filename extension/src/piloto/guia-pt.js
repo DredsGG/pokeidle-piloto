@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.47.0': [
+        "Novo Modo farm (aba Caçar): o Piloto calcula qual pokémon rende mais XP no seu nível, de treinador e do próprio pokémon, e farma com ele sem parar. Se você não tem, ele captura um, que entra na hora e evolui sozinho até o escolhido. Recalcula 1x por dia e quando abre hunt nova.",
+      ],
       '1.46.0': [
         "Conta pequena agora usa o Automático: a reposição (bola, poção e revive) ficou fora do teto do dia, porque no começo do jogo quase todo o ouro vai para item. Sempre sobram pelo menos 10% do saldo, e o Diário avisa se a reposição passar do teto. O Mercado continua com a reserva.",
       ],
