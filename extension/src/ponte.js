@@ -334,6 +334,15 @@
       notificadaEm = Date.now();
       chrome.runtime.sendMessage({ tipo: 'notificar', titulo, mensagem }).catch(() => {});
     });
+    // 1.40.0: manter o PC acordado (o fundo pede ao navegador; a resposta volta para a linha da aba Caçar)
+    document.addEventListener('piloto:acordado', (ev) => {
+      let d = {};
+      try { d = JSON.parse(ev.detail) || {}; } catch { return; }
+      chrome.runtime.sendMessage({ tipo: 'acordado', ligar: d.ligar === true }).then((r) => {
+        const x = r && r.dados ? r.dados : {};
+        document.dispatchEvent(new CustomEvent('piloto:acordado-resposta', { detail: JSON.stringify({ suportado: x.suportado !== false, acordado: !!x.acordado }) }));
+      }).catch(() => {});
+    });
     // 1.29: abrir as salas da Plateia (o service worker abre numa janela à parte)
     document.addEventListener('piloto:plateia-abrir', (ev) => {
       let d = {};

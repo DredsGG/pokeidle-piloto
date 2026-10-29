@@ -569,9 +569,44 @@ function agendarUpd() {
   chrome.alarms.create('piloto-upd', { delayInMinutes: 1, periodInMinutes: CHECAR_A_CADA_MIN });
   chrome.alarms.create('piloto-disco', { delayInMinutes: 1, periodInMinutes: 1 });
 }
+// 1.40.0: manter o PC acordado enquanto o jogo está aberto com o Piloto ligado (piloto/acordado.js).
+// Cada aba do jogo avisa a cada 1 min; o pedido vale enquanto alguma avisou "ligar" nos últimos
+// 3 min. O alarme de 1 min (piloto-disco) confere o prazo e solta quando ninguém mais pede.
+const CHAVE_ACORDADO = 'piloto:acordado:abas';
+const ACORDADO_VALE_MS = 3 * 60_000;
+async function aplicarAcordado() {
+  if (!chrome.power) return { suportado: false, acordado: false };
+  const s = await chrome.storage.session.get(CHAVE_ACORDADO);
+  const abas = s[CHAVE_ACORDADO] || {};
+  const agora = Date.now();
+  let vivo = false;
+  for (const [k, ate] of Object.entries(abas)) { if (ate > agora) vivo = true; else delete abas[k]; }
+  await chrome.storage.session.set({ [CHAVE_ACORDADO]: abas });
+  if (vivo) chrome.power.requestKeepAwake('system'); else chrome.power.releaseKeepAwake();
+  return { suportado: true, acordado: vivo };
+}
+async function pulsoAcordado(m, remetente) {
+  if (!chrome.power) return { suportado: false, acordado: false };
+  const aba = remetente && remetente.tab ? String(remetente.tab.id) : 'sem-aba';
+  const s = await chrome.storage.session.get(CHAVE_ACORDADO);
+  const abas = s[CHAVE_ACORDADO] || {};
+  if (m && m.ligar === true) abas[aba] = Date.now() + ACORDADO_VALE_MS; else delete abas[aba];
+  await chrome.storage.session.set({ [CHAVE_ACORDADO]: abas });
+  return aplicarAcordado();
+}
+if (chrome.tabs && chrome.tabs.onRemoved) chrome.tabs.onRemoved.addListener((id) => {
+  chrome.storage.session.get(CHAVE_ACORDADO).then((s) => {
+    const abas = s[CHAVE_ACORDADO] || {};
+    if (!(String(id) in abas)) return;
+    delete abas[String(id)];
+    return chrome.storage.session.set({ [CHAVE_ACORDADO]: abas }).then(aplicarAcordado);
+  }).catch(erro);
+});
+
 chrome.alarms.onAlarm.addListener((a) => {
   if (a.name === 'piloto-upd') checarUpd().catch(erro);
   if (a.name === 'piloto-disco') vigiarDisco().catch(erro);
+  if (a.name === 'piloto-disco') aplicarAcordado().catch(erro);
 });
 chrome.runtime.onStartup.addListener(() => { agendarUpd(); checarUpd().catch(erro); });
 chrome.runtime.onInstalled.addListener(async (d) => {
@@ -607,6 +642,7 @@ const ACOES = {
   'avisos:vistos': () => mudarNaoVistos(() => []),
   'aviso:resolvido': (m) => resolverAviso(m.anuncioId),
   notificar: (m, remetente) => notificar(m, remetente),
+  acordado: (m, remetente) => pulsoAcordado(m, remetente),
   // Voto no TopIdle (1.9): uma aba de fundo, fechada quando o jogo confirma ou em 30 s.
   'voto:abrir': async (m) => {
     const u = new URL(m.url);

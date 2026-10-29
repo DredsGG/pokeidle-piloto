@@ -9,7 +9,7 @@ Hunt optimizer, market radar, team manager and daily routine in one browser exte
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
 ![Browsers](https://img.shields.io/badge/Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20GX%20·%20Firefox%20140+-works-6d4aff)
-![Version](https://img.shields.io/badge/version-1.39.0-e53935)
+![Version](https://img.shields.io/badge/version-1.40.0-e53935)
 ![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-2e7d32)
 
 <img src="docs/hunt-tab.png" width="80%" alt="The Piloto window in Automatic mode, Hunt tab: hunt switching, restock, team rotation, Outland tier, automatic Poké Ball and auto-reload, above the ranking of the best hunts">
@@ -25,6 +25,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 - **Off:** nothing automatic runs.
 - **Manual:** you turn on and tune each automation yourself. Every row shows its settings (restock amounts, turn length, vault caps, the Radar's discounts and limits…) and the Radar starts by only alerting; its automatic buying stays off until you turn it on.
 - **Automatic:** turns on the hunt switch, restock, the daily routine, the team builder, the rotation and the market radar, each with its own ON/OFF switch and no numbers to tune. A switch you turn off stays off after a reload. Irreversible actions (evolving, hatching) stay off until you turn them on.
+- **Keep the PC awake:** while the game is open and the Pilot is in Manual or Auto, the computer doesn't go to sleep (the screen can still turn off); close the game or switch the Pilot Off and within 3 minutes the PC sleeps as usual. Chromium browsers only (Firefox has no such API). When "Come back on its own if the game drops" reloads a stuck game, you also get a system notification.
 - **Rare-find alerts:** a shiny on the field, a shiny caught, a P5 catch and rare drops (Boss Token, Key / Shiny Stone / Bicycle / Mega / Shiny Egg fragments, TM pieces, tickets) show up as a small card in the corner while the game is in view, or as a system notification when it's hidden. Drops within a minute are grouped (at most one alert every 10 minutes), and the Routine tab shows what dropped today. Read-only: it sends nothing to the game.
 - **Emergency stop:** **Alt+Shift+P** switches the Pilot Off at once, from any browser tab (buying, resale, restock, hunt and team swaps, routine and Radar all stop; the game keeps its own automations). A box confirms it and offers to go back to the previous mode. You can change the key at `chrome://extensions/shortcuts`.
 

@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.40.0': [
+        "Manter o PC acordado (aba Caçar): com o jogo aberto e o Piloto em Manual ou Auto, o computador não entra em suspensão; a tela pode apagar normalmente. Não funciona no Firefox. E quando o \"Voltar sozinho\" recarrega o jogo que caiu, chega uma notificação.",
+      ],
       '1.39.0': [
         "Avisos de achados (aba Rotina): shiny no campo, shiny capturado, captura P5 e drop raro (Boss Token, fragmentos, peças de TM, tickets). Com o jogo à vista, um cartãozinho no canto; com ele escondido, a notificação do sistema. A linha mostra o que caiu hoje.",
       ],

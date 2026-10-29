@@ -82,6 +82,13 @@
     gravarJ(sessionStorage, CHAVE_TENT, tent);
     PIH.cofre?.diario?.(`volta: o jogo ficou parado ${min(n - caiuEm)} min — recarregando a página (${tent.n}ª volta)`, 'aviso');
     motivo = 'recarregando';
+    // 1.40.0: avisa por notificação do sistema (quem está longe do PC sabe que caiu e voltou)
+    try {
+      const l = PIH.idioma && PIH.idioma.atual ? PIH.idioma.atual() : 'pt';
+      const m = min(n - caiuEm);
+      const txt = { pt: [`O jogo ficou parado ${m} min nesta aba: recarreguei a página para voltar ao farm.`, 'Voltei sozinho'], en: [`The game was stuck for ${m} min in this tab: I reloaded the page to get back to farming.`, 'Back on my own'], es: [`El juego estuvo parado ${m} min en esta pestaña: recargué la página para volver a farmear.`, 'Volví solo'] }[['pt', 'en', 'es'].includes(l) ? l : 'pt'];
+      document.dispatchEvent(new CustomEvent('piloto:notificar', { detail: JSON.stringify({ titulo: `PokeIdle Piloto · ${txt[1]}`, mensagem: txt[0] }) }));
+    } catch { /* sem aviso */ }
     setTimeout(() => location.reload(), 1500);
   }
   setInterval(tique, 5000);

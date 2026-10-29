@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const require = createRequire(import.meta.url);
+const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -116,11 +116,17 @@ r.mexendo = await page.evaluate(() => { window.__pokeidleHunt.volta._interno.for
 globalThis.__mudo = false;
 const conexoes0 = globalThis.__conexoes;
 await page.evaluate(() => window.__pokeidleHunt.volta._interno.forcar({ caiuEm: Date.now() - 6 * 60000, mexeuEm: 0 }));
+globalThis.__notifs = [];
+await page.exposeFunction('__notifOut', (d) => globalThis.__notifs.push(d)).catch(() => {});
+await page.evaluate(() => document.addEventListener('piloto:notificar', (e) => window.__notifOut(JSON.parse(e.detail))));
 const recarregou = page.waitForEvent('load', { timeout: 15000 }).then(() => true).catch(() => false);
 r.recarregou = await recarregou;
+r.notificou = globalThis.__notifs.slice();
 await sleep(6000);
 r.reconectou = globalThis.__conexoes > conexoes0;
 r.depois = await page.evaluate(() => ({ ...window.__pokeidleHunt.volta.resumo(), tent: sessionStorage.getItem('piloto:volta:tentativas') }));
 r.erros = erros.filter((e) => !/404/.test(e)).slice(-8);
 console.log(JSON.stringify(r, null, 1));
-setTimeout(() => process.exit(0), 300); await ctx.close();
+const notifOk = r.notificou.length === 1 && /Voltei sozinho|Back on my own|Volví solo/.test(r.notificou[0].titulo) && /recarreguei a página|reloaded the page|recargué la página/.test(r.notificou[0].mensagem);
+console.log(notifOk && r.recarregou ? 'TUDO PASSOU' : 'FALHOU: notificação da volta ou recarga');
+setTimeout(() => process.exit(notifOk && r.recarregou ? 0 : 1), 300); await ctx.close();

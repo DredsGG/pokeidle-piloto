@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.40.0': [
+        "Keep the PC awake (Hunt tab): with the game open and the Pilot in Manual or Auto, the computer doesn't go to sleep; the screen can still turn off. Doesn't work on Firefox. And when \"Come back on its own if the game drops\" reloads the game, you get a notification.",
+      ],
       '1.39.0': [
         "Rare-find alerts (Routine tab): a shiny on the field, a shiny caught, a P5 catch and a rare drop (Boss Token, fragments, TM pieces, tickets). With the game in view, a small card in the corner; with it hidden, a system notification. The row shows what dropped today.",
       ],

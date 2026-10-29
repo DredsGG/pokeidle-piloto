@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.40.0': [
+        "Mantener el PC despierto (pestaña Cazar): con el juego abierto y el Piloto en Manual o Auto, el ordenador no entra en suspensión; la pantalla puede apagarse normalmente. No funciona en Firefox. Y cuando \"Volver solo si el juego se cae\" recarga el juego, llega una notificación.",
+      ],
       '1.39.0': [
         "Avisos de hallazgos (pestaña Rutina): shiny en el campo, shiny capturado, captura P5 y drop raro (Boss Token, fragmentos, piezas de TM, tickets). Con el juego a la vista, una tarjetita en la esquina; con él oculto, la notificación del sistema. La fila muestra lo que cayó hoy.",
       ],
