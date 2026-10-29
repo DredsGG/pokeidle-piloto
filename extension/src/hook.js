@@ -414,7 +414,7 @@
   }
   // O que vem do SERVIDOR (estado, welcome, campo, erro) só o hook publica: a página não pode
   // fingir um saldo maior para o cofre aprovar (auditoria de 2026-10-19, caso C2).
-  const TIPOS_DO_SERVIDOR = new Set(['welcome', 'estado', 'campo.init', 'campo', 'erro', 'pvp', 'perfil', 'piloto.enviado', 'campeonato', 'showdown', 'chat', 'chat.mute']);
+  const TIPOS_DO_SERVIDOR = new Set(['welcome', 'estado', 'campo.init', 'campo', 'erro', 'pvp', 'perfil', 'piloto.enviado', 'campeonato', 'showdown', 'chat', 'chat.mute', 'batalha.achados']);
   PIH.emit = (tipo, dado) => { if (!TIPOS_DO_SERVIDOR.has(tipo)) emitirInterno(tipo, dado); };
 
   // O cofre se registra UMA vez (o primeiro script da extensão, em document_start, antes de
@@ -495,6 +495,26 @@
     for (const sl of (m && m.fora) || []) corposPih.delete(sl);
     for (const [sl, ate] of corposPih) if (ate <= n) corposPih.delete(sl);
   }
+  function achadosDaBatalha(texto) {
+    let m;
+    try { m = JSON.parse(texto); } catch { return; }
+    const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+    const drops = (l) => (Array.isArray(l) ? l.slice(0, 20).filter((d) => d && typeof d === 'object').map((d) => ({ itemId: num(d.itemId), nome: String(d.nome || '').slice(0, 60), qtd: num(d.qtd) })) : []);
+    const ev = [];
+    for (const e of (m && Array.isArray(m.ev) ? m.ev : []).slice(0, 200)) {
+      if (!e || typeof e !== 'object') continue;
+      if (e.k === 'capturado' && e.pokemon && typeof e.pokemon === 'object') {
+        const p = e.pokemon;
+        ev.push({ k: 'capturado', paraDepot: !!e.paraDepot, pokemon: { id: num(p.id), nome: String(p.nome || '').slice(0, 40), level: num(p.level), shiny: !!p.shiny, speciesId: num(p.speciesId), quality: num(p.quality), potencia: num(p.potencia) } });
+      } else if ((e.k === 'morte' && e.quem === 'selvagem') || e.k === 'bossMorto') {
+        const d = drops(e.drops);
+        if (d.length) ev.push({ k: e.k, quem: e.quem === 'selvagem' ? 'selvagem' : null, drops: d });
+      } else if (e.k === 'bola' && e.shiny === true) {
+        ev.push({ k: 'bola', shiny: true, slot: num(e.slot) });
+      }
+    }
+    if (ev.length) emitirInterno('batalha.achados', { ev });
+  }
   function pihReceber(texto) {
     const cab = texto.slice(0, 40);
     let tipo = null;
@@ -511,6 +531,11 @@
     // (TIPOS_DO_SERVIDOR: não sai para a ponte nem para o fundo).
     else if (cab.includes('"t":"chat"')) tipo = 'chat';
     else if (cab.includes('"t":"chat.mute"')) tipo = 'chat.mute';
+    // 1.39.0: os avisos de achados (piloto/avisos.js) — só a captura, o shiny e os drops, e só lidos
+    else if (cab.includes('"t":"batalha"')) {
+      if (texto.includes('"k":"capturado"') || texto.includes('"drops":[{') || texto.includes('"shiny":true')) achadosDaBatalha(texto);
+      return;
+    }
     if (!tipo) return;
     let m;
     try { m = JSON.parse(texto); } catch { return; }

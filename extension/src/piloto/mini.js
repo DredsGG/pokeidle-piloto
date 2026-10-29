@@ -361,12 +361,12 @@
     const el = document.createElement('div');
     el.className = `plt-toast ${d.auto || d.tipo === 'voto' ? 'auto' : ''}`;
     el.setAttribute('role', 'status');
-    el.innerHTML = d.tipo === 'meta' ? `
+    el.innerHTML = d.tipo === 'meta' || d.tipo === 'achado' ? `
       <span class="plt-toast-ico">${htmlIcone(d, 46)}</span>
       <span class="plt-toast-txt">
         <b>${esc(d.titulo || 'O meta mudou')}</b>
         <span><i class="plt-tag">${esc(d.recorte || 'Meta')}</i> ${esc(d.linha || '')}</span>
-        <small>Clique para ver na aba Meta</small>
+        ${d.tipo === 'achado' ? '' : '<small>Clique para ver na aba Meta</small>'}
       </span>
       <button type="button" class="plt-toast-x" aria-label="Fechar">${K.ico('fechar')}</button>
       <span class="plt-toast-vida"></span>` : d.tipo === 'voto' ? `
@@ -389,6 +389,7 @@
       if (ev.target.closest('.plt-toast-x')) { el.remove(); return; }
       if (d.tipo === 'voto') document.getElementById('btn-votar')?.click();
       else if (d.tipo === 'meta') PIH.time?.abrirAba?.('meta');
+      else if (d.tipo === 'achado') { /* só fecha */ }
       else abrirMercado();
       el.remove();
     });
@@ -576,6 +577,13 @@
     if (!d || typeof d !== 'object') return;
     const x = { tipo: 'meta', categoria: 'pokemon', speciesId: Number(d.speciesId) || null, nome: String(d.nome || 'Meta'), anuncioId: `meta:${d.speciesId}:${Date.now()}`, titulo: d.titulo, linha: d.linha, recorte: d.recorte };
     carregarEspecies().catch(() => {}).finally(() => notificar(x));
+  });
+
+  // 1.39.0: os avisos de achados (piloto/avisos.js) — o mesmo cartãozinho, com a arte do pokémon ou do item
+  PIH.on('piloto.achado', (d) => {
+    if (!d || typeof d !== 'object') return;
+    const x = { tipo: 'achado', categoria: d.categoria === 'item' ? 'item' : 'pokemon', speciesId: Number(d.speciesId) || null, itemId: Number(d.itemId) || null, nome: String(d.nome || d.titulo || '').slice(0, 60), anuncioId: `achado:${Date.now()}:${Math.random().toString(36).slice(2, 6)}`, titulo: String(d.titulo || ''), linha: String(d.linha || ''), recorte: String(d.tag || '') };
+    Promise.all([carregarIcones(), x.categoria === 'pokemon' ? carregarEspecies() : null]).catch(() => {}).finally(() => notificar(x));
   });
 
   // ---- o que chega do Radar ---------------------------------------------------------------------

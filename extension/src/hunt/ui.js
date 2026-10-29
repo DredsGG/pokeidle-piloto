@@ -491,6 +491,7 @@
     else if (mod === 'captura') PIH.captura?.definir?.(caminho, valor);
     else if (mod === 'volta') PIH.volta?.definir?.(caminho, valor);
     else if (mod === 'plateia') PIH.plateia?.definir?.(caminho, valor);
+    else if (mod === 'avisos') PIH.avisos?.definir?.(caminho, valor);
     else if (mod === 'torneio') PIH.torneio?.definir?.(caminho, valor);
     else if (mod === 'teste') PIH.testeDuvidas?.definir?.(caminho, valor);
     else if (mod === 'extrato') PIH.extrato?.definir?.(caminho, valor);
@@ -983,7 +984,7 @@
     if (aba !== 'mercado') soltarMercado();
     if (aba === 'mercado') { ultimaAba = 'mercado'; ultimoHtml = ''; montarMercado(alvo); return; }
     if (aba === 'resumo') { pintarSeMudou(alvo, aba, topo + blocoResumo()); return; }
-    if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '') + (PIH.plateia ? PIH.plateia.linha(layout) : '') + (PIH.torneio ? PIH.torneio.linha(layout) : '')); return; }
+    if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '') + (PIH.avisos ? PIH.avisos.linha(layout) : '') + (PIH.plateia ? PIH.plateia.linha(layout) : '') + (PIH.torneio ? PIH.torneio.linha(layout) : '')); return; }
     if (aba === 'cofre') { pintarSeMudou(alvo, aba, topo + (PIH.cofre ? PIH.cofre.html(layout) : '')); return; }
     if (aba === 'duvidas') { pintarSeMudou(alvo, aba, topo + (PIH.testeDuvidas ? PIH.testeDuvidas.html(layout) : '')); return; }
     if (aba === 'extrato') { if (pintarSeMudou(alvo, aba, topo + (PIH.extrato ? PIH.extrato.html(layout) : ''))) PIH.extrato?.hidratar?.(alvo); return; }

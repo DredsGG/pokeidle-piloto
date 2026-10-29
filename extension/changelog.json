@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.39.0": {
+      "pt": [
+        "Avisos de achados (aba Rotina): shiny no campo, shiny capturado, captura P5 e drop raro (Boss Token, fragmentos, peças de TM, tickets). Com o jogo à vista, um cartãozinho no canto; com ele escondido, a notificação do sistema. A linha mostra o que caiu hoje."
+      ],
+      "en": [
+        "Rare-find alerts (Routine tab): a shiny on the field, a shiny caught, a P5 catch and a rare drop (Boss Token, fragments, TM pieces, tickets). With the game in view, a small card in the corner; with it hidden, a system notification. The row shows what dropped today."
+      ],
+      "es": [
+        "Avisos de hallazgos (pestaña Rutina): shiny en el campo, shiny capturado, captura P5 y drop raro (Boss Token, fragmentos, piezas de TM, tickets). Con el juego a la vista, una tarjetita en la esquina; con él oculto, la notificación del sistema. La fila muestra lo que cayó hoy."
+      ]
+    },
     "1.38.0": {
       "pt": [
         "Parada de emergência: Alt+Shift+P põe o Piloto em Off na hora, de qualquer aba do navegador. Um quadro confirma e tem o botão para voltar ao modo de antes. A tecla pode ser trocada em chrome://extensions/shortcuts."

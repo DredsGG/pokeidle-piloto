@@ -322,6 +322,18 @@
       if (!s2 || !Object.keys(limpo).length) return;
       s2.get(CHAVE_GUIA).then((r) => s2.set({ [CHAVE_GUIA]: { ...(r[CHAVE_GUIA] || {}), ...limpo } })).catch(() => {});
     });
+    // 1.39.0: os avisos de achados (shiny, drop raro) com a aba do jogo escondida: notificação do
+    // sistema. No máximo uma a cada 5 s (a página não consegue encher a tela de notificações).
+    let notificadaEm = 0;
+    document.addEventListener('piloto:notificar', (ev) => {
+      let d = {};
+      try { d = JSON.parse(ev.detail) || {}; } catch { return; }
+      const titulo = String(d.titulo || '').slice(0, 120);
+      const mensagem = String(d.mensagem || '').slice(0, 300);
+      if (!titulo || !mensagem || Date.now() - notificadaEm < 5000) return;
+      notificadaEm = Date.now();
+      chrome.runtime.sendMessage({ tipo: 'notificar', titulo, mensagem }).catch(() => {});
+    });
     // 1.29: abrir as salas da Plateia (o service worker abre numa janela à parte)
     document.addEventListener('piloto:plateia-abrir', (ev) => {
       let d = {};

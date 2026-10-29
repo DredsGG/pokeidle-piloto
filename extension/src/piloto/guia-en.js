@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.39.0': [
+        "Rare-find alerts (Routine tab): a shiny on the field, a shiny caught, a P5 catch and a rare drop (Boss Token, fragments, TM pieces, tickets). With the game in view, a small card in the corner; with it hidden, a system notification. The row shows what dropped today.",
+      ],
       '1.38.0': [
         "Emergency stop: Alt+Shift+P switches the Pilot Off at once, from any browser tab. A box confirms it and has a button to go back to the previous mode. You can change the key at chrome://extensions/shortcuts.",
       ],

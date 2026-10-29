@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.39.0': [
+        "Avisos de hallazgos (pestaña Rutina): shiny en el campo, shiny capturado, captura P5 y drop raro (Boss Token, fragmentos, piezas de TM, tickets). Con el juego a la vista, una tarjetita en la esquina; con él oculto, la notificación del sistema. La fila muestra lo que cayó hoy.",
+      ],
       '1.38.0': [
         "Parada de emergencia: Alt+Shift+P pone el Piloto en Off al instante, desde cualquier pestaña del navegador. Un cuadro lo confirma y tiene el botón para volver al modo anterior. La tecla se puede cambiar en chrome://extensions/shortcuts.",
       ],
