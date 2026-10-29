@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.46.0': [
+        "Las cuentas pequeñas ya pueden usar el Automático: la reposición (bolas, pociones y revivir) quedó fuera del tope del día, porque al principio del juego casi todo el oro va a ítems. Siempre queda al menos el 10% del saldo, y el Diario avisa si la reposición pasa el tope. El Mercado sigue con la reserva.",
+      ],
       '1.45.0': [
         "Cazar el meta tiene la opción nueva \"Solo aceptar uno bueno\" (apagada de fábrica): el Piloto se queda en cada objetivo hasta capturar uno con la nota del juego por encima del corte que elijas (3,5+, 4,0+ o 5,0+; shiny y P5 pasan siempre) y recién entonces va al siguiente.",
       ],

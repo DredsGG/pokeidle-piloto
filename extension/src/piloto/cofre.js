@@ -52,6 +52,7 @@
         ouroHDia: Number(s.ouroHDia) || 0,
         saldoDia: Number(s.saldoDia) || 0,
         desligados: s.desligados || {},
+        avisoRepor: typeof s.avisoRepor === 'string' ? s.avisoRepor : '',
       };
     } catch {
       return { cfg: { ...PADRAO, tetoCategoria: { ...PADRAO.tetoCategoria } }, dia: diaBrasilia(), gasto: {}, ouroH: 0, ouroHEm: 0, ouroHDia: 0, saldoDia: 0, desligados: {} };
@@ -172,6 +173,16 @@
     return Math.floor(f * Math.max(0, s.saldoDia - reserva()));
   }
   const gastoHoje = () => { virarDia(); return Object.values(s.gasto).reduce((a, b) => a + (Number(b) || 0), 0); };
+  // 1.46.0 (relato #3, ZaryImortal; o André aprovou em 29/10): conta pequena (Nv 100-150, 2 mi de
+  // saldo) não conseguia usar o Automático — o teto do dia sai do ouro/h, que é baixo no começo, e
+  // com o preço real da loja (1.43.1) a poção e o revive batiam no teto logo cedo. No começo do jogo
+  // quase todo o ouro vai mesmo para item. Agora, no teto "Pelo ganho" (o padrão e o do Automático),
+  // a REPOSIÇÃO fica fora do teto do dia: o limite dela é o piso da reposição (o menor entre a reserva
+  // e 10% do saldo — sempre sobram pelo menos 10%) e o teto próprio da categoria, se você puser um.
+  // O Mercado segue com a reserva e o capital em giro; os ovos, com o teto do dia. No teto "Fixo"
+  // (escolha sua no Manual), a reposição continua dentro dele, como antes.
+  const reporForaDoTeto = () => s.cfg.modo !== 'fixo';
+  const gastoNoTeto = () => gastoHoje() - (Number(s.gasto.mercado) || 0) - (reporForaDoTeto() ? (Number(s.gasto.repor) || 0) : 0);
 
   function custoDe(pedido) {
     if (pedido.t === 'shop.buy') {
@@ -218,13 +229,19 @@
       if (categoria === 'mercado' && !pedraTime) {
         const giro = livreDoGiro();
         if (custo > giro) return { ok: false, motivo: `capital em giro: o estoque do radar mais esta compra passaria de metade do que você tem (livre ${fmt(Math.max(0, giro))})` };
-      } else if (categoria !== 'mercado') {
+      } else if (categoria !== 'mercado' && !(categoria === 'repor' && reporForaDoTeto())) {
         const teto = tetoDia();
-        if (gastoHoje() - (Number(s.gasto.mercado) || 0) + custo > teto) return { ok: false, motivo: `teto do dia (${fmt(teto)})` };
+        if (gastoNoTeto() + custo > teto) return { ok: false, motivo: `teto do dia (${fmt(teto)})` };
       }
       const tc = s.cfg.tetoCategoria[categoria];
       if (tc !== null && tc !== undefined && (Number(s.gasto[categoria]) || 0) + custo > tc) return { ok: false, motivo: tc === 0 ? `${CATEGORIAS[categoria]} proibida no cofre` : `teto de ${CATEGORIAS[categoria]} (${fmt(tc)})` };
       s.gasto[categoria] = (Number(s.gasto[categoria]) || 0) + custo;
+      // 1.46.0: a reposição passou do que seria o teto do dia — só avisa (uma vez por dia), para um
+      // gasto fora do normal (pokémon morrendo sem parar) aparecer no Diário
+      if (categoria === 'repor' && reporForaDoTeto() && s.avisoRepor !== s.dia && s.gasto.repor > tetoDia()) {
+        s.avisoRepor = s.dia;
+        diario(`a reposição de hoje (${fmt(s.gasto.repor)}) passou do teto do dia (${fmt(tetoDia())}) — ela fica fora do teto e sempre sobram pelo menos 10% do saldo; se o pokémon está morrendo muito, confira a hunt`, 'aviso');
+      }
       gravar();
       const res = Object.freeze({ id: ++ultimaReserva, categoria, custo, dia: s.dia });
       reservasAbertas.add(res.id);
@@ -258,7 +275,8 @@
     const tc = s.cfg.tetoCategoria[categoria];
     const porCat = tc === null || tc === undefined ? Infinity : tc - (Number(s.gasto[categoria]) || 0);
     if (categoria === 'mercado') return Math.max(0, Math.min(ouro - pendente() - reservaDe(categoria), livreDoGiro(), porCat));
-    return Math.max(0, Math.min(ouro - pendente() - reservaDe(categoria), tetoDia() - (gastoHoje() - (Number(s.gasto.mercado) || 0)), porCat));
+    if (categoria === 'repor' && reporForaDoTeto()) return Math.max(0, Math.min(ouro - pendente() - reservaDe(categoria), porCat));
+    return Math.max(0, Math.min(ouro - pendente() - reservaDe(categoria), tetoDia() - gastoNoTeto(), porCat));
   }
 
   // ---- disjuntor --------------------------------------------------------------------------------
@@ -310,11 +328,12 @@
     const CURTO = { repor: 'Reposição', mercado: 'Mercado', ovos: 'Ovos' };
     const ICO = { repor: 'repor', mercado: 'mercado', ovos: 'ovo' };
     // o teto do dia vale para reposição e ovos; o Mercado tem o limite do capital em giro (1.33.2)
-    const gasto = gastoHoje() - (Number(s.gasto.mercado) || 0);
+    const gasto = gastoNoTeto();
     const teto = tetoDia();
+    const fora = reporForaDoTeto();
     const topo = `<div class="plt-ks">
         ${K.numeroGrande({ icone: 'ouro', rotulo: 'Ouro/h medido', valor: s.ouroH ? fmt(s.ouroH) : '…', classe: 'k-ouro' })}
-        ${K.numeroGrande({ icone: 'escudo', rotulo: 'Reserva', valor: fmt(reserva()), sub: 'nunca gasta abaixo' })}
+        ${K.numeroGrande({ icone: 'escudo', rotulo: 'Reserva', valor: fmt(reserva()), sub: reservaDe('repor') < reserva() ? `reposição: ${fmt(reservaDe('repor'))} (10% do saldo)` : 'nunca gasta abaixo' })}
         ${K.numeroGrande({ icone: 'cofre', rotulo: 'Teto de hoje', valor: fmt(teto), sub: c.modo === 'fixo' ? 'fixo' : tetoPeloSaldo() > 0 && tetoPeloSaldo() >= teto ? `${Math.round((c.fracaoSaldo || 0) * 100)}% do saldo acima da reserva` : `${Math.round((c.fracaoTeto || 0) * 100)}% do ouro/h × 24 h` })}
         ${K.numeroGrande({ icone: 'gasto', rotulo: 'Gasto hoje', valor: fmt(gasto), sub: teto > 0 ? `${Math.round((gasto / teto) * 100)}% do teto` : '', classe: 'k-gasto', pct: teto > 0 ? gasto / teto : 0 })}
       </div>`;
@@ -322,9 +341,11 @@
       const tc = c.tetoCategoria[k];
       const usado = Number(s.gasto[k]) || 0;
       const limite = tc === null || tc === undefined ? 'sem teto próprio' : tc === 0 ? 'proibida' : `teto ${fmt(tc)}`;
+      const limiteTxt = k === 'repor' && fora && (tc === null || tc === undefined) ? `fora do teto do dia · piso ${fmt(reservaDe('repor'))}` : limite;
       const giro = k === 'mercado' ? ` · em estoque ${fmt(Math.round(estoqueAgora()))} · livre ${fmt(Math.max(0, Math.round(livreDoGiro())))}` : '';
-      const dica = k === 'mercado' ? `${CATEGORIAS[k]}. Fora do teto do dia: o limite é o capital em giro — o que o radar comprou e ainda não vendeu mais a compra nova não passa de metade do que você tem (saldo + esse estoque). Vendeu, a vaga volta. A reserva vale sempre.` : CATEGORIAS[k];
-      return K.linha({ id: `cat:${k}`, icone: ICO[k], nome: CURTO[k], dica, status: `hoje ${fmt(usado)} · ${limite}${giro}`,
+      const dica = k === 'mercado' ? `${CATEGORIAS[k]}. Fora do teto do dia: o limite é o capital em giro — o que o radar comprou e ainda não vendeu mais a compra nova não passa de metade do que você tem (saldo + esse estoque). Vendeu, a vaga volta. A reserva vale sempre.`
+        : k === 'repor' && fora ? `${CATEGORIAS[k]}. Fora do teto do dia (no começo do jogo quase todo o ouro vai para item): o limite é o piso da reposição — o menor entre a reserva e 10% do saldo, então sempre sobram pelo menos 10% — e o teto próprio desta categoria, se você puser um. No teto "Fixo", a reposição volta para dentro dele.` : CATEGORIAS[k];
+      return K.linha({ id: `cat:${k}`, icone: ICO[k], nome: CURTO[k], dica, status: `hoje ${fmt(usado)} · ${limiteTxt}${giro}`,
         direita: manual ? `<input type="number" class="plt-num" min="0" step="100000" placeholder="livre" value="${tc === null || tc === undefined ? '' : tc}" data-definir="cofre:cat.${k}" aria-label="Teto de ${CURTO[k]} (0 = proibida)"${trava ? ' disabled' : ''}>` : '' });
     }).join('');
     const desl = Object.entries(s.desligados);

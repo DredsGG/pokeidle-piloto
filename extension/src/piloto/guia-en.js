@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.46.0': [
+        "Small accounts can now use Auto: restock (balls, potions and revives) is outside the daily cap, since early in the game almost all gold goes to items. At least 10% of the balance is always kept, and the journal warns if restock goes past the cap. The Market keeps its reserve.",
+      ],
       '1.45.0': [
         "Hunt the meta has a new \"Only accept a good one\" option (off by default): the Pilot stays on each target until it catches one with the game grade above the cut you pick (3.5+, 4.0+ or 5.0+; shiny and P5 always pass), and only then moves to the next.",
       ],

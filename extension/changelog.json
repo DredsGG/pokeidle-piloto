@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.46.0": {
+      "pt": [
+        "Conta pequena agora usa o Automático: a reposição (bola, poção e revive) ficou fora do teto do dia, porque no começo do jogo quase todo o ouro vai para item. Sempre sobram pelo menos 10% do saldo, e o Diário avisa se a reposição passar do teto. O Mercado continua com a reserva."
+      ],
+      "en": [
+        "Small accounts can now use Auto: restock (balls, potions and revives) is outside the daily cap, since early in the game almost all gold goes to items. At least 10% of the balance is always kept, and the journal warns if restock goes past the cap. The Market keeps its reserve."
+      ],
+      "es": [
+        "Las cuentas pequeñas ya pueden usar el Automático: la reposición (bolas, pociones y revivir) quedó fuera del tope del día, porque al principio del juego casi todo el oro va a ítems. Siempre queda al menos el 10% del saldo, y el Diario avisa si la reposición pasa el tope. El Mercado sigue con la reserva."
+      ]
+    },
     "1.45.0": {
       "pt": [
         "Caçar o meta ganhou a opção \"Só aceitar um bom\" (desligada de fábrica): o Piloto fica em cada alvo até capturar um com a nota do jogo acima do corte que você escolher (3,5+, 4,0+ ou 5,0+; shiny e P5 passam sempre) e só então vai para o próximo."

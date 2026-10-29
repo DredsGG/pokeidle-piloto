@@ -9,7 +9,7 @@ Hunt optimizer, market radar, team manager and daily routine in one browser exte
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
 ![Browsers](https://img.shields.io/badge/Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20GX%20·%20Firefox%20140+-works-6d4aff)
-![Version](https://img.shields.io/badge/version-1.45.0-e53935)
+![Version](https://img.shields.io/badge/version-1.46.0-e53935)
 ![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-2e7d32)
 
 <img src="docs/hunt-tab.png" width="80%" alt="The Piloto window in Automatic mode, Hunt tab: hunt switching, restock, team rotation, Outland tier, automatic Poké Ball and auto-reload, above the ranking of the best hunts">
@@ -114,7 +114,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 An automation that spends in-game money needs hard limits more than features. Every gold purchase goes through the vault:
 
 - **Reserve:** never goes below max(5M, 2 h of measured gold/h). Restock and the team's evolution stone keep the smaller of that and 10% of the balance, so new accounts can still buy potions and stones.
-- **Daily cap:** the larger of 50% of gold/h × 24 h (a fixed 10M until there's a measurement) and 15% of the balance above the reserve, reset at 00:00 Brasília time, plus per-category caps (restock, market, eggs; eggs start **forbidden**).
+- **Daily cap:** the larger of 50% of gold/h × 24 h (a fixed 10M until there's a measurement) and 15% of the balance above the reserve, reset at 00:00 Brasília time, plus per-category caps (restock, market, eggs; eggs start **forbidden**). With the default "by earnings" cap, **restock** (balls, potions, revives) sits outside the daily cap — early in the game almost all gold goes to items — and is held only by its floor (at least 10% of the balance always stays) and by its own category cap if you set one; the journal warns when restock passes what the daily cap would be. With a fixed cap, restock stays inside it.
 - **Unknown price = no purchase.** Gold already committed to pending orders counts against the reserve, so back-to-back orders can't break through it.
 - **Circuit breaker:** 3 server refusals in a row turn that module off (auto re-arms after 30 min).
 - **A journal** of every action, readable in the panel.

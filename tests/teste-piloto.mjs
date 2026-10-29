@@ -102,6 +102,34 @@ await caso('cofre 1.20: teto do dia = o maior entre o ganho e 15% do saldo acima
   Object.assign(st, guard);
 });
 
+await caso('cofre 1.46.0: a reposição fica fora do teto do dia "Pelo ganho" (conta pequena), com piso de 10% do saldo; no teto Fixo continua dentro', async () => {
+  const st = PIH.cofre._interno.estado();
+  const guard = { ouroH: st.ouroH, ouroHDia: st.ouroHDia, saldoDia: st.saldoDia, gasto: { ...st.gasto }, modo: st.cfg.modo, fixo: st.cfg.tetoFixoDia, aviso: st.avisoRepor };
+  await sleep(3500); // esvazia o que ficou comprometido dos casos anteriores
+  st.ouroH = 50_000; st.ouroHDia = 50_000; st.saldoDia = 2_000_000; st.gasto = {}; st.avisoRepor = '';
+  msg({ t: 'estado', estado: { gold: 2_000_000 } });
+  assert.equal(PIH.cofre.resumo().teto, 600_000, 'teto da conta pequena: 50% de 50 mil/h × 24 h');
+  let ok = 0;
+  for (let i = 0; i < 10; i++) if (PIH.pedir({ t: 'shop.buy', kind: 'ball', id: 1, qty: 9999 }, 'teste').ok) ok++;
+  assert.equal(ok, 10, `10 lotes de ~100 mil (~1 mi, acima do teto de 600 mil) passam: ${ok}`);
+  assert.ok(PIH.cofre.livre('repor') > 600_000, `livre da reposição não para no teto (${PIH.cofre.livre('repor')})`);
+  const avisos = PIH.cofre.ultimos(30).filter((d) => /a reposição de hoje .* passou do teto do dia/.test(d.txt || d.texto || ''));
+  assert.equal(avisos.length, 1, 'avisa uma vez no Diário quando passa do teto');
+  // o piso: sempre sobram 10% do saldo
+  msg({ t: 'estado', estado: { gold: 100_000 } });
+  await sleep(3500);
+  assert.match(PIH.pedir({ t: 'shop.buy', kind: 'ball', id: 1, qty: 9500 }, 'teste').motivo || '', /reserva/, '95 mil de 100 mil: abaixo dos 10%');
+  // teto Fixo (escolha no Manual): a reposição volta para dentro do teto
+  msg({ t: 'estado', estado: { gold: 2_000_000 } });
+  await sleep(3500);
+  st.cfg.modo = 'fixo'; st.cfg.tetoFixoDia = 600_000;
+  assert.match(PIH.pedir({ t: 'shop.buy', kind: 'ball', id: 1, qty: 100 }, 'teste').motivo || '', /teto do dia/, 'no Fixo, o gasto de ~1 mi já passou do teto');
+  st.cfg.modo = guard.modo; st.cfg.tetoFixoDia = guard.fixo;
+  Object.assign(st, { ouroH: guard.ouroH, ouroHDia: guard.ouroHDia, saldoDia: guard.saldoDia, gasto: guard.gasto, avisoRepor: guard.aviso });
+  msg({ t: 'estado', estado: { gold: 49_000_000 } });
+  await sleep(3500);
+});
+
 await caso('piloto desligado: nada automático sai', async () => {
   PIH.cofre._interno.estado().cfg.ligado = false;
   assert.match(PIH.pedir({ t: 'centro.ir' }, 'teste').motivo, /desligado/);

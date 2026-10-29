@@ -40,6 +40,7 @@ const welcome = {
   hunts: [
     { slug: 'rattata_1', nome: 'Rattata', nivel: 5, regiao: 'kanto', especies: [{ pokeId: 19, pontos: 10 }] },
     { slug: 'squirtle_1', nome: 'Squirtle', nivel: 10, regiao: 'kanto', especies: [{ pokeId: 7, pontos: 8 }] },
+    { slug: 'charmander_1', nome: 'Charmander', nivel: 10, regiao: 'kanto', especies: [{ pokeId: 4, pontos: 8 }] }, // 1.45.0: o Charmeleon tem hunt (sem ela, vira "não aparece em hunt" e conclui com o que tem)
   ],
   mercado: { catalogo: [{ id: 300, nome: 'Fire Stone', categoria: 'stone' }, { id: 301, nome: 'Leaf Stone', categoria: 'stone' }], taxaDiaria: 100000 },
   estado: {
