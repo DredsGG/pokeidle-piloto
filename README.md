@@ -9,7 +9,7 @@ Hunt optimizer, market radar, team manager and daily routine in one browser exte
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
 ![Browsers](https://img.shields.io/badge/Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20GX%20·%20Firefox%20140+-works-6d4aff)
-![Version](https://img.shields.io/badge/version-1.40.0-e53935)
+![Version](https://img.shields.io/badge/version-1.41.0-e53935)
 ![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-2e7d32)
 
 <img src="docs/hunt-tab.png" width="80%" alt="The Piloto window in Automatic mode, Hunt tab: hunt switching, restock, team rotation, Outland tier, automatic Poké Ball and auto-reload, above the ranking of the best hunts">
@@ -62,6 +62,8 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 - **Days in the session clock.** The game's Session panel shows the hunt time in hours only (252:58:16); the Piloto splits it into a days box and the rest in hours (10 days · 12:58:16).
 - **Meta tab.** Reads the Ranked ladder and the players' public profiles to show which species the top 20, or the players in your own bracket, are using, with daily ▲▼ changes and whether you own each one and have it on the team. When the meta shifts you get a small toast, never a pop-up, and the Team button turns gold with a red dot until you look. **Update team** previews who comes in, who leaves and what's still missing, then makes the team follow today's meta right away (skipping the 24-hour wait) and starts the swap at the Center; **Hunt the missing ones** only runs when you click it.
 - **Hunt the meta (opt-in).** Freezes the current meta comp, takes your strongest Pokémon to the regular hunt where those species spawn most (never Outland: Outland variants don't evolve), keeps the best catch of each family (including the ones you already had); it tries every team member as the hunter, and if no hunt is safe yet it waits, farming XP, until the trainer levels up — it never skips a species that spawns in a hunt; protects them from any sale, then hands the team to the builder and turns the hunt switch back on.
+- **Improve the team (opt-in).** For each field-team Pokémon, hunts its family (up to 1 h each) looking for a specimen with more Power at the max level you can use — quality, IVs and Potency, the game's own ⚔ formula. The better one is kept in the Collection (never sold), trains in the XP Share first, and the team builder swaps it in once it passes the current one in Power.
+- **Complete the Pokédex (opt-in).** Hunts the species you have never caught, by the game's own Pokédex: goes to the safe hunt with the most missing species per hour, stays until it catches them or 45 minutes pass with nothing new, then moves on. Outland is left out (it doesn't count in the Pokédex). Only one hunting mode runs at a time (with Hunt the meta); hunt switching and the rotation come back at the end.
 - **Evolution stones for the team.** When a team member is ready to evolve by stone and you don't have it, the Radar buys **one** from the market (cheapest listing that isn't yours), in gold and through the vault, and the opt-in evolve step uses it. That stone never goes to resale, and if the Radar already holds that stone in its resale stock, one unit is used instead of buying another. A team stone follows the restock reserve (the smaller of the reserve and 10% of the balance) instead of the market's 5M, never more than half of the free gold, so low-gold accounts can evolve too.
 
 <p align="center">

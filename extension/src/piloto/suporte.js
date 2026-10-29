@@ -48,6 +48,7 @@
     try { const c = PIH.captura.resumo(); ligado.push(`pokébola ${c.vip ? 'VIP' : c.ligado ? 'on' : 'off'}`); } catch { /* ok */ }
     try { const v = PIH.volta.resumo(); ligado.push(`voltar ${v.ligado ? 'on' : 'off'} (${v.motivo})`); } catch { /* ok */ }
     try { if (PIH.metaCaca && PIH.metaCaca.ativo()) ligado.push('caçar o meta'); } catch { /* ok */ }
+    try { if (PIH.cacadas && PIH.cacadas.ativo()) ligado.push(`caçada: ${PIH.cacadas.modo()}`); } catch { /* ok */ }
     try { const g = PIH.guarda.resumo(); ligado.push(`vender pokémon ${g.pronto ? 'pronto' : g.motivo}`); } catch { /* ok */ }
     let saude = '-';
     try { const r = PIH.saude.relatorio(); saude = r && r.em ? (r.ok ? `ok (${r.checks.length})` : `FALHAS: ${r.falhas.join(' · ')}`) : '-'; } catch { /* ok */ }

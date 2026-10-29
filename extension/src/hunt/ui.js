@@ -491,6 +491,7 @@
     else if (mod === 'captura') PIH.captura?.definir?.(caminho, valor);
     else if (mod === 'volta') PIH.volta?.definir?.(caminho, valor);
     else if (mod === 'acordado') PIH.acordado?.definir?.(caminho, valor);
+    else if (mod === 'cacadas') { Promise.resolve(PIH.cacadas?.definir?.(caminho, valor)).finally(() => { ultimoHtml = ''; desenhar(); }); }
     else if (mod === 'plateia') PIH.plateia?.definir?.(caminho, valor);
     else if (mod === 'avisos') PIH.avisos?.definir?.(caminho, valor);
     else if (mod === 'torneio') PIH.torneio?.definir?.(caminho, valor);
@@ -990,7 +991,7 @@
     if (aba === 'duvidas') { pintarSeMudou(alvo, aba, topo + (PIH.testeDuvidas ? PIH.testeDuvidas.html(layout) : '')); return; }
     if (aba === 'extrato') { if (pintarSeMudou(alvo, aba, topo + (PIH.extrato ? PIH.extrato.html(layout) : ''))) PIH.extrato?.hidratar?.(alvo); return; }
     const pk = pkAtivo();
-    const linhasCaca = aba === 'hunts' ? `${PIH.auto ? PIH.auto.linhas(layout) : ''}${PIH.rotina && PIH.rotina.linhasCaca ? PIH.rotina.linhasCaca(layout) : ''}${PIH.captura ? PIH.captura.linha(layout) : ''}${PIH.volta ? PIH.volta.linha(layout) : ''}${PIH.acordado ? PIH.acordado.linha(layout) : ''}${K.grupo('Onde render mais')}` : '';
+    const linhasCaca = aba === 'hunts' ? `${PIH.auto ? PIH.auto.linhas(layout) : ''}${PIH.rotina && PIH.rotina.linhasCaca ? PIH.rotina.linhasCaca(layout) : ''}${PIH.captura ? PIH.captura.linha(layout) : ''}${PIH.volta ? PIH.volta.linha(layout) : ''}${PIH.acordado ? PIH.acordado.linha(layout) : ''}${PIH.cacadas ? PIH.cacadas.linhas(layout) : ''}${K.grupo('Onde render mais')}` : '';
     if (!welcome || !eu) { pintarSeMudou(alvo, aba, `${topo}${linhasCaca}<div class="pih-carga">Esperando o jogo conectar…</div>`); return; }
     if (!pk) { pintarSeMudou(alvo, aba, `${topo}${linhasCaca}<div class="pih-erro">Coloque um pokémon em campo para ver onde caçar.</div>`); return; }
     const vez = ++desenhando;

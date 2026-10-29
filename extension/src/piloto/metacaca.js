@@ -77,6 +77,8 @@
       const tenho = meus().filter((p) => PIH.meta.familia.serve(p, { speciesId: a.speciesId, nome: a.nome }) && !usados.has(p.id)).sort((x, y) => poderDe(y) - poderDe(x))[0] || null;
       alvos.push({ meta: a.nome, metaId: a.speciesId, raiz: raizId, membros, capturadoId: tenho ? tenho.id : null, tinhaId: tenho ? tenho.id : null, tinha: !!tenho, espera: null, semHuntNoJogo: false });
     }
+    // 1.41.0: só uma caçada por vez (Melhorar o time e Completar a Pokédex devolvem a Troca de hunt e o rodízio antes)
+    try { if (PIH.cacadas && PIH.cacadas.ativo()) PIH.cacadas.desligar('ligou o Caçar o meta'); } catch { /* sem caçadas */ }
     cfg = { ...cfg, ligado: true, alvos, vistos: meus().map((p) => p.id), desde: Date.now(), fim: null };
     gravar();
     // os dois não andam juntos: a Troca de hunt levaria o Piloto para longe do alvo

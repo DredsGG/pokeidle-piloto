@@ -30,6 +30,10 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.41.0': [
+        "Improve the team (Hunt tab): hunts the family of each team Pokémon, up to 1 h each, looking for one with more Power at your max level. The better one stays in the Collection, trains in the XP Share and joins the team once it passes the current one.",
+        "Complete the Pokédex (Hunt tab): hunts the species you've never caught, going to the safe hunt with the most of them per hour. Only one hunting mode runs at a time; at the end, hunt switching and the rotation come back.",
+      ],
       '1.40.0': [
         "Keep the PC awake (Hunt tab): with the game open and the Pilot in Manual or Auto, the computer doesn't go to sleep; the screen can still turn off. Doesn't work on Firefox. And when \"Come back on its own if the game drops\" reloads the game, you get a notification.",
       ],

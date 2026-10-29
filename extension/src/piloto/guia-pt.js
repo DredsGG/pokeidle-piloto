@@ -30,6 +30,10 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.41.0': [
+        "Melhorar o time (aba Caçar): caça a família de cada pokémon do time, até 1 h por pokémon, atrás de um exemplar com mais Poder no seu nível máximo. O melhor fica na Coleção, treina no XP Share e entra no time quando passar o atual.",
+        "Completar a Pokédex (aba Caçar): caça as espécies que você nunca capturou, indo à hunt segura com mais delas por hora. Só um modo de caça anda por vez; no fim, a Troca de hunt e o rodízio voltam.",
+      ],
       '1.40.0': [
         "Manter o PC acordado (aba Caçar): com o jogo aberto e o Piloto em Manual ou Auto, o computador não entra em suspensão; a tela pode apagar normalmente. Não funciona no Firefox. E quando o \"Voltar sozinho\" recarrega o jogo que caiu, chega uma notificação.",
       ],

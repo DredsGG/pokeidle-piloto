@@ -65,6 +65,7 @@
     for (const lista of ['campo', 'pvp']) for (const id of T.travados(lista)) add(id, 'travado na janela Time');
     for (const id of T.protegidos()) add(id, 'saiu do campo agora');
     for (const id of (PIH.metaCaca ? PIH.metaCaca.protegidos() : [])) add(id, 'do meta');
+    for (const id of (PIH.cacadas ? PIH.cacadas.protegidos() : [])) add(id, 'promessa do Melhorar o time');
     const a = T._interno && T._interno.st && T._interno.st.analise;
     const fresca = a && a.em && Date.now() - a.em < ANALISE_VALE_MS;
     if (!fresca) {

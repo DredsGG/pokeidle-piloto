@@ -30,6 +30,10 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.41.0': [
+        "Mejorar el equipo (pestaña Cazar): caza la familia de cada pokémon del equipo, hasta 1 h por pokémon, buscando uno con más Poder en tu nivel máximo. El mejor queda en la Colección, entrena en el XP Share y entra al equipo cuando supere al actual.",
+        "Completar la Pokédex (pestaña Cazar): caza las especies que nunca capturaste, yendo a la hunt segura con más de ellas por hora. Solo un modo de caza funciona a la vez; al final, el cambio de hunt y la rotación vuelven.",
+      ],
       '1.40.0': [
         "Mantener el PC despierto (pestaña Cazar): con el juego abierto y el Piloto en Manual o Auto, el ordenador no entra en suspensión; la pantalla puede apagarse normalmente. No funciona en Firefox. Y cuando \"Volver solo si el juego se cae\" recarga el juego, llega una notificación.",
       ],

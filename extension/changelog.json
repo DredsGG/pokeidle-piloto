@@ -1,5 +1,19 @@
 {
   "versoes": {
+    "1.41.0": {
+      "pt": [
+        "Melhorar o time (aba Caçar): caça a família de cada pokémon do time, até 1 h por pokémon, atrás de um exemplar com mais Poder no seu nível máximo. O melhor fica na Coleção, treina no XP Share e entra no time quando passar o atual.",
+        "Completar a Pokédex (aba Caçar): caça as espécies que você nunca capturou, indo à hunt segura com mais delas por hora. Só um modo de caça anda por vez; no fim, a Troca de hunt e o rodízio voltam."
+      ],
+      "en": [
+        "Improve the team (Hunt tab): hunts the family of each team Pokémon, up to 1 h each, looking for one with more Power at your max level. The better one stays in the Collection, trains in the XP Share and joins the team once it passes the current one.",
+        "Complete the Pokédex (Hunt tab): hunts the species you've never caught, going to the safe hunt with the most of them per hour. Only one hunting mode runs at a time; at the end, hunt switching and the rotation come back."
+      ],
+      "es": [
+        "Mejorar el equipo (pestaña Cazar): caza la familia de cada pokémon del equipo, hasta 1 h por pokémon, buscando uno con más Poder en tu nivel máximo. El mejor queda en la Colección, entrena en el XP Share y entra al equipo cuando supere al actual.",
+        "Completar la Pokédex (pestaña Cazar): caza las especies que nunca capturaste, yendo a la hunt segura con más de ellas por hora. Solo un modo de caza funciona a la vez; al final, el cambio de hunt y la rotación vuelven."
+      ]
+    },
     "1.40.0": {
       "pt": [
         "Manter o PC acordado (aba Caçar): com o jogo aberto e o Piloto em Manual ou Auto, o computador não entra em suspensão; a tela pode apagar normalmente. Não funciona no Firefox. E quando o \"Voltar sozinho\" recarrega o jogo que caiu, chega uma notificação."

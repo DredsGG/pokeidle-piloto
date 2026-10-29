@@ -909,7 +909,7 @@
     const [grupo, campo] = partes;
     if (!cfg[grupo] || !(campo in cfg[grupo])) return;
     cfg[grupo][campo] = v;
-    if (grupo === 'hunt' && campo === 'ligado' && v) { ultimaAnalise = 0; topAnterior = null; candidato = null; anotar('troca automática de hunt ligada'); PIH.metaCaca?.desligar?.('a Troca de hunt foi ligada'); }
+    if (grupo === 'hunt' && campo === 'ligado' && v) { ultimaAnalise = 0; topAnterior = null; candidato = null; anotar('troca automática de hunt ligada'); PIH.metaCaca?.desligar?.('a Troca de hunt foi ligada'); PIH.cacadas?.desligar?.('a Troca de hunt foi ligada'); }
     if (grupo === 'repor' && campo === 'ligado' && v) { ultimaReposicao = 0; anotar('reposição ligada'); }
     gravar();
   }
@@ -929,7 +929,7 @@
           v = Math.max(Number(el.min) || 0, el.max !== '' ? Math.min(Number(el.max), v) : v);
         }
         cfg[grupo][campo] = v;
-        if (grupo === 'hunt' && campo === 'ligado' && v) { ultimaAnalise = 0; topAnterior = null; candidato = null; anotar('troca automática de hunt ligada'); PIH.metaCaca?.desligar?.('a Troca de hunt foi ligada'); }
+        if (grupo === 'hunt' && campo === 'ligado' && v) { ultimaAnalise = 0; topAnterior = null; candidato = null; anotar('troca automática de hunt ligada'); PIH.metaCaca?.desligar?.('a Troca de hunt foi ligada'); PIH.cacadas?.desligar?.('a Troca de hunt foi ligada'); }
         if (grupo === 'repor' && campo === 'ligado' && v) { ultimaReposicao = 0; anotar('reposição ligada'); }
         gravar();
         redesenhar();
@@ -949,7 +949,7 @@
 
   // Perfil do botão único (Automático): liga as frentes sem mexer no resto da configuração.
   function aplicar(m) {
-    if (m?.hunt) { Object.assign(cfg.hunt, { ligado: !!m.hunt.ligado }); if (m.hunt.ligado) PIH.metaCaca?.desligar?.('a Troca de hunt foi ligada'); }
+    if (m?.hunt) { Object.assign(cfg.hunt, { ligado: !!m.hunt.ligado }); if (m.hunt.ligado) { PIH.metaCaca?.desligar?.('a Troca de hunt foi ligada'); PIH.cacadas?.desligar?.('a Troca de hunt foi ligada'); } }
     if (m?.repor) Object.assign(cfg.repor, { ligado: !!m.repor.ligado });
     gravar();
   }

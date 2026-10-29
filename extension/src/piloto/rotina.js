@@ -220,10 +220,12 @@
     const ocupados = new Set();
     for (const c of casas) for (const id of c.postos || []) if (id) ocupados.add(id);
     const at = ativo();
-    // Os mais atrasados primeiro: são os que mais ganham com a fatia.
-    const candidatos = equipe()
-      .filter((p) => p.id !== (at && at.id) && Number(p.heldItemId) !== ID_XP_SHARE_HELD && !ocupados.has(p.id))
-      .sort((a, b) => (a.level || 0) - (b.level || 0));
+    // Os mais atrasados primeiro: são os que mais ganham com a fatia. 1.41.0: antes deles, as
+    // promessas do Melhorar o time (o exemplar melhor que ainda não passou o do time em Poder).
+    const promessas = (PIH.cacadas && PIH.cacadas.treinar ? PIH.cacadas.treinar() : []).filter((p) => p && Number(p.heldItemId) !== ID_XP_SHARE_HELD && !ocupados.has(p.id));
+    const candidatos = [...promessas, ...equipe()
+      .filter((p) => p.id !== (at && at.id) && Number(p.heldItemId) !== ID_XP_SHARE_HELD && !ocupados.has(p.id) && !promessas.includes(p))
+      .sort((a, b) => (a.level || 0) - (b.level || 0))];
     for (const c of casas) {
       const n = Math.max((c.postos || []).length, c.rar === 'lendaria' ? 2 : 1);
       for (let slot = 0; slot < n; slot++) {
@@ -398,6 +400,7 @@
     if (rotAuto && !(rotAuto.curar || (rotAuto.compras && rotAuto.compras.length)) ) return false;
     if (rotAuto && (rotAuto.ficar || !['esperar', 'indo', 'centro', 'sair'].includes(rotAuto.etapa))) return false;
     if (PIH.metaCaca && PIH.metaCaca.ativo()) return false; // 1.24: caçando o meta, quem luta é o mais forte
+    if (PIH.cacadas && PIH.cacadas.ativo()) return false; // 1.41.0: Melhorar o time / Completar a Pokédex escolhem quem caça
     if (PIH.time && PIH.time.emSessao && PIH.time.emSessao()) return false; // 1.26.3: trocando o time no Centro
     const h = huntAtual();
     const at = ativo();
@@ -670,7 +673,9 @@
     for (const id of (PIH.time && PIH.time.protegidos ? PIH.time.protegidos() : [])) ids.add(id);
     // 1.24: os do meta (capturados) e, enquanto o Caçar o meta está ligado, toda a família dos alvos
     for (const id of (PIH.metaCaca ? PIH.metaCaca.protegidos() : [])) ids.add(id);
-    const familiaMeta = new Set(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []);
+    // 1.41.0: as promessas do Melhorar o time e, enquanto ele caça, a família do alvo (até ser avaliada)
+    for (const id of (PIH.cacadas ? PIH.cacadas.protegidos() : [])) ids.add(id);
+    const familiaMeta = new Set([...(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []), ...(PIH.cacadas ? PIH.cacadas.especiesAlvo() : [])]);
     for (const p of livres) if (familiaMeta.has(p.speciesId)) ids.add(p.id);
     if (cfg.pvp.time && Array.isArray(pvp.time)) for (const p of equipeAlvo(pvp.time)) ids.add(p.id);
     return livres.filter((p) => ids.has(p.id) || p.shiny || Number(p.potencia) >= POTENCIA_MAX);
@@ -765,7 +770,8 @@
     const protegidos = new Set(G.ids);
     for (const id of (PIH.time && PIH.time.doMeta ? PIH.time.doMeta() : [])) protegidos.add(id);
     for (const id of (PIH.metaCaca ? PIH.metaCaca.protegidos() : [])) protegidos.add(id);
-    const familiaMeta = new Set(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []);
+    for (const id of (PIH.cacadas ? PIH.cacadas.protegidos() : [])) protegidos.add(id);
+    const familiaMeta = new Set([...(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []), ...(PIH.cacadas ? PIH.cacadas.especiesAlvo() : [])]);
     const a = PIH.time && PIH.time._interno && PIH.time._interno.st && PIH.time._interno.st.analise;
     const analiseEm = (a && a.em) || 0;
     const col = new Set(((eu.automation && eu.automation.pokemonTravado) || []).map(Number));
