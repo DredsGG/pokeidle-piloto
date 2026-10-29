@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.43.0": {
+      "pt": [
+        "Atualizar o time pelo meta ganhou \"Fazer sozinho\" (janela Time, aba Meta): quando a diferença para o meta fica 30 min sem mudar, o Piloto atualiza o time sozinho; se faltar pokémon do meta, liga o Caçar o meta sozinho e, depois da caça, troca o time no Centro e religa a Troca de hunt e o rodízio."
+      ],
+      "en": [
+        "Update the team by the meta got \"Do it myself\" (Team window, Meta tab): once the difference from the meta stays the same for 30 min, the Pilot updates the team by itself; if a meta Pokémon is missing, it turns on Hunt the meta by itself and, after the hunt, swaps the team at the Center and turns hunt switching and the rotation back on."
+      ],
+      "es": [
+        "Actualizar el equipo por el meta ganó \"Hacerlo solo\" (ventana Equipo, pestaña Meta): cuando la diferencia con el meta se mantiene 30 min, el Piloto actualiza el equipo solo; si falta un pokémon del meta, enciende Cazar el meta solo y, después de la caza, cambia el equipo en el Centro y vuelve a encender el cambio de hunt y la rotación."
+      ]
+    },
     "1.42.0": {
       "pt": [
         "PvP: a \"Tela de batalha\" do jogo fica sempre em Minimizada (linha nova na aba Rotina). Se você escolher \"Não mostrar\", fica como escolheu."

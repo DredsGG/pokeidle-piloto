@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.43.0': [
+        "Atualizar o time pelo meta ganhou \"Fazer sozinho\" (janela Time, aba Meta): quando a diferença para o meta fica 30 min sem mudar, o Piloto atualiza o time sozinho; se faltar pokémon do meta, liga o Caçar o meta sozinho e, depois da caça, troca o time no Centro e religa a Troca de hunt e o rodízio.",
+      ],
       '1.42.0': [
         "PvP: a \"Tela de batalha\" do jogo fica sempre em Minimizada (linha nova na aba Rotina). Se você escolher \"Não mostrar\", fica como escolheu.",
       ],

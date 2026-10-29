@@ -38,8 +38,8 @@
       const uniao = [...new Set([...ids(t.time), ...ids(t.campo), ...ids(t.pvp)])].slice(0, MAX_EQUIPE);
       // 1.26: a aba Analisar saiu da janela (a análise continua por dentro, para a venda automática)
       const est = c.compEstavel && typeof c.compEstavel === 'object' ? c.compEstavel : {};
-      return { campoAuto: typeof c.campoAuto === 'boolean' ? c.campoAuto : null, doMeta: c.doMeta !== false, travados: { time: uniao }, aba: ['time', 'meta'].includes(c.aba) ? c.aba : 'time', compEstavel: est };
-    } catch { return { campoAuto: null, doMeta: true, travados: { time: [] }, aba: 'time', compEstavel: {} }; }
+      return { campoAuto: typeof c.campoAuto === 'boolean' ? c.campoAuto : null, doMeta: c.doMeta !== false, travados: { time: uniao }, aba: ['time', 'meta'].includes(c.aba) ? c.aba : 'time', compEstavel: est, metaAuto: c.metaAuto === true, metaSemHunt: Array.isArray(c.metaSemHunt) ? c.metaSemHunt.map(Number).filter(Boolean).slice(0, 50) : [] };
+    } catch { return { campoAuto: null, doMeta: true, travados: { time: [] }, aba: 'time', compEstavel: {}, metaAuto: false, metaSemHunt: [] }; }
   };
   const cfg = lerCfg();
   const gravar = () => { try { localStorage.setItem(CHAVE, JSON.stringify(cfg)); } catch { /* sem armazenamento */ } };
@@ -668,6 +668,52 @@
     const r = await PIH.metaCaca.definir('ligado', true);
     return r && r.ok === false ? `não liguei: ${r.motivo}` : 'Caçar o meta ligado: vai atrás dos que faltam (os que você já tem ficam)';
   }
+  // 1.43.0 (pedido do André, 29/10: "para não ter que ficar clicando"): o ciclo do meta sozinho.
+  // Com "Fazer sozinho" ligado (e o Montar o time sozinho ligado):
+  // - tem troca para fazer → atualiza o time pelo meta (a troca no Centro, como o botão);
+  // - falta pokémon do meta → liga o Caçar o meta (que desliga a Troca de hunt e o rodízio); quando
+  //   ele completa, o time troca no Centro e a Troca de hunt e o rodízio voltam (como sempre).
+  // A mesma diferença tem de ficar 30 min sem mudar antes de agir (o 5º lugar do ranking mexe o tempo
+  // todo e o time não pode ficar trocando por isso), e no máximo uma ação a cada 10 min. Espécie que
+  // o Caçar o meta já viu que não aparece em hunt (lendário de boss ou ovo) não dispara a caça de novo.
+  const AUTO_FIRME_MS = 30 * 60_000;
+  const AUTO_ESPACO_MS = 10 * 60_000;
+  let autoVisto = { chave: '', desde: 0 };
+  let autoUltimo = 0;
+  function anotarSemHunt() {
+    try {
+      const c = PIH.metaCaca && PIH.metaCaca._interno ? PIH.metaCaca._interno.cfg() : null;
+      const ids = (c && Array.isArray(c.alvos) ? c.alvos : []).filter((a) => a && a.semHuntNoJogo && a.metaId).map((a) => Number(a.metaId));
+      const novos = ids.filter((id) => !cfg.metaSemHunt.includes(id));
+      if (novos.length) { cfg.metaSemHunt = [...cfg.metaSemHunt, ...novos].slice(-50); gravar(); }
+    } catch { /* sem meta */ }
+  }
+  async function tiqueMetaAuto() {
+    if (!cfg.metaAuto || !eu || !campoAuto() || st.sessao) return;
+    if (!PIH.cofre || !PIH.cofre.liberado || !PIH.cofre.liberado('time')) return;
+    anotarSemHunt();
+    if ((PIH.metaCaca && PIH.metaCaca.ativo()) || (PIH.cacadas && PIH.cacadas.ativo && PIH.cacadas.ativo())) { autoVisto = { chave: '', desde: 0 }; return; }
+    const pv = previaMeta();
+    if (!pv || !pv.viva.length) return;
+    const falta = pv.falta.filter((x) => !cfg.metaSemHunt.includes(Number(x.a.speciesId)));
+    const chave = `${pv.entra.map((x) => x.p.id).sort().join(',')}|${falta.map((x) => x.a.speciesId).sort().join(',')}`;
+    if (chave === '|') { autoVisto = { chave: '', desde: 0 }; return; }
+    const agora = Date.now();
+    if (chave !== autoVisto.chave) { autoVisto = { chave, desde: agora }; return; }
+    if (agora - autoVisto.desde < AUTO_FIRME_MS || agora - autoUltimo < AUTO_ESPACO_MS) return;
+    autoUltimo = agora;
+    autoVisto = { chave: '', desde: 0 };
+    if (pv.entra.length) {
+      const r = atualizarPeloMeta();
+      st.metaMsg = { txt: r, em: agora };
+      diario(`automático: ${r}`, 'ok');
+      return;
+    }
+    const r = await cacarOsQueFaltam();
+    st.metaMsg = { txt: r, em: agora };
+    diario(`automático: ${r}`, 'ok');
+  }
+  setInterval(() => { tiqueMetaAuto().catch((e) => console.warn('[piloto] time (meta sozinho):', e)); }, 60_000);
   function htmlAtualizarMeta(modo, arte) {
     const pv = previaMeta();
     if (!pv) return '';
@@ -678,7 +724,8 @@
     const msg = st.metaMsg && Date.now() - st.metaMsg.em < 120_000 ? st.metaMsg.txt : null;
     const status = !pv.viva.length ? 'a aba Meta ainda não leu times suficientes' : msg ? esc(msg) : pv.entra.length ? `${pv.entra.length} troca${pv.entra.length === 1 ? '' : 's'} para fazer` : 'o time já segue o meta de agora';
     const linha = K.linha({ id: 'atualizar-meta', icone: 'pvp', nome: 'Atualizar o time pelo meta', status,
-      dica: 'Compara o meta de agora com o seu time. Entra o seu melhor de cada família do meta que você já pode usar; sai quem não é do meta (o cadeado segura). A troca é no Centro, como sempre. O que você não tem aparece em "Falta caçar": o Piloto só vai atrás se você clicar em "Caçar os que faltam".',
+      dica: 'Compara o meta de agora com o seu time. Entra o seu melhor de cada família do meta que você já pode usar; sai quem não é do meta (o cadeado segura). A troca é no Centro, como sempre. O que você não tem aparece em "Falta caçar". Com "Fazer sozinho" ligado, o Piloto atualiza o time e liga o Caçar o meta sozinho quando a diferença fica 30 min sem mudar; depois da caça, a troca no Centro e a volta da Troca de hunt e do rodízio também são sozinhas.',
+      ajustes: K.mini('time:metaAuto', cfg.metaAuto, 'Fazer sozinho', 'Atualiza o time e caça os que faltam sem você clicar', trava),
       direita: `<span class="plt-am-bts">${K.acao('Atualizar time', 'data-acao="atualizar-meta"', 'raio', trava || !pv.viva.length || !!st.sessao)}${pv.falta.length ? K.acao('Caçar os que faltam', 'data-acao="cacar-faltam"', 'cacar', trava || (PIH.metaCaca && PIH.metaCaca.ativo())) : ''}</span>` });
     if (!pv.viva.length) return linha;
     return `${linha}<div class="plt-am">${lista('Entra', pv.entra.map((x) => pk(x.p, 'entra')), 'ninguém')}${lista('Sai', pv.sai.map((p) => pk(p, 'sai')), 'ninguém')}${lista('Já no time', pv.fica.map((x) => pk(x.p)), '—')}${pv.acima.length ? lista('Acima do seu nível', pv.acima.map((x) => pk(x.p, 'acima')), '') : ''}${lista('Falta caçar', pv.falta.map((x) => esp(x.a, 'falta')), 'nada — você tem todos')}</div>`;
@@ -989,7 +1036,8 @@
         cfg.campoAuto = v; gravar();
         PIH.rotina?.definir?.('pvp.time', v); // o PvP recebe a mesma equipe
         diario(`montar o time principal sozinho ${v ? 'ligado' : 'desligado'}`); if (v) st.ultimaTroca = 0;
-      } else if (alvo === 'time:doMeta') { cfg.doMeta = v; gravar(); st.ultimaTroca = 0; diario(`usar os do meta ${v ? 'ligado' : 'desligado'}`); }
+      } else if (alvo === 'time:metaAuto') { cfg.metaAuto = v; gravar(); autoVisto = { chave: '', desde: 0 }; diario(`atualizar o time pelo meta sozinho ${v ? 'ligado' : 'desligado'}`); }
+      else if (alvo === 'time:doMeta') { cfg.doMeta = v; gravar(); st.ultimaTroca = 0; diario(`usar os do meta ${v ? 'ligado' : 'desligado'}`); }
       else if (alvo === 'rotina:rodizio.ligado') PIH.rotina?.definir?.('rodizio.ligado', v);
       else if (alvo === 'metacaca:ligado') { Promise.resolve(PIH.metaCaca?.definir?.('ligado', v)).then(() => pintar(true)); }
       pintar(true);
@@ -1062,5 +1110,5 @@
     cfg.aba = aba; gravar();
     if (!janela) alternar(); else pintar(true);
   }
-  PIH.time = { alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, marcarPonte, ganhoDeNivel, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), compEstavel: (r) => compEstavel(r || "topo").map((a) => a.speciesId), _cfgTime: () => cfg, campoAuto, metaNovo, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
+  PIH.time = { metaAuto: { tique: tiqueMetaAuto, forcar: (o) => { if ('desde' in o) autoVisto.desde = o.desde; if ('ultimo' in o) autoUltimo = o.ultimo; }, visto: () => ({ ...autoVisto }) }, alternar, abrirAba, aplicar, analisar, protegidos, fixarTime, usarMeta, emSessao: () => !!st.sessao, turnoAtual, ultimaVez, marcarPonte, ganhoDeNivel, doMeta: () => doMetaAgora().map((x) => x.p.id), travados: () => cfg.travados.time.slice(), alvoPrincipal: () => alvoPrincipal().map((p) => p.id), compEstavel: (r) => compEstavel(r || "topo").map((a) => a.speciesId), _cfgTime: () => cfg, campoAuto, metaNovo, _interno: { cfg: () => cfg, st, turnos: () => turnos, tarefaCampo, andarTroca, andarSessao, farm, medirFarm } };
 })(globalThis);

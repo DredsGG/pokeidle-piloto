@@ -11,6 +11,11 @@
     // ---- casca do painel ----
     'Piloto': ['Pilot', 'Piloto'],
     "Entendi": ["Got it", "Entendido"],
+    "Compara o meta de agora com o seu time. Entra o seu melhor de cada família do meta que você já pode usar; sai quem não é do meta (o cadeado segura). A troca é no Centro, como sempre. O que você não tem aparece em \"Falta caçar\". Com \"Fazer sozinho\" ligado, o Piloto atualiza o time e liga o Caçar o meta sozinho quando a diferença fica 30 min sem mudar; depois da caça, a troca no Centro e a volta da Troca de hunt e do rodízio também são sozinhas.": ["Compares today's meta with your team. Your best of each meta family that you can already use comes in; whoever isn't meta goes out (the lock holds). The swap is at the Center, as always. What you don't have shows up under \"Still to catch\". With \"Do it myself\" on, the Pilot updates the team and turns on Hunt the meta by itself once the difference stays the same for 30 min; after the hunt, the swap at the Center and the return of hunt switching and the rotation are automatic too.", "Compara el meta de ahora con tu equipo. Entra tu mejor de cada familia del meta que ya puedes usar; sale quien no es del meta (el candado lo sujeta). El cambio es en el Centro, como siempre. Lo que no tienes aparece en \"Falta cazar\". Con \"Hacerlo solo\" encendido, el Piloto actualiza el equipo y enciende Cazar el meta solo cuando la diferencia se mantiene 30 min; después de la caza, el cambio en el Centro y la vuelta del cambio de hunt y de la rotación también son solos."],
+    "Fazer sozinho": ["Do it myself", "Hacerlo solo"],
+    "Atualiza o time e caça os que faltam sem você clicar": ["Updates the team and hunts the missing ones without you clicking", "Actualiza el equipo y caza los que faltan sin que hagas clic"],
+    "time: atualizar o time pelo meta sozinho ligado": ["team: update the team by the meta on its own on", "equipo: actualizar el equipo por el meta solo encendido"],
+    "time: atualizar o time pelo meta sozinho desligado": ["team: update the team by the meta on its own off", "equipo: actualizar el equipo por el meta solo apagado"],
     "Tela de batalha minimizada": ["Battle screen minimized", "Pantalla de batalla minimizada"],
     "Deixa a \"Tela de batalha\" do PvP do jogo em Minimizada: a luta aparece na janelinha e não cobre o farm. Se você escolher \"Não mostrar\" no jogo, fica como você escolheu. É uma opção do próprio jogo guardada no navegador: nada vai ao servidor.": ["Keeps the game's PvP \"Battle screen\" on Minimized: the fight shows in the small window and doesn't cover the farm. If you pick \"Don't show\" in the game, it stays as you chose. It's the game's own option saved in the browser: nothing goes to the server.", "Deja la \"Pantalla de batalla\" del PvP del juego en Minimizada: la pelea aparece en la ventanita y no tapa el farm. Si eliges \"No mostrar\" en el juego, queda como elegiste. Es una opción del propio juego guardada en el navegador: nada va al servidor."],
     "você escolheu Não mostrar": ["you chose Don't show", "elegiste No mostrar"],
@@ -647,6 +652,7 @@
 
   // Frases com partes variáveis (a primeira que casar vale).
   const regras = [
+    [/^time: automático: (.+)$/u, (m) => `team: automatic: ${m[1]}`, (m) => `equipo: automático: ${m[1]}`],
     [/^hoje: (\d+) respondidas · (\d+) puladas · (\d+) sem resposta · (\d+) respostas na base$/u, 'today: $1 answered · $2 skipped · $3 unanswered · $4 answers in the base', 'hoy: $1 respondidas · $2 omitidas · $3 sin respuesta · $4 respuestas en la base'],
     // ---- 1.34: alvos de compra ----
     [/^(\d+) de (\d+)$/u, '$1 of $2', '$1 de $2'],

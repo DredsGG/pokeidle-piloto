@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.43.0': [
+        "Update the team by the meta got \"Do it myself\" (Team window, Meta tab): once the difference from the meta stays the same for 30 min, the Pilot updates the team by itself; if a meta Pokémon is missing, it turns on Hunt the meta by itself and, after the hunt, swaps the team at the Center and turns hunt switching and the rotation back on.",
+      ],
       '1.42.0': [
         "PvP: the game's \"Battle screen\" always stays on Minimized (new row in the Routine tab). If you pick \"Don't show\", it stays as you chose.",
       ],
