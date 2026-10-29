@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.42.0': [
+        "PvP: the game's \"Battle screen\" always stays on Minimized (new row in the Routine tab). If you pick \"Don't show\", it stays as you chose.",
+      ],
       '1.41.0': [
         "Improve the team (Hunt tab): hunts the family of each team Pokémon, up to 1 h each, looking for one with more Power at your max level. The better one stays in the Collection, trains in the XP Share and joins the team once it passes the current one.",
         "Complete the Pokédex (Hunt tab): hunts the species you've never caught, going to the safe hunt with the most of them per hour. Only one hunting mode runs at a time; at the end, hunt switching and the rotation come back.",

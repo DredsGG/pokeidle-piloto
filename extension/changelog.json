@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.42.0": {
+      "pt": [
+        "PvP: a \"Tela de batalha\" do jogo fica sempre em Minimizada (linha nova na aba Rotina). Se você escolher \"Não mostrar\", fica como escolheu."
+      ],
+      "en": [
+        "PvP: the game's \"Battle screen\" always stays on Minimized (new row in the Routine tab). If you pick \"Don't show\", it stays as you chose."
+      ],
+      "es": [
+        "PvP: la \"Pantalla de batalla\" del juego queda siempre en Minimizada (fila nueva en la pestaña Rutina). Si eliges \"No mostrar\", queda como elegiste."
+      ]
+    },
     "1.41.0": {
       "pt": [
         "Melhorar o time (aba Caçar): caça a família de cada pokémon do time, até 1 h por pokémon, atrás de um exemplar com mais Poder no seu nível máximo. O melhor fica na Coleção, treina no XP Share e entra no time quando passar o atual.",

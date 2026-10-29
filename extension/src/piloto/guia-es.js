@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.42.0': [
+        "PvP: la \"Pantalla de batalla\" del juego queda siempre en Minimizada (fila nueva en la pestaña Rutina). Si eliges \"No mostrar\", queda como elegiste.",
+      ],
       '1.41.0': [
         "Mejorar el equipo (pestaña Cazar): caza la familia de cada pokémon del equipo, hasta 1 h por pokémon, buscando uno con más Poder en tu nivel máximo. El mejor queda en la Colección, entrena en el XP Share y entra al equipo cuando supere al actual.",
         "Completar la Pokédex (pestaña Cazar): caza las especies que nunca capturaste, yendo a la hunt segura con más de ellas por hora. Solo un modo de caza funciona a la vez; al final, el cambio de hunt y la rotación vuelven.",

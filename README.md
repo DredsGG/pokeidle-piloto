@@ -9,7 +9,7 @@ Hunt optimizer, market radar, team manager and daily routine in one browser exte
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
 ![Browsers](https://img.shields.io/badge/Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20GX%20·%20Firefox%20140+-works-6d4aff)
-![Version](https://img.shields.io/badge/version-1.41.0-e53935)
+![Version](https://img.shields.io/badge/version-1.42.0-e53935)
 ![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-2e7d32)
 
 <img src="docs/hunt-tab.png" width="80%" alt="The Piloto window in Automatic mode, Hunt tab: hunt switching, restock, team rotation, Outland tier, automatic Poké Ball and auto-reload, above the ranking of the best hunts">
@@ -80,6 +80,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 
 **Daily routine**
 - Battle pass claims, XP Share (the furthest-behind team members in empty slots), highest unlocked Outland tier, Ranked queue, Auto Collection kept on Legendary · Shiny · P5+ · the market's minimum grade, and Depot cleaning (it first moves your team, shinies and top-potential Pokémon into the Collection). A Pokémon Auto Collection kept below Lv 50 (the market only takes them from there) that's no use to the team, PvP or the meta goes back to the Depot and is sold. When it claims the daily pass reward it also closes the reward pop-up and the pass window.
+- **PvP battle screen minimized.** Keeps the game's own PvP "Battle screen" option on Minimized, so a fight never covers the farm (if you pick "Don't show", it stays as you chose). It's a browser-side setting of the game: nothing is sent to the server.
 - **Tournaments.** Signs you up for every tournament as soon as registration opens: the monthly World (trainer Lv 300+) and Amateur (Lv 100+), and the weekly Showdown. Registration is free; it never cancels a registration and doesn't touch your team.
 - **Irreversible actions are opt-in:** evolving and hatching eggs you own. With Evolve on, **the team evolves the moment it reaches the level**, any Pokémon, the starter too; if the stone is missing the Radar buys one on the market right away (gold only, through the vault) and team stones never go to resale. A shiny evolves only with a Shiny Stone you already have (never bought); Outland and Mega never. Outside the team, the starter and Pokémon with a skin, a held item, a refinement or an XP Share post are left out and the log says why once a day. A command with no effect is tried again in 2 minutes, up to 3 times.
 

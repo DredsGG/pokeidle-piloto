@@ -27,7 +27,7 @@
     evoluir: { ligado: false, escopo: 'equipe', ramificada: false, comprarPedra: true },
     chocadeira: { ligado: false, comprarP2: false },
     depot: { modo: 'off', limiar: 50, horas: 1 },
-    pvp: { fila: false, time: false },
+    pvp: { fila: false, time: false, mini: true },
     autoColecao: { ligado: true }, // 1.18: todo mundo com a extensão (pedido do André)
   };
   const ler = () => {
@@ -974,6 +974,8 @@
         status: !nivelPvp ? `o PvP abre no treinador Nv 150 (você: Nv ${eu?.level ?? '?'})` : somaPvp ? `Poder somado ${nfR.format(Math.round(somaPvp))}${tier ? ` · ${tier}` : ''}` : tier })}
       ${L({ icone: 'radar', nome: 'Fila automática', alvo: 'rotina:pvp.fila', on: cfg.pvp.fila, dica: 'Com VIP liga a fila automática do jogo; sem VIP, entra na fila quando estiver fora (no máximo a cada 3 min).',
         status: pvp.fila ? (pvp.fila.na ? 'na fila agora' : 'fora da fila') : '' })}
+      ${L({ icone: 'pvp', nome: 'Tela de batalha minimizada', alvo: 'rotina:pvp.mini', on: cfg.pvp.mini !== false, dica: 'Deixa a "Tela de batalha" do PvP do jogo em Minimizada: a luta aparece na janelinha e não cobre o farm. Se você escolher "Não mostrar" no jogo, fica como você escolheu. É uma opção do próprio jogo guardada no navegador: nada vai ao servidor.',
+        status: cfg.pvp.mini === false ? '' : telaPvp() === 'off' ? 'você escolheu Não mostrar' : telaPvp() === 'mini' ? 'minimizada' : 'vai para minimizada' })}
       ${K.grupo('Sem volta')}
       ${L({ icone: 'evoluir', nome: 'Evoluir', classe: 'plt-l-perigo', alvo: 'rotina:evoluir.ligado', on: cfg.evoluir.ligado, dica: 'O time evolui na hora em que chega no nível, qualquer pokémon (inicial também). Sem a pedra, compra uma no Mercado em ouro e ela não vai para a revenda. Shiny só com a Shiny Stone na mochila (essa nunca é comprada). Outland e Mega não evoluem.',
         status: cfg.evoluir.ligado ? (cfg.evoluir.escopo === 'tudo' ? 'equipe, Depot e Coleção' : 'só a equipe') : '',
@@ -1011,7 +1013,24 @@
     if (g === 'rodizio' && k === 'ligado' && v === true && antes !== true) comecarCiclo();
   }
   // Uma mudança vinda do painel (interruptor, escolha ou número). Números já chegam validados.
+  // 1.42.0 (pedido do André, 29/10): a "Tela de batalha" do PvP sempre em Minimizada. É uma escolha
+  // do próprio jogo guardada só neste navegador (localStorage 'pvpTelaBatalha': completa, mini ou
+  // off; sem valor = completa), lida no app.js em 29/10 — nada vai ao servidor. Completa (ou sem
+  // escolha) vira Minimizada; "Não mostrar" fica, porque é escolha sua.
+  const CHAVE_TELA_PVP = 'pvpTelaBatalha';
+  const telaPvp = () => { try { return localStorage.getItem(CHAVE_TELA_PVP); } catch { return null; } };
+  function conferirTelaPvp() {
+    if (!cfg.pvp.mini || !/^\/app\/?$/.test(location.pathname)) return;
+    const v = telaPvp();
+    if (v === 'mini' || v === 'off') return;
+    try { localStorage.setItem(CHAVE_TELA_PVP, 'mini'); } catch { return; }
+    diario('PvP: a tela de batalha foi para Minimizada');
+    // a janela do PvP aberta agora: o botão "Minimizada" acende na próxima vez que ela se desenhar
+  }
+  setTimeout(conferirTelaPvp, 2000);
+  setInterval(conferirTelaPvp, 20_000);
   function definir(caminho, v) {
+    if (caminho === 'pvp.mini') { cfg.pvp.mini = !!v; gravar(); diario(`tela de batalha do PvP minimizada ${v ? 'ligada' : 'desligada'}`); if (v) conferirTelaPvp(); return; }
     if (caminho === 'depot.ligado') {
       if (v) cfg.depot.modo = cfg.depot.ultimoModo || 'vender';
       else { if (cfg.depot.modo !== 'off') cfg.depot.ultimoModo = cfg.depot.modo; cfg.depot.modo = 'off'; }
