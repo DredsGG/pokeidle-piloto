@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.44.0': [
+        "The Pilot now notices by itself when PokeIdle publishes a new game version (it checks every 30 min and when you come back to the tab) and shows \"PokeIdle updated the game, press F5\" in the middle of the screen, with a button to reload.",
+      ],
       '1.43.1': [
         "Fixed: potions and revives cost much more in the game's shop than the Pilot counted, so the Vault let it spend far past the cap. The math now uses the price the shop charges, and so do the potion choice and the amounts.",
         "Fixed: a team Pokémon that can't fight safely in any hunt (a Magikarp, for example) is left out of the rotation instead of stepping in and fainting over and over.",

@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.44.0": {
+      "pt": [
+        "O Piloto agora percebe sozinho quando o PokeIdle publica versão nova do jogo (confere a cada 30 min e quando você volta para a aba) e mostra no meio da tela \"O PokeIdle atualizou o jogo, dê F5\", com o botão para recarregar."
+      ],
+      "en": [
+        "The Pilot now notices by itself when PokeIdle publishes a new game version (it checks every 30 min and when you come back to the tab) and shows \"PokeIdle updated the game, press F5\" in the middle of the screen, with a button to reload."
+      ],
+      "es": [
+        "El Piloto ahora detecta solo cuando PokeIdle publica una versión nueva del juego (revisa cada 30 min y cuando vuelves a la pestaña) y muestra en el centro de la pantalla \"PokeIdle actualizó el juego, pulsa F5\", con el botón para recargar."
+      ]
+    },
     "1.43.1": {
       "pt": [
         "Corrigido: a poção e o revive custavam bem mais na loja do jogo do que o Piloto contava, então o Cofre deixava gastar muito além do teto. Agora a conta usa o preço que a loja cobra, e a escolha da poção e as quantidades também.",

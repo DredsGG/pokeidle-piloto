@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.44.0': [
+        "O Piloto agora percebe sozinho quando o PokeIdle publica versão nova do jogo (confere a cada 30 min e quando você volta para a aba) e mostra no meio da tela \"O PokeIdle atualizou o jogo, dê F5\", com o botão para recarregar.",
+      ],
       '1.43.1': [
         "Corrigido: a poção e o revive custavam bem mais na loja do jogo do que o Piloto contava, então o Cofre deixava gastar muito além do teto. Agora a conta usa o preço que a loja cobra, e a escolha da poção e as quantidades também.",
         "Corrigido: pokémon do time que não luta com segurança em nenhuma hunt (um Magikarp, por exemplo) fica fora do rodízio, em vez de entrar e ficar morrendo.",

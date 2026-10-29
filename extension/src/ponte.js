@@ -21,10 +21,43 @@
 
   // A versão vai para um atributo da página: o painel (mundo MAIN) não enxerga chrome.runtime.
   try { document.documentElement.dataset.pilotoVersao = chrome.runtime.getManifest().version; } catch { /* sem versão */ }
+  // 1.44.0: a vigia da versão do jogo (era uma tarefa agendada a cada 3 h). A versão que esta aba
+  // carregou está no HTML (o `estilo.css?v=`); conferir é buscar o HTML do /app como o Passo 1 do
+  // VIGIA.md — só o arquivo estático da mesma origem, nada na conta. Mudou: a página mostra o aviso.
+  const naPaginaDoJogo = () => /^\/app\/?$/.test(location.pathname);
+  const RE_VERSAO = /estilo\.css\?v=([\d.]+)/;
+  let versaoCarregada = null;
+  let conferidoEm = 0;
+  const lerVersaoDaPagina = () => {
+    if (versaoCarregada) return versaoCarregada;
+    const l = document.querySelector('link[href*="estilo.css"]');
+    const m = l && RE_VERSAO.exec(l.getAttribute('href') || '');
+    if (m) versaoCarregada = m[1];
+    return versaoCarregada;
+  };
+  async function conferirVersaoDoJogo(motivo) {
+    if (!naPaginaDoJogo() || !lerVersaoDaPagina()) return null;
+    conferidoEm = Date.now();
+    try {
+      const html = await (await fetch('/app', { cache: 'no-cache', credentials: 'same-origin' })).text();
+      const m = RE_VERSAO.exec(html);
+      const agora = m ? m[1] : null;
+      if (agora && agora !== versaoCarregada) document.dispatchEvent(new CustomEvent('piloto:jogo-novo', { detail: JSON.stringify({ antes: versaoCarregada, agora, motivo }) }));
+      return { carregada: versaoCarregada, agora };
+    } catch (e) { return { carregada: versaoCarregada, erro: String(e && e.message || e) }; }
+  }
+  // ao voltar para a aba, no máximo 1 vez a cada 10 min (o alarme de 30 min é o principal)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && Date.now() - conferidoEm > 10 * 60_000) conferirVersaoDoJogo('voltou para a aba').catch(() => {});
+  });
+  setTimeout(() => { lerVersaoDaPagina(); }, 3000);
+
   // 1.38.0: a parada de emergência pelo atalho do navegador (o fundo avisa; o mundo da página para)
   try {
-    chrome.runtime.onMessage.addListener((m, remetente) => {
-      if (!m || m.tipo !== 'piloto:emergencia' || remetente.id !== chrome.runtime.id) return false;
+    chrome.runtime.onMessage.addListener((m, remetente, responder) => {
+      if (!m || remetente.id !== chrome.runtime.id) return false;
+      if (m.tipo === 'piloto:jogo-conferir') { conferirVersaoDoJogo('alarme de 30 min').then((r) => responder(r)).catch(() => responder(null)); return true; }
+      if (m.tipo !== 'piloto:emergencia') return false;
       document.dispatchEvent(new CustomEvent('piloto:emergencia'));
       return false;
     });

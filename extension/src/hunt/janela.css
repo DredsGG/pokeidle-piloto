@@ -592,3 +592,7 @@ html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { backgrou
 /* 1.38.0: parada de emergência */
 .plt-emerg .plt-emerg-ico { color: #ff5a4e; font-size: 15px; line-height: 1; margin-right: 2px; }
 .plt-emerg .plt-emerg-caixa { border-top: 3px solid #ff5a4e; }
+
+/* 1.44.0: jogo novo (dê F5) */
+.plt-jogo-novo .plt-jogo-novo-ico { color: #ffc94a; font-size: 16px; line-height: 1; margin-right: 2px; }
+.plt-jogo-novo .plt-jogo-novo-caixa { border-top: 3px solid #ffc94a; }

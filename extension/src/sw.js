@@ -568,6 +568,7 @@ async function vigiarDisco() {
 function agendarUpd() {
   chrome.alarms.create('piloto-upd', { delayInMinutes: 1, periodInMinutes: CHECAR_A_CADA_MIN });
   chrome.alarms.create('piloto-disco', { delayInMinutes: 1, periodInMinutes: 1 });
+  chrome.alarms.create('piloto-jogo', { delayInMinutes: 30, periodInMinutes: 30 });
 }
 // 1.40.0: manter o PC acordado enquanto o jogo está aberto com o Piloto ligado (piloto/acordado.js).
 // Cada aba do jogo avisa a cada 1 min; o pedido vale enquanto alguma avisou "ligar" nos últimos
@@ -607,6 +608,7 @@ chrome.alarms.onAlarm.addListener((a) => {
   if (a.name === 'piloto-upd') checarUpd().catch(erro);
   if (a.name === 'piloto-disco') vigiarDisco().catch(erro);
   if (a.name === 'piloto-disco') aplicarAcordado().catch(erro);
+  if (a.name === 'piloto-jogo') conferirJogo().catch(erro);
 });
 chrome.runtime.onStartup.addListener(() => { agendarUpd(); checarUpd().catch(erro); });
 chrome.runtime.onInstalled.addListener(async (d) => {
@@ -752,6 +754,15 @@ chrome.runtime.onMessage.addListener((m, remetente, responder) => {
     .catch((e) => { erro(e); responder({ erro: String(e && e.message ? e.message : e) }); });
   return true;
 });
+
+// 1.44.0: a vigia da versão do jogo — a cada 30 min, cada aba do jogo confere se o pokeidle.io
+// publicou versão nova (a ponte busca o HTML do /app e compara com o que a aba carregou).
+async function conferirJogo() {
+  const abas = await chrome.tabs.query({ url: 'https://pokeidle.io/app*' });
+  const out = [];
+  for (const a of abas) { try { out.push(await chrome.tabs.sendMessage(a.id, { tipo: 'piloto:jogo-conferir' })); } catch { /* aba sem a ponte */ } }
+  return out;
+}
 
 // 1.38.0: parada de emergência pelo atalho da extensão (Alt+Shift+P, trocável em
 // chrome://extensions/shortcuts). Vale com o navegador em qualquer aba: avisa as abas do jogo.
