@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.38.0": {
+      "pt": [
+        "Parada de emergência: Alt+Shift+P põe o Piloto em Off na hora, de qualquer aba do navegador. Um quadro confirma e tem o botão para voltar ao modo de antes. A tecla pode ser trocada em chrome://extensions/shortcuts."
+      ],
+      "en": [
+        "Emergency stop: Alt+Shift+P switches the Pilot Off at once, from any browser tab. A box confirms it and has a button to go back to the previous mode. You can change the key at chrome://extensions/shortcuts."
+      ],
+      "es": [
+        "Parada de emergencia: Alt+Shift+P pone el Piloto en Off al instante, desde cualquier pestaña del navegador. Un cuadro lo confirma y tiene el botón para volver al modo anterior. La tecla se puede cambiar en chrome://extensions/shortcuts."
+      ]
+    },
     "1.37.1": {
       "pt": [
         "Time: um pokémon de fora do meta não prende mais a vaga. Se você pegar outro de fora do meta com mais Poder, ele entra no lugar do mais fraco. Os do meta continuam com prioridade."

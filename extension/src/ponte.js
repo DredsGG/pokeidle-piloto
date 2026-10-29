@@ -21,6 +21,14 @@
 
   // A versão vai para um atributo da página: o painel (mundo MAIN) não enxerga chrome.runtime.
   try { document.documentElement.dataset.pilotoVersao = chrome.runtime.getManifest().version; } catch { /* sem versão */ }
+  // 1.38.0: a parada de emergência pelo atalho do navegador (o fundo avisa; o mundo da página para)
+  try {
+    chrome.runtime.onMessage.addListener((m, remetente) => {
+      if (!m || m.tipo !== 'piloto:emergencia' || remetente.id !== chrome.runtime.id) return false;
+      document.dispatchEvent(new CustomEvent('piloto:emergencia'));
+      return false;
+    });
+  } catch { /* sem mensagens */ }
 
   const G = globalThis.RadarGravador;
   const Config = globalThis.RadarConfig;

@@ -20,7 +20,7 @@
     },
     tutorial: [
       { t: 'Bienvenido al Piloto', x: 'El Piloto juega por ti aquí dentro de PokeIdle: elige la mejor hunt, repone bolas y pociones, y cuida del equipo y del Mercado. Solo gasta oro y siempre dentro del Cofre; gemas y diamantes, nunca. El botón Piloto está justo encima de tu pokémon en el campo: por ahí se abre el panel.' },
-      { t: 'Off, Manual y Auto', x: 'Arriba está el modo. Off: no corre nada. Manual: tú activas y ajustas cada automatización. Auto: el Piloto activa todo y calcula los números; cada fila mantiene su ON/OFF.' },
+      { t: 'Off, Manual y Auto', x: 'Arriba está el modo. Off: no corre nada. Manual: tú activas y ajustas cada automatización. Auto: el Piloto activa todo y calcula los números; cada fila mantiene su ON/OFF. Emergencia: Alt+Shift+P pone todo en Off al instante, desde cualquier pestaña del navegador.' },
       { t: 'El Cofre manda en el gasto', x: 'Antes de encenderlo, abre la pestaña Cofre y revisa la reserva (el oro que nunca se gasta) y el tope del día. Toda compra del Piloto pasa por él.' },
       { t: 'Las pestañas', x: 'Cazar: cambio de hunt, reposición y rotación del equipo. Nivel: cuándo sube cada uno. Rutina: Pase, XP Share, PvP y Depot. Mercado: el Radar avisa, compra y revende en oro.' },
       { t: 'El equipo en el panel del juego', x: 'En el panel Equipo del juego aparecen el botón del Equipo (el equipo del campo y del PvP, y el meta del Clasificatorio) y el ⏱ de cada pokémon, con su turno y la fila de la rotación.' },
@@ -29,6 +29,9 @@
     novidades: {
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
+      ],
+      '1.38.0': [
+        "Parada de emergencia: Alt+Shift+P pone el Piloto en Off al instante, desde cualquier pestaña del navegador. Un cuadro lo confirma y tiene el botón para volver al modo anterior. La tecla se puede cambiar en chrome://extensions/shortcuts.",
       ],
       '1.37.1': [
         'Equipo: un pokémon fuera del meta ya no se queda con el lugar. Si atrapas otro fuera del meta con más Poder, entra en lugar del más débil. Los del meta siguen teniendo prioridad.',

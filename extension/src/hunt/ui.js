@@ -387,7 +387,7 @@
   if (prefs.aba === 'auto') prefs.aba = 'hunts'; // a aba "Auto" virou parte de Caçar
   const ICO_CADEADO = '<svg class="plt-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0zm3 4a1.6 1.6 0 0 0-.8 3V19h1.6v-2a1.6 1.6 0 0 0-.8-3z" fill="currentColor"/></svg>';
   const MODOS = [
-    ['desligado', 'Off', 'fechar', 'Desligado: nada automático roda, nem a compra do Radar'],
+    ['desligado', 'Off', 'fechar', 'Desligado: nada automático roda, nem a compra do Radar. Atalho de emergência: Alt+Shift+P'],
     ['manual', 'Manual', 'escudo', 'Manual: você liga e ajusta cada automação'],
     ['automatico', 'Auto', 'leme', 'Automático: o Piloto lê a conta e calcula tudo; você só liga e desliga'],
   ];
@@ -1040,6 +1040,8 @@
     } catch { return 0; }
   }
   PIH.lootPct = lootPct;
+  // 1.38.0: a parada de emergência (piloto/emergencia.js) põe em Off e volta ao modo de antes
+  PIH.modo = { atual: () => modoAtual(), definir: (m) => definirModo(m) };
 
   // Recalcula com o painel aberto só quando muda o que entra na conta (outro pokémon, nível
   // novo, refino, TM) — não a cada golpe recebido.

@@ -20,7 +20,7 @@
     },
     tutorial: [
       { t: 'Welcome to the Pilot', x: 'The Pilot plays for you right here in PokeIdle: it picks the best hunt, restocks balls and potions, and looks after your team and the Market. It only spends gold and always within the Vault; never gems or diamonds. The Pilot button sits right above your Pokémon in the field: that is where the panel opens.' },
-      { t: 'Off, Manual and Auto', x: 'The mode is at the top. Off: nothing runs. Manual: you turn on and tune each automation. Auto: the Pilot turns everything on and works out the numbers; each row keeps its own ON/OFF.' },
+      { t: 'Off, Manual and Auto', x: 'The mode is at the top. Off: nothing runs. Manual: you turn on and tune each automation. Auto: the Pilot turns everything on and works out the numbers; each row keeps its own ON/OFF. Emergency: Alt+Shift+P switches everything Off at once, from any browser tab.' },
       { t: 'The Vault controls spending', x: 'Before turning it on, open the Vault tab and check the reserve (the gold that is never spent) and the daily cap. Every purchase the Pilot makes goes through it.' },
       { t: 'The tabs', x: 'Hunt: hunt switching, restock and team rotation. Level: when each one levels up. Routine: Pass, XP Share, PvP and Depot. Market: the Radar alerts, buys and resells for gold.' },
       { t: "Your team in the game's panel", x: "The game's Team panel gets the Team button (your field and PvP team, plus the Ranked meta) and a ⏱ on each Pokémon with its turn and the rotation queue." },
@@ -29,6 +29,9 @@
     novidades: {
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
+      ],
+      '1.38.0': [
+        "Emergency stop: Alt+Shift+P switches the Pilot Off at once, from any browser tab. A box confirms it and has a button to go back to the previous mode. You can change the key at chrome://extensions/shortcuts.",
       ],
       '1.37.1': [
         'Team: a Pokémon outside the meta no longer holds its slot. If you catch another one outside the meta with more Power, it takes the weakest one\'s place. The meta ones still come first.',

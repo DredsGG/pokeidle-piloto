@@ -20,7 +20,7 @@
     },
     tutorial: [
       { t: 'Bem-vindo ao Piloto', x: 'O Piloto joga por você aqui dentro do PokeIdle: escolhe a melhor hunt, repõe bolas e poções, cuida do time e do Mercado. Gasta só ouro e sempre dentro do Cofre; Gema e diamante, nunca. O botão Piloto fica logo acima do seu pokémon em campo: é por ele que o painel abre.' },
-      { t: 'Off, Manual e Auto', x: 'Lá em cima fica o modo. Off: nada roda. Manual: você liga e ajusta cada automação. Auto: o Piloto liga tudo e calcula os números; cada linha continua com o seu ON/OFF.' },
+      { t: 'Off, Manual e Auto', x: 'Lá em cima fica o modo. Off: nada roda. Manual: você liga e ajusta cada automação. Auto: o Piloto liga tudo e calcula os números; cada linha continua com o seu ON/OFF. Emergência: Alt+Shift+P põe tudo em Off na hora, de qualquer aba do navegador.' },
       { t: 'O Cofre manda no gasto', x: 'Antes de ligar, abra a aba Cofre e confira a reserva (o ouro que nunca é gasto) e o teto do dia. Toda compra do Piloto passa por ele.' },
       { t: 'As abas', x: 'Caçar: troca de hunt, reposição e rodízio do time. Nível: quando cada um sobe. Rotina: Passe, XP Share, PvP e Depot. Mercado: o Radar avisa, compra e revende em ouro.' },
       { t: 'O time no painel do jogo', x: 'No painel Equipe do jogo aparecem o botão do Time (o time do campo e do PvP, e o meta do Ranqueado) e o ⏱ de cada pokémon, com o turno e a fila do rodízio.' },
@@ -29,6 +29,9 @@
     novidades: {
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
+      ],
+      '1.38.0': [
+        "Parada de emergência: Alt+Shift+P põe o Piloto em Off na hora, de qualquer aba do navegador. Um quadro confirma e tem o botão para voltar ao modo de antes. A tecla pode ser trocada em chrome://extensions/shortcuts.",
       ],
       '1.37.1': [
         'Time: um pokémon de fora do meta não prende mais a vaga. Se você pegar outro de fora do meta com mais Poder, ele entra no lugar do mais fraco. Os do meta continuam com prioridade.',

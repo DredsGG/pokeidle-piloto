@@ -717,6 +717,21 @@ chrome.runtime.onMessage.addListener((m, remetente, responder) => {
   return true;
 });
 
+// 1.38.0: parada de emergência pelo atalho da extensão (Alt+Shift+P, trocável em
+// chrome://extensions/shortcuts). Vale com o navegador em qualquer aba: avisa as abas do jogo.
+if (chrome.commands && chrome.commands.onCommand) {
+  chrome.commands.onCommand.addListener(async (cmd) => {
+    if (cmd !== 'parar-tudo') return;
+    try {
+      const abas = await chrome.tabs.query({ url: 'https://pokeidle.io/*' });
+      let avisadas = 0;
+      for (const a of abas) { try { await chrome.tabs.sendMessage(a.id, { tipo: 'piloto:emergencia' }); avisadas++; } catch { /* aba sem a ponte */ } }
+      await chrome.notifications.create('piloto-emergencia', { type: 'basic', iconUrl: chrome.runtime.getURL('icons/icon-128.png'), title: 'PokeIdle Piloto',
+        message: avisadas ? 'Parada de emergência: o Piloto foi para Off.' : 'Parada de emergência: nenhuma aba do jogo aberta.' });
+    } catch (e) { erro(e); }
+  });
+}
+
 chrome.runtime.onInstalled.addListener(() => { conferirPermissao().catch(erro); });
 chrome.runtime.onStartup.addListener(() => { conferirPermissao().catch(erro); });
 // 1.31 (regra 12): instalação nova mostra o guia de primeiro uso; atualização mostra só as novidades.

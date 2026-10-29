@@ -10,6 +10,18 @@
   const exato = {
     // ---- casca do painel ----
     'Piloto': ['Pilot', 'Piloto'],
+    "Entendi": ["Got it", "Entendido"],
+    "Piloto parado": ["Pilot stopped", "Piloto detenido"],
+    "O Piloto já estava em Off": ["The Pilot was already Off", "El Piloto ya estaba en Off"],
+    "Nada do Piloto está rodando. Para ligar de novo, escolha Manual ou Auto na janela do Piloto.": ["Nothing from the Pilot is running. To turn it back on, pick Manual or Auto in the Pilot window.", "Nada del Piloto está funcionando. Para encenderlo de nuevo, elige Manual o Auto en la ventana del Piloto."],
+    "Tudo do Piloto parou: compras, revenda, reposição, troca de hunt e de time, rotina e Radar. O jogo continua com as automações dele.": ["Everything from the Pilot stopped: buying, resale, restock, hunt and team swaps, routine and Radar. The game keeps running its own automations.", "Todo el Piloto se detuvo: compras, reventa, reposición, cambio de hunt y de equipo, rutina y Radar. El juego sigue con sus propias automatizaciones."],
+    "Voltar ao Auto": ["Back to Auto", "Volver a Auto"],
+    "Voltar ao Manual": ["Back to Manual", "Volver a Manual"],
+    "Desligado: nada automático roda, nem a compra do Radar. Atalho de emergência: Alt+Shift+P": ["Off: nothing automatic runs, not even the Radar purchases. Emergency shortcut: Alt+Shift+P", "Apagado: nada automático funciona, ni la compra del Radar. Atajo de emergencia: Alt+Shift+P"],
+    "PARADA DE EMERGÊNCIA (Alt+Shift+P): o Piloto foi para Off": ["EMERGENCY STOP (Alt+Shift+P): the Pilot went Off", "PARADA DE EMERGENCIA (Alt+Shift+P): el Piloto pasó a Off"],
+    "PARADA DE EMERGÊNCIA (atalho do navegador): o Piloto foi para Off": ["EMERGENCY STOP (browser shortcut): the Pilot went Off", "PARADA DE EMERGENCIA (atajo del navegador): el Piloto pasó a Off"],
+    "voltou ao Auto depois da parada de emergência": ["back to Auto after the emergency stop", "volvió a Auto después de la parada de emergencia"],
+    "voltou ao Manual depois da parada de emergência": ["back to Manual after the emergency stop", "volvió a Manual después de la parada de emergencia"],
     'Resumo': ['Summary', 'Resumen'],
     'Caçar': ['Hunt', 'Cazar'],
     'Nível': ['Level', 'Nivel'],
