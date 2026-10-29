@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const require = createRequire(import.meta.url);
+const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -112,8 +112,10 @@ const novos = recebidos.slice(antes);
 const as = recebidos.filter((m) => m.t === 'auto.set').at(-1);
 ok(as && as.ballIds.length === 1 && as.potionIds.length === 1 && as.reviveIds.length === 1, `marcou um de cada na hora: ${JSON.stringify(as && { b: as.ballIds, p: as.potionIds, r: as.reviveIds })}`);
 const compras = recebidos.filter((m) => m.t === 'shop.buy');
-ok(!compras.some((m) => m.id === 206 || m.id === 200 || m.id === 201), `nada fora do kit (sem Max Revive nem as outras poções que o jogo marca de fábrica)`);
-const preco = { 1: 10, 200: 5, 201: 10, 202: 22, 203: 55, 204: 135, 205: 40, 206: 350 };
+const doKit = new Set([...(as ? as.ballIds : []), ...(as ? as.potionIds : []), ...(as ? as.reviveIds : [])]);
+ok(compras.length && compras.every((m) => doKit.has(m.id)), `nada fora do kit (sem Max Revive nem as outras poções que o jogo marca de fábrica): ${JSON.stringify(compras.map((m) => m.id))}`);
+// 1.43.1: o preço da LOJA (npcPrice) das poções e revives; a bola pelo priceGold
+const preco = { 1: 10, 200: 50, 201: 150, 202: 400, 203: 800, 204: 1500, 205: 600, 206: 2500 };
 const gasto = compras.reduce((s, m) => s + m.qty * (preco[m.id] || 0), 0);
 ok(compras.some((m) => m.kind === 'item' && m.id === 205), `comprou revive: ${JSON.stringify(compras.map((m) => [m.id, m.qty]))}`);
 ok(compras.some((m) => m.kind === 'item' && m.id >= 200 && m.id <= 204), 'comprou poção');

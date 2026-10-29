@@ -81,7 +81,7 @@
   // ---- o que o cofre sabe do jogo -----------------------------------------------------------
   let eu = null;
   let welcome = null;
-  let precoItem = new Map(); // itemId -> priceGold
+  let precoItem = new Map(); // itemId -> preço de compra na loja (1.43.1: npcPrice; o priceGold ficou menor que o cobrado)
   // Ouro já autorizado que ainda não saiu do saldo (fila, sorteio, estado atrasado): entra no piso
   // e no "livre". Sai quando o saldo cai (o mais antigo primeiro) ou depois de 2 min (auditoria, caso A).
   let pendentes = []; // { id, custo, em }
@@ -106,11 +106,12 @@
   });
   PIH.on('welcome', (m) => {
     welcome = m;
-    for (const i of m.itensNossos || []) if (i && Number(i.priceGold) > 0) precoItem.set(Number(i.id), Number(i.priceGold));
+    const loja = (i) => (Number(i.npcPrice) > 0 ? Number(i.npcPrice) : Number(i.priceGold) || 0);
+    for (const i of m.itensNossos || []) if (i && loja(i) > 0) precoItem.set(Number(i.id), loja(i));
     // O catálogo do jogo (items.json) traz o priceGold das poções e revives.
     if (PIH.carregarJogo) {
       PIH.carregarJogo().then((j) => {
-        for (const [id, it] of j.itensPorId) if (Number(it.priceGold) > 0 && !precoItem.has(id)) precoItem.set(id, Number(it.priceGold));
+        for (const [id, it] of j.itensPorId) if (loja(it) > 0 && !precoItem.has(id)) precoItem.set(id, loja(it));
       }).catch(() => {});
     }
   });

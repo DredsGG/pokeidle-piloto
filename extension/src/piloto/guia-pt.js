@@ -30,6 +30,10 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.43.1': [
+        "Corrigido: a poção e o revive custavam bem mais na loja do jogo do que o Piloto contava, então o Cofre deixava gastar muito além do teto. Agora a conta usa o preço que a loja cobra, e a escolha da poção e as quantidades também.",
+        "Corrigido: pokémon do time que não luta com segurança em nenhuma hunt (um Magikarp, por exemplo) fica fora do rodízio, em vez de entrar e ficar morrendo.",
+      ],
       '1.43.0': [
         "Atualizar o time pelo meta ganhou \"Fazer sozinho\" (janela Time, aba Meta): quando a diferença para o meta fica 30 min sem mudar, o Piloto atualiza o time sozinho; se faltar pokémon do meta, liga o Caçar o meta sozinho e, depois da caça, troca o time no Centro e religa a Troca de hunt e o rodízio.",
       ],

@@ -437,6 +437,17 @@
             const l = r.linhas[0];
             if (!l || l.inviavel || PIH.engine.arriscada(l)) continue;
           } catch { continue; }
+        } else {
+          // 1.43.1 (relato #3, ZaryImortal: um Magikarp entrou no rodízio e ficou morrendo, gastando
+          // tudo em revive e poção): com a Troca de hunt, quem entra vai para a melhor hunt DELE — e
+          // quem não tem nenhuma hunt liberada onde lute com segurança fica fora do rodízio.
+          let destino = null;
+          try { destino = PIH.auto && PIH.auto.melhorHuntPara ? await PIH.auto.melhorHuntPara(prox.id) : null; } catch { destino = null; }
+          if (!destino) {
+            const k = `rodSemHunt:${prox.id}`;
+            if (Date.now() - (Number(marcas[k]) || 0) > 3_600_000) { marcas[k] = Date.now(); gravar(); diario(`rodízio: ${prox.nome} (Nv ${prox.level}) não luta com segurança em nenhuma hunt liberada — fica fora do rodízio por enquanto`, 'aviso'); }
+            continue;
+          }
         }
         if (comecar) { marcas.rodizioComecar = false; gravar(); }
         return trocarAtivo(prox, at, huntAuto);

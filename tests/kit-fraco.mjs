@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const require = createRequire(import.meta.url);
+const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -129,11 +129,12 @@ const sets = recebidos.filter((m) => m.t === 'auto.set');
 const compras = recebidos.slice(t0).filter((m) => m.t === 'shop.buy');
 ok(sets.some((m) => (m.potionIds || [])[0] === 201) && !sets.some((m) => (m.potionIds || [])[0] === 200), `troca na hora para a poção nova (sem esperar 10 min) e não desce para a mais fraca depois de comprar: ${JSON.stringify(sets.map((m) => m.potionIds))}`);
 const gastoBolas = compras.filter((m) => m.kind === 'ball').reduce((s, m) => s + m.qty * 10, 0);
-const gastoVida = compras.filter((m) => m.kind === 'item').reduce((s, m) => s + m.qty * ({ 201: 10, 205: 40 }[m.id] || 0), 0);
+// 1.43.1: o preço da LOJA (npcPrice) de poção e revive
+const gastoVida = compras.filter((m) => m.kind === 'item').reduce((s, m) => s + m.qty * ({ 201: 150, 205: 600 }[m.id] || 0), 0);
 ok(gastoVida >= 1000 && gastoVida + gastoBolas <= 3600, `sobrevivência primeiro: poções/revives ${gastoVida}, bolas ${gastoBolas}`);
 ok(compras.some((m) => m.kind === 'item' && m.id === 201 && m.qty >= 20), `comprou a poção nova: ${JSON.stringify(compras.map((m) => [m.kind, m.id, m.qty]))}`);
 ok(!compras.some((m) => m.id === 202), 'não gastou com a poção antiga');
-ok(compras.reduce((s, m) => s + m.qty * ({ 201: 10, 205: 40, 1: 10 }[m.id] || 0), 0) <= 4000, 'cabe no ouro da conta');
+ok(compras.reduce((s, m) => s + m.qty * ({ 201: 150, 205: 600, 1: 10 }[m.id] || 0), 0) <= 4000, 'cabe no ouro da conta');
 // recarregar a página com o kit já aplicado (um de cada marcado): a poção marcada zerada é comprada
 inv.items[201] = 0;
 welcome.estado.automation = { ...welcome.estado.automation, potionIds: [201] };
@@ -155,7 +156,7 @@ const faixas = [
   { nome: 'Nv 300', gold: 15_000_000, level: 300, hp: 12000 },
   { nome: 'Nv 1000', gold: 600_000_000, level: 1000, hp: 50000 },
 ];
-const PRECO = { b1: 10, b2: 60, b3: 150, b4: 400, i200: 5, i201: 10, i202: 22, i203: 55, i204: 135, i205: 40, i206: 350 };
+const PRECO = { b1: 10, b2: 60, b3: 150, b4: 400, i200: 50, i201: 150, i202: 400, i203: 800, i204: 1500, i205: 600, i206: 2500 };
 const ordemPocao = ['Small Potion', 'Great Potion', 'Ultra Potion', 'Hyper Potion', 'Ultimate Potion'];
 let antesPocao = -1;
 for (const f of faixas) {
@@ -182,7 +183,8 @@ for (const f of faixas) {
   const pocaoP = r.lista.find((x) => x.cat === 'pocao'); const reviveP = r.lista.find((x) => x.cat === 'revive');
   const cabeMinVida = r.livre >= 20 * (pocaoP ? pocaoP.preco : 5) + 3 * (reviveP ? reviveP.preco : 40);
   ok(!cabeMinVida || (q('pocao') >= 20 && q('revive') >= 3), `${f.nome}: poção e revive no mínimo (${q('pocao')} poções, ${q('revive')} revives)`);
-  ok(custo('bola') === 0 || q('pocao') >= 20, `${f.nome}: bola só depois da sobrevivência (bolas ${custo('bola')})`);
+  // sem ouro para o mínimo de poção e revive, só o piso de bolas da conta nova (para capturar) entra
+  ok(custo('bola') === 0 || q('pocao') >= 20 || (!cabeMinVida && custo('bola') <= 0.15 * r.livre), `${f.nome}: bola só depois da sobrevivência (bolas ${custo('bola')})`);
   const iP = ordemPocao.indexOf(r.kit && r.kit.pocao);
   ok(iP >= antesPocao, `${f.nome}: a poção não piora quando a conta sobe (${r.kit && r.kit.pocao})`);
   antesPocao = Math.max(antesPocao, iP);

@@ -652,6 +652,7 @@
 
   // Frases com partes variáveis (a primeira que casar vale).
   const regras = [
+    [/^rotina: rodízio: (.+?) \(Nv (\d+)\) não luta com segurança em nenhuma hunt liberada — fica fora do rodízio por enquanto$/u, 'routine: rotation: $1 (Lv $2) cannot fight safely in any unlocked hunt — left out of the rotation for now', 'rutina: rotación: $1 (Nv $2) no lucha con seguridad en ninguna hunt liberada — queda fuera de la rotación por ahora'],
     [/^time: automático: (.+)$/u, (m) => `team: automatic: ${m[1]}`, (m) => `equipo: automático: ${m[1]}`],
     [/^hoje: (\d+) respondidas · (\d+) puladas · (\d+) sem resposta · (\d+) respostas na base$/u, 'today: $1 answered · $2 skipped · $3 unanswered · $4 answers in the base', 'hoy: $1 respondidas · $2 omitidas · $3 sin respuesta · $4 respuestas en la base'],
     // ---- 1.34: alvos de compra ----

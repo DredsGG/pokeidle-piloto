@@ -30,6 +30,10 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.43.1': [
+        "Corregido: la poción y el revive costaban mucho más en la tienda del juego de lo que contaba el Piloto, así que el Cofre dejaba gastar muy por encima del tope. Ahora la cuenta usa el precio que cobra la tienda, y también la elección de la poción y las cantidades.",
+        "Corregido: un pokémon del equipo que no lucha con seguridad en ninguna hunt (un Magikarp, por ejemplo) queda fuera de la rotación, en vez de entrar y desmayarse una y otra vez.",
+      ],
       '1.43.0': [
         "Actualizar el equipo por el meta ganó \"Hacerlo solo\" (ventana Equipo, pestaña Meta): cuando la diferencia con el meta se mantiene 30 min, el Piloto actualiza el equipo solo; si falta un pokémon del meta, enciende Cazar el meta solo y, después de la caza, cambia el equipo en el Centro y vuelve a encender el cambio de hunt y la rotación.",
       ],

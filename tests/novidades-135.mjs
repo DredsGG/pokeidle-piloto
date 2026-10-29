@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const require = createRequire(import.meta.url);
+const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -169,7 +169,7 @@ const ouro = await page.evaluate(() => { let e = null; window.__pokeidleHunt.on(
 srv({ t: 'estado', estado: { gold: ouro + 4321 } });
 await sleep(1200);
 const lista = await page.evaluate(() => window.__pokeidleHunt.extrato.lista().map((e) => `${e.id.split(':')[0]}|${e.fonte}|${e.nome}|${e.qtd}|${e.valor}|${e.origem}`));
-ok(lista.some((x) => /^c\|loja\|Poke Ball\|200\|2000\|/.test(x)) && lista.some((x) => /^c\|loja\|Great Potion\|50\|500\|/.test(x)), `loja pelo cofre (${JSON.stringify(lista)})`);
+ok(lista.some((x) => /^c\|loja\|Poke Ball\|200\|2000\|/.test(x)) && lista.some((x) => /^c\|loja\|Great Potion\|50\|7500\|/.test(x)), `loja pelo cofre (${JSON.stringify(lista)})`);
 ok(!lista.some((x) => /Revive/.test(x)), 'reserva devolvida saiu do extrato');
 ok(lista.filter((x) => /Fire Stone/.test(x)).length === 1 && lista.some((x) => /^hc\|mercado\|Fire Stone\|3\|6000\|radar$/.test(x)), 'a compra do Radar virou a linha do jogo (uma só, com a origem Radar)');
 ok(lista.some((x) => /^d\|depot\|.*\|12\|4321\|/.test(x)), 'venda do Depot pela diferença de ouro');

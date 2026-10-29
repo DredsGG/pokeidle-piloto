@@ -420,8 +420,8 @@
     for (const [ids, cat] of [[a.potionIds, 'pocao'], [a.reviveIds, 'revive']]) {
       for (const id of ids ?? []) {
         const it = itemDe(id);
-        // Preço de COMPRA é o priceGold; o npcPrice é o que o NPC pagava de volta (o 1.2.0 usava esse).
-        const preco = Number(it?.priceGold) || 0;
+        // 1.43.1: o preço de COMPRA de poção e revive é o npcPrice (a vitrine da loja do jogo)
+        const preco = precoLoja(it);
         if (it && preco > 0) lista.push({ chave: `i${id}`, kind: 'item', id: Number(id), nome: it.name, preco, tem: eu.items?.[id] ?? 0, cat });
       }
     }
@@ -439,7 +439,7 @@
         const { bola, pocao, revive } = kitAtual;
         if (bola && bola.compravel !== false && Number(bola.priceGold) > 0) out.push({ chave: `b${bola.id}`, kind: 'ball', id: bola.id, nome: bola.nome, preco: Number(bola.priceGold), tem: eu.balls?.[bola.id] ?? 0, cat: 'bola' });
         for (const [it, cat] of [[pocao, 'pocao'], [revive, 'revive']]) {
-          if (it && Number(it.priceGold) > 0) out.push({ chave: `i${it.id}`, kind: 'item', id: Number(it.id), nome: it.name, preco: Number(it.priceGold), tem: eu.items?.[it.id] ?? 0, cat });
+          if (it && precoLoja(it) > 0) out.push({ chave: `i${it.id}`, kind: 'item', id: Number(it.id), nome: it.name, preco: precoLoja(it), tem: eu.items?.[it.id] ?? 0, cat });
         }
         return out;
       }
@@ -515,13 +515,20 @@
   // as poções do jogo que não estão no items.json (a Golden Potion vem no welcome, com cura em %)
   const pocaoNossa = (id) => (welcome?.itensNossos ?? []).some((i) => Number(i?.id) === Number(id) && i.category === 'heal' && Number(i.priceGold) > 0);
   const itemPorId = (id) => jogoCache?.itensPorId?.get(Number(id)) ?? (welcome?.itensNossos ?? []).find((i) => Number(i?.id) === Number(id)) ?? null;
+  // 1.43.1 (relato #3, ZaryImortal: "acabou com todo o meu gold"): a loja do jogo cobra a poção e o
+  // revive pelo `npcPrice` (lido no app.js em 29/10: a vitrine usa `preco: item.npcPrice`, e a conta
+  // de custo da sessão do próprio jogo também); o `priceGold` desses itens ficou 7 a 18 vezes menor.
+  // O Piloto usava o priceGold: o cofre achava a compra barata e deixava gastar muito mais que o teto.
+  // As bolas continuam pelo priceGold (a vitrine delas usa esse).
+  const precoLoja = (i) => (i && Number(i.npcPrice) > 0 ? Number(i.npcPrice) : Number(i && i.priceGold) || 0);
+  PIH.precoLojaItem = precoLoja;
   // a poção que a conta usa agora (a primeira marcada nas Automações) — para o modelo da aba Caçar
   PIH.pocaoDaConta = () => {
     const a = eu?.automation;
     const ids = Array.isArray(a?.potionIds) ? a.potionIds : [];
-    const it = ids.map(itemPorId).find((i) => i && Number(i.priceGold) > 0 && (Number(i.healAmount) > 0 || Number(i.healPct) > 0));
+    const it = ids.map(itemPorId).find((i) => i && precoLoja(i) > 0 && (Number(i.healAmount) > 0 || Number(i.healPct) > 0));
     if (!it) return null;
-    return { id: it.id, cura: Number(it.healAmount) || 0, curaPct: Number(it.healPct) || 0, preco: Number(it.priceGold), limiar: Number.isFinite(Number(a.hpLimiar)) ? Number(a.hpLimiar) : 0.3 };
+    return { id: it.id, cura: Number(it.healAmount) || 0, curaPct: Number(it.healPct) || 0, preco: precoLoja(it), limiar: Number.isFinite(Number(a.hpLimiar)) ? Number(a.hpLimiar) : 0.3 };
   };
 
   /**
@@ -613,8 +620,8 @@
     const hpMedio = time.length ? time.reduce((s, p) => s + Number(p.maxHp), 0) / time.length : 0;
     const limiar = Number.isFinite(Number(eu.automation?.hpLimiar)) ? Math.min(0.95, Math.max(0.05, Number(eu.automation.hpLimiar))) : 0.3;
     const itens = [...(jogoCache.itensPorId?.values() ?? [])];
-    const vende = (i) => Number(i.npcPrice) > 0 && Number(i.priceGold) > 0;
-    const nossas = (welcome.itensNossos ?? []).filter((i) => i && i.category === 'heal' && Number(i.priceGold) > 0 && Number(i.healPct) > 0);
+    const vende = (i) => precoLoja(i) > 0 && Number(i.npcPrice) > 0;
+    const nossas = (welcome.itensNossos ?? []).filter((i) => i && i.category === 'heal' && precoLoja(i) > 0 && Number(i.healPct) > 0);
     const pocoes = [...itens.filter((i) => i.category === 'heal' && vende(i) && Number(i.healAmount) > 0), ...nossas];
     const revives = itens.filter((i) => i.category === 'revive' && vende(i) && Number(i.revivePct) > 0).sort((a, b) => a.revivePct - b.revivePct);
     const bolas = (welcome.catalogoBolas ?? []).filter((b) => b && b.compravel !== false && Number(b.priceGold) > 0 && !/beast|master/i.test(String(b.nome || ''))).sort((a, b) => a.priceGold - b.priceGold);
@@ -631,17 +638,23 @@
       return Array.isArray(ids) && ids.map(Number).includes(Number(i.id));
     };
     const estoque = (i, cat) => Number((cat === 'bola' ? eu.balls : eu.items)?.[i.id]) || 0;
-    const cabe = (i, cat) => livre >= PISO_AUTO[cat] * Number(i.priceGold) || (marcado(i, cat) && estoque(i, cat) >= PISO_AUTO[cat]);
-    const porUtil = (i) => Number(i.priceGold) / util(i);
-    const ordenadas = [...pocoes].sort((a, b) => porUtil(a) - porUtil(b) || cura(b) - cura(a));
-    const baratas = [...pocoes].sort((a, b) => a.priceGold - b.priceGold);
+    // 1.43.1: bola pelo priceGold; poção e revive pelo preço da loja (npcPrice)
+    const preco = (i, cat) => (cat === 'bola' ? Number(i.priceGold) : precoLoja(i));
+    const cabe = (i, cat) => livre >= PISO_AUTO[cat] * preco(i, cat) || (marcado(i, cat) && estoque(i, cat) >= PISO_AUTO[cat]);
+    const porUtil = (i) => precoLoja(i) / util(i);
+    // 1.43.1: com o preço certo da loja, a Small Potion sai barata por HP — mas uma poção que cura
+    // pouco perto do que falta não segura a luta. Só entra quem cura pelo menos 1/3 do que falta
+    // (se nenhuma cura isso, todas valem e a mais forte ganha no desempate).
+    const forte = (i) => cura(i) >= falta / 3;
+    const ordenadas = [...pocoes].sort((a, b) => (forte(b) - forte(a)) || porUtil(a) - porUtil(b) || cura(b) - cura(a));
+    const baratas = [...pocoes].sort((a, b) => precoLoja(a) - precoLoja(b));
     const pocao = hpMedio ? (ordenadas.find((i) => cabe(i, 'pocao')) ?? baratas[0]) : baratas[0];
-    const porHp = Number(pocao.priceGold) / util(pocao);
+    const porHp = precoLoja(pocao) / util(pocao);
     const reviveBase = revives[0];
     let revive = reviveBase;
     for (const rv of revives.slice(1)) {
       const extraHp = (Number(rv.revivePct) - Number(reviveBase.revivePct)) * hpMedio;
-      if (extraHp * porHp > Number(rv.priceGold) - Number(reviveBase.priceGold) && cabe(rv, 'revive')) revive = rv;
+      if (extraHp * porHp > precoLoja(rv) - precoLoja(reviveBase) && cabe(rv, 'revive')) revive = rv;
     }
     // 1.33.2 (o André: "a conta ficou alta e marcou Super Ball em vez de Ultra"): a bola olhava só o
     // ouro/h medido, que despenca quando o ativo é um pokémon fraco subindo de nível (Larvitar no

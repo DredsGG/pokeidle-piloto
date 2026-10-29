@@ -2,8 +2,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
-const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const require = createRequire(import.meta.url);
+const AQUI = path.dirname(new URL(import.meta.url).pathname);
 const { chromium } = require('playwright');
 
 const EXT = path.resolve(AQUI, '../extension');
@@ -111,12 +111,14 @@ await page.keyboard.press('Escape');
 await page.evaluate(() => window.__pokeidleHunt.auto._interno.cfg().repor.kitAuto !== false);
 let k = await kit({ hp: 700, ouroH: 0, saldo: 3000 });
 ok(k && k.bola === 'Poke Ball' && k.revive === 'Revive', `conta nova: Poke Ball e Revive (${JSON.stringify(k)})`);
-// 1.33: a de menor ouro por HP que cura de verdade (falta 350): Great 10/150 = 0,067; Ultra 22/350 = 0,063
+// 1.43.1: pelo preço da LOJA (npcPrice): a de menor ouro por HP útil entre as que curam 1/3 do que falta
 ok(k.pocao === 'Ultra Potion', `HP 700, limiar 50%: Ultra Potion (menor ouro por HP útil) → ${k.pocao}`);
-k = await kit({ hp: 900, ouroH: 0, livre: 300 }); ok(k.pocao === 'Great Potion', `só 300 de ouro livre: o primeiro lote de Ultra (20 × 22) não cabe → ${k.pocao}`);
+k = await kit({ hp: 900, ouroH: 0, livre: 300 }); ok(k.pocao === 'Small Potion', `só 300 de ouro livre: nenhum primeiro lote cabe (Small 20 × 50 = 1.000) → a mais barata → ${k.pocao}`);
 k = await kit({ hp: 900, ouroH: 0, livre: 50 }); ok(k.pocao === 'Small Potion', `50 de ouro: a mais barata → ${k.pocao}`);
 k = await kit({ hp: 900, ouroH: 0 }); ok(k.pocao === 'Ultra Potion', `HP 900: Ultra Potion (400 ≤ 450) → ${k.pocao}`);
-k = await kit({ hp: 8000, ouroH: 2_000_000 }); ok(k.pocao === 'Ultimate Potion' && k.revive === 'Revive', `HP 8000: Ultimate e ainda Revive → ${JSON.stringify(k)}`);
+// 1.43.1: Max Revive cura 4.000 HP a mais × 0,5 de ouro/HP (Ultimate 1.500/3.000) = 2.000 > 1.900 de diferença (2.500 − 600)
+k = await kit({ hp: 8000, ouroH: 2_000_000 }); ok(k.pocao === 'Ultimate Potion' && k.revive === 'Max Revive', `HP 8000: Ultimate, e o Max Revive já compensa → ${JSON.stringify(k)}`);
+k = await kit({ hp: 3000, ouroH: 2_000_000 }); ok(k.revive === 'Revive', `HP 3000: o Revive basta → ${JSON.stringify(k)}`);
 k = await kit({ hp: 20000, ouroH: 2_000_000 }); ok(k.revive === 'Max Revive', `HP 20000: Max Revive vale mais que 50% em poção → ${k.revive}`);
 k = await kit({ hp: 900, ouroH: 2_000_000 }); ok(k.bola !== 'Beast Ball', `nunca Beast Ball (${k.bola})`);
 ok(['Great Ball', 'Super Ball', 'Ultra Ball'].includes(k.bola), `com 2 mi/h a bola sobe (${k.bola})`);

@@ -30,6 +30,10 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.43.1': [
+        "Fixed: potions and revives cost much more in the game's shop than the Pilot counted, so the Vault let it spend far past the cap. The math now uses the price the shop charges, and so do the potion choice and the amounts.",
+        "Fixed: a team Pokémon that can't fight safely in any hunt (a Magikarp, for example) is left out of the rotation instead of stepping in and fainting over and over.",
+      ],
       '1.43.0': [
         "Update the team by the meta got \"Do it myself\" (Team window, Meta tab): once the difference from the meta stays the same for 30 min, the Pilot updates the team by itself; if a meta Pokémon is missing, it turns on Hunt the meta by itself and, after the hunt, swaps the team at the Center and turns hunt switching and the rotation back on.",
       ],

@@ -1,5 +1,19 @@
 {
   "versoes": {
+    "1.43.1": {
+      "pt": [
+        "Corrigido: a poção e o revive custavam bem mais na loja do jogo do que o Piloto contava, então o Cofre deixava gastar muito além do teto. Agora a conta usa o preço que a loja cobra, e a escolha da poção e as quantidades também.",
+        "Corrigido: pokémon do time que não luta com segurança em nenhuma hunt (um Magikarp, por exemplo) fica fora do rodízio, em vez de entrar e ficar morrendo."
+      ],
+      "en": [
+        "Fixed: potions and revives cost much more in the game's shop than the Pilot counted, so the Vault let it spend far past the cap. The math now uses the price the shop charges, and so do the potion choice and the amounts.",
+        "Fixed: a team Pokémon that can't fight safely in any hunt (a Magikarp, for example) is left out of the rotation instead of stepping in and fainting over and over."
+      ],
+      "es": [
+        "Corregido: la poción y el revive costaban mucho más en la tienda del juego de lo que contaba el Piloto, así que el Cofre dejaba gastar muy por encima del tope. Ahora la cuenta usa el precio que cobra la tienda, y también la elección de la poción y las cantidades.",
+        "Corregido: un pokémon del equipo que no lucha con seguridad en ninguna hunt (un Magikarp, por ejemplo) queda fuera de la rotación, en vez de entrar y desmayarse una y otra vez."
+      ]
+    },
     "1.43.0": {
       "pt": [
         "Atualizar o time pelo meta ganhou \"Fazer sozinho\" (janela Time, aba Meta): quando a diferença para o meta fica 30 min sem mudar, o Piloto atualiza o time sozinho; se faltar pokémon do meta, liga o Caçar o meta sozinho e, depois da caça, troca o time no Centro e religa a Troca de hunt e o rodízio."
