@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.45.0': [
+        "Caçar o meta ganhou a opção \"Só aceitar um bom\" (desligada de fábrica): o Piloto fica em cada alvo até capturar um com a nota do jogo acima do corte que você escolher (3,5+, 4,0+ ou 5,0+; shiny e P5 passam sempre) e só então vai para o próximo.",
+      ],
       '1.44.0': [
         "O Piloto agora percebe sozinho quando o PokeIdle publica versão nova do jogo (confere a cada 30 min e quando você volta para a aba) e mostra no meio da tela \"O PokeIdle atualizou o jogo, dê F5\", com o botão para recarregar.",
       ],

@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.45.0': [
+        "Hunt the meta has a new \"Only accept a good one\" option (off by default): the Pilot stays on each target until it catches one with the game grade above the cut you pick (3.5+, 4.0+ or 5.0+; shiny and P5 always pass), and only then moves to the next.",
+      ],
       '1.44.0': [
         "The Pilot now notices by itself when PokeIdle publishes a new game version (it checks every 30 min and when you come back to the tab) and shows \"PokeIdle updated the game, press F5\" in the middle of the screen, with a button to reload.",
       ],

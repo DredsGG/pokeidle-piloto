@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.45.0": {
+      "pt": [
+        "Caçar o meta ganhou a opção \"Só aceitar um bom\" (desligada de fábrica): o Piloto fica em cada alvo até capturar um com a nota do jogo acima do corte que você escolher (3,5+, 4,0+ ou 5,0+; shiny e P5 passam sempre) e só então vai para o próximo."
+      ],
+      "en": [
+        "Hunt the meta has a new \"Only accept a good one\" option (off by default): the Pilot stays on each target until it catches one with the game grade above the cut you pick (3.5+, 4.0+ or 5.0+; shiny and P5 always pass), and only then moves to the next."
+      ],
+      "es": [
+        "Cazar el meta tiene la opción nueva \"Solo aceptar uno bueno\" (apagada de fábrica): el Piloto se queda en cada objetivo hasta capturar uno con la nota del juego por encima del corte que elijas (3,5+, 4,0+ o 5,0+; shiny y P5 pasan siempre) y recién entonces va al siguiente."
+      ]
+    },
     "1.44.0": {
       "pt": [
         "O Piloto agora percebe sozinho quando o PokeIdle publica versão nova do jogo (confere a cada 30 min e quando você volta para a aba) e mostra no meio da tela \"O PokeIdle atualizou o jogo, dê F5\", com o botão para recarregar."

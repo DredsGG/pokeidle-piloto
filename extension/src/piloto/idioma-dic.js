@@ -701,6 +701,11 @@
     [/^(?:meta: )?Troca de hunt desligada \(o Caçar o meta escolhe a hunt\)$/u, 'meta: Hunt switching off (Hunt the meta picks the hunt)', 'meta: Cambio de hunt apagado (Cazar el meta elige la hunt)'],
     [/^(?:meta: )?Troca de hunt ligada de novo \(farm com o time do meta\)$/u, 'meta: Hunt switching back on (farming with the meta team)', 'meta: Cambio de hunt encendido de nuevo (farm con el equipo del meta)'],
     [/^(?:meta: )?capturou (.+?) \(Nv (\d+)\) — (.+?) do meta, guardado na Coleção$/u, 'meta: caught $1 (Lv $2) — meta $3, kept in the Collection', 'meta: capturó $1 (Nv $2) — $3 del meta, guardado en la Colección'],
+    [/^(?:meta: )?capturou um bom: (.+?) \(Nv (\d+), nota ([\d,?]+)\) — (.+?) do meta, guardado na Coleção$/u, 'meta: caught a good one: $1 (Lv $2, grade $3) — meta $4, kept in the Collection', 'meta: capturó uno bueno: $1 (Nv $2, nota $3) — $4 del meta, guardado en la Colección'],
+    [/^(?:meta: )?capturou (.+?) \(Nv (\d+), nota ([\d,?]+)\) — abaixo de ([\d,]+), continua caçando (.+)$/u, 'meta: caught $1 (Lv $2, grade $3) — below $4, still hunting $5', 'meta: capturó $1 (Nv $2, nota $3) — por debajo de $4, sigue cazando $5'],
+    [/^(?:meta: )?só aceitar um bom ligado \(nota ([\d,]+)\+, shiny e P5 passam\)$/u, 'meta: only accept a good one on (grade $1+, shiny and P5 pass)', 'meta: solo aceptar uno bueno encendido (nota $1+, shiny y P5 pasan)'],
+    [/^(?:meta: )?só aceitar um bom desligado$/u, 'meta: only accept a good one off', 'meta: solo aceptar uno bueno apagado'],
+    [/^(?:meta: )?só aceitar um bom: nota ([\d,]+)\+$/u, 'meta: only accept a good one: grade $1+', 'meta: solo aceptar uno bueno: nota $1+'],
     [/^(?:meta: )?capturou um (.+?) melhor — ele fica no lugar do anterior \((.+?) Nv (\d+)\)$/u, 'meta: caught a better $1 — it replaces the previous one ($2 Lv $3)', 'meta: capturó un $1 mejor — reemplaza al anterior ($2 Nv $3)'],
     [/^(?:meta: )?desligado(?: \((.+)\))?$/u, (m) => `meta: off${m[1] ? ` (${({ 'o time do meta está completo': 'the meta team is complete', 'você desligou': 'you turned it off' })[m[1]] || m[1]})` : ''}`, (m) => `meta: apagado${m[1] ? ` (${({ 'o time do meta está completo': 'el equipo del meta está completo', 'você desligou': 'lo apagaste' })[m[1]] || m[1]})` : ''}`],
     [/^(?:meta: )?ligado — alvo: (.+)$/u, 'meta: on — target: $1', 'meta: encendido — objetivo: $1'],
@@ -854,6 +859,7 @@
 
   // Trechos trocados dentro de qualquer texto (do mais longo para o mais curto).
   const trechos = [
+    ['esperando a nota do jogo carregar ("Só aceitar um bom")', 'waiting for the game grade to load ("Only accept a good one")', 'esperando que cargue la nota del juego ("Solo aceptar uno bueno")'],
     ['ligue a Pokébola automática!', 'turn on the automatic Poké Ball!', '¡activa la Poké Ball automática!'],
     ['sem hunt: pulado', 'no hunt: skipped', 'sin hunt: saltado'],
     ['nenhum pokémon do time pode lutar', 'no team pokémon can fight', 'ningún pokémon del equipo puede luchar'],

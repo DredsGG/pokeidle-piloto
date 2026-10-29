@@ -1039,6 +1039,7 @@
       } else if (alvo === 'time:metaAuto') { cfg.metaAuto = v; gravar(); autoVisto = { chave: '', desde: 0 }; diario(`atualizar o time pelo meta sozinho ${v ? 'ligado' : 'desligado'}`); }
       else if (alvo === 'time:doMeta') { cfg.doMeta = v; gravar(); st.ultimaTroca = 0; diario(`usar os do meta ${v ? 'ligado' : 'desligado'}`); }
       else if (alvo === 'rotina:rodizio.ligado') PIH.rotina?.definir?.('rodizio.ligado', v);
+      else if (alvo === 'metacaca:soBom') PIH.metaCaca?.definir?.('soBom', v);
       else if (alvo === 'metacaca:ligado') { Promise.resolve(PIH.metaCaca?.definir?.('ligado', v)).then(() => pintar(true)); }
       pintar(true);
       return;
