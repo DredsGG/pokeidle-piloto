@@ -276,6 +276,7 @@
 
   const barraHost = document.createElement('div');
   barraHost.id = 'radar-mercado-barra';
+  barraHost.dataset.piloto = '1'; // 1.48.0: o aviso de extensão repetida (piloto/duplicada.js) reconhece o do Piloto
   const barraSombra = barraHost.attachShadow({ mode: 'open' });
   const barraEstilo = el('style');
   barraEstilo.textContent = CSS_BARRA;
@@ -389,6 +390,7 @@
     if (painelHost) return;
     painelHost = document.createElement('div');
     painelHost.id = 'radar-mercado-tela';
+    painelHost.dataset.piloto = '1';
     painelHost.style.cssText = 'display:none !important;';
     const sombra = painelHost.attachShadow({ mode: 'open' });
     // 1.13: o estilo.css do PRÓPRIO jogo também aqui dentro — as abas, linhas, interruptores e
