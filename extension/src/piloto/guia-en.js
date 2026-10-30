@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.48.0': [
+        "New notice: if the original /hunt or Market Radar stay on together with the Pilot, it warns you in the middle of the screen and in the Log and explains how to turn them off. The Pilot already does everything they do, and running both makes them fight over the same spot on screen.",
+      ],
       '1.47.1': [
         "New Support ♥ button in the footer, optional: Pix (Brazil) or GitHub Sponsors (other countries). It changes nothing in the Pilot.",
       ],

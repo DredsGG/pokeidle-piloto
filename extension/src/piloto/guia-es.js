@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.48.0': [
+        "Nuevo aviso: si el /hunt o el Radar del Mercado originales siguen activados junto con el Piloto, avisa en el centro de la pantalla y en el Diario y explica cómo desactivarlos. El Piloto ya hace todo lo que ellos hacen, y los dos juntos se disputan el mismo lugar en la pantalla.",
+      ],
       '1.47.1': [
         "Nuevo botón Apoyar ♥ en el pie, opcional: Pix (Brasil) o GitHub Sponsors (otros países). No cambia nada en el Piloto.",
       ],
