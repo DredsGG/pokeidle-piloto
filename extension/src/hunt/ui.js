@@ -475,7 +475,8 @@
   const aoClicarFora = (ev) => {
     const caminho = ev.composedPath();
     // 1.32.2: clicar no quadro solto do guia/novidades/versão nova (piloto/guia.js) não fecha o painel
-    if (caminho.some((el) => el && el.classList && el.classList.contains('plt-guia-solto'))) return;
+    // 1.47.1: nem o quadro do Apoiar ♥ (nem o fundo dele: clicar fora fecha só o quadro)
+    if (caminho.some((el) => el && el.classList && (el.classList.contains('plt-guia-solto') || el.classList.contains('plt-ap-fundo')))) return;
     if (painel && !caminho.includes(painel) && !caminho.includes(botao)) fecharPainel();
   };
 

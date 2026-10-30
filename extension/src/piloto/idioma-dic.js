@@ -512,6 +512,7 @@
     "Regras": ["Rules", "Reglas"],
     "Teto de hoje": ["Today's cap", "Tope de hoy"],
     "Ouro/h medido": ["Measured gold/h", "Oro/h medido"],
+    "Apoiar": ["Support", "Apoyar"],
     "nunca gasta abaixo": ["never spends below", "nunca gasta por debajo"],
     "Piloto desligado": ["Pilot off", "Piloto apagado"],
     "Nada automático roda. Escolha Auto lá em cima para ligar.": ["Nothing automatic runs. Pick Auto at the top to turn it on.", "No corre nada automático. Elige Auto arriba para encenderlo."],

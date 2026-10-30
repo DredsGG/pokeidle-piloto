@@ -596,3 +596,53 @@ html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { backgrou
 /* 1.44.0: jogo novo (dê F5) */
 .plt-jogo-novo .plt-jogo-novo-ico { color: #ffc94a; font-size: 16px; line-height: 1; margin-right: 2px; }
 .plt-jogo-novo .plt-jogo-novo-caixa { border-top: 3px solid #ffc94a; }
+
+/* ---- 1.47.1 (regra 16): Apoiar ♥ — o item no rodapé e o quadro no meio da tela ----------------- */
+.plt-sup-bt.plt-sup-apoiar { grid-column: 1 / -1; }
+.plt-sup-coracao { color: #ff6f8e; font-size: 13px; line-height: 1; }
+.plt-ap-fundo {
+  position: fixed; inset: 0; z-index: 2147482100; display: grid; place-items: center; padding: 16px;
+  background: rgba(20, 10, 18, .55); font: 500 13px/1.45 "Barlow", "Segoe UI", system-ui, sans-serif;
+}
+.plt-ap-fundo *, .plt-ap-fundo *::before, .plt-ap-fundo *::after { box-sizing: border-box; }
+.plt-ap-fundo .plt-ap-caixa.modal-caixa {
+  position: relative; margin: 0; width: min(420px, 100%); max-height: calc(100vh - 32px); overflow: auto;
+  display: flex; flex-direction: column; box-shadow: 0 16px 44px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .25); border-top: 3px solid #ff6f8e;
+}
+.plt-ap-coracao { color: #ff6f8e; font-size: 17px; line-height: 1; margin-right: 2px; }
+.plt-ap-corpo { display: grid; gap: 12px; padding: 14px 18px 4px; }
+.plt-ap-pergunta { margin: 0; font: 700 15px/1.3 "Barlow", sans-serif; color: #fff; }
+.plt-ap-cartoes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.plt-ap-cartao {
+  display: grid; justify-items: center; gap: 4px; padding: 16px 10px 14px; border: 0; border-radius: 8px; cursor: pointer; text-align: center;
+  color: var(--vao-txt, #f3e6d8); background: var(--vao, #3b2128); box-shadow: inset 0 0 0 2px var(--mad-linha, rgba(255, 255, 255, .15));
+  transition: transform .1s ease-out, box-shadow .1s ease-out;
+}
+.plt-ap-cartao:hover { transform: translateY(-1px); }
+.plt-ap-cartao.destaque { box-shadow: inset 0 0 0 2px #ffc94a, 0 0 0 3px rgba(255, 201, 74, .18); }
+.plt-ap-cartao:focus-visible, .plt-ap-fundo .cfg-escala-bt:focus-visible, .plt-ap-fundo input:focus-visible, .plt-ap-fundo .plt-guia-fechar:focus-visible { outline: 2px solid #ffc94a; outline-offset: 2px; }
+.plt-ap-band { font-size: 30px; line-height: 1; }
+.plt-ap-cartao b { font: 700 15px/1.2 "Barlow", sans-serif; color: #fff; }
+.plt-ap-cartao small { font: 600 12px/1.3 "Barlow", sans-serif; color: rgba(255, 244, 232, .78); }
+.plt-ap-nota, .plt-ap-texto { margin: 0; font: 500 12.5px/1.45 "Barlow", sans-serif; color: rgba(255, 244, 232, .82); }
+.plt-ap-texto { font-size: 14px; color: var(--vao-txt, #f3e6d8); }
+.plt-ap-valores { display: flex; flex-wrap: wrap; gap: 6px; }
+.plt-ap-valores .cfg-escala-bt { flex: 1 1 auto; min-width: 64px; padding-left: 8px; padding-right: 8px; white-space: nowrap; }
+.plt-ap-outro { display: flex; align-items: center; gap: 8px; font: 700 14px/1 "Barlow", sans-serif; color: #fff; }
+.plt-ap-outro input {
+  flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 0; border-radius: 6px; font: 600 14px/1 "Barlow", sans-serif;
+  color: var(--vao-txt, #f3e6d8); background: var(--vao, #3b2128); box-shadow: inset 0 0 0 2px var(--mad-linha, rgba(255, 255, 255, .15));
+}
+.plt-ap-dica { margin-top: -6px; font: 600 11.5px/1.35 "Barlow", sans-serif; color: rgba(255, 244, 232, .7); }
+.plt-ap-dica.erro { color: #ffb1a3; }
+.plt-ap-qr-caixa { display: grid; place-items: center; }
+.plt-ap-qr { display: block; width: min(232px, 70vw); height: auto; background: #fff; border-radius: 6px; box-shadow: 0 0 0 4px #fff, 0 3px 10px rgba(0, 0, 0, .35); }
+.plt-ap-copiar, .plt-ap-sponsors { width: 100%; justify-content: center; text-decoration: none; display: inline-flex; align-items: center; }
+.plt-ap-chave { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; padding: 8px 10px; border-radius: 6px; background: rgba(0, 0, 0, .22); box-shadow: inset 0 0 0 1px var(--mad-linha, rgba(255, 255, 255, .15)); }
+.plt-ap-chave small { grid-column: 1 / -1; font: 700 11px/1 "Barlow", sans-serif; color: rgba(255, 244, 232, .65); }
+.plt-ap-chave code { font: 600 12px/1.3 ui-monospace, Consolas, monospace; color: #fff; word-break: break-all; user-select: all; }
+.plt-ap-fundo .plt-guia-rodape { padding: 10px 18px 14px; }
+@media (max-width: 420px) { .plt-ap-cartoes { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: no-preference) {
+  .plt-ap-fundo .plt-ap-caixa { animation: plt-guia-entra .18s ease-out; }
+}

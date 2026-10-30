@@ -9,7 +9,7 @@ Hunt optimizer, market radar, team manager and daily routine in one browser exte
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
 ![Browsers](https://img.shields.io/badge/Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20GX%20·%20Firefox%20140+-works-6d4aff)
-![Version](https://img.shields.io/badge/version-1.47.0-e53935)
+![Version](https://img.shields.io/badge/version-1.47.1-e53935)
 ![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-2e7d32)
 
 <img src="docs/hunt-tab.png" width="80%" alt="The Piloto window in Automatic mode, Hunt tab: hunt switching, restock, team rotation, Outland tier, automatic Poké Ball and auto-reload, above the ranking of the best hunts">
@@ -106,6 +106,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 - **Automatic buys survive a dropped connection.** A Radar purchase that couldn't be sent because the game connection dropped is tried again (up to 3 times) when it comes back; nothing reached the server, so there's no double purchase, and the vault checks it again.
 - **New game version notice.** Every 30 minutes and when you come back to the game tab (at most once every 10 minutes), the Piloto reads the game version from the static `/app` page, the same file the browser loads — no account action. When PokeIdle has published a new version, a box in the middle of the screen says "PokeIdle updated the game, press F5", with a **Press F5 now** button; **Later**, X or Esc snooze it for 1 hour. The journal gets a line with the old and new version, and a hidden tab also gets one system notification per version.
 - **Plays nice with the server.** When the game answers "Devagar aí — muitas mensagens" (too many messages), the radar and the Pilot halve their pace on their own and speed back up slowly.
+- **Support ♥ (optional).** A button under *Report bug* and *Check for updates* opens a small box: Brazil gets a Pix QR code (R$ 5, 10, 25 or any amount) and copy buttons; other countries get a link to GitHub Sponsors. The QR is built locally, with no network request and no new permission, and it changes nothing in the Piloto.
 - **Report bug** opens a GitHub issue pre-filled with a privacy-safe report (versions, modes, health check, recent journal; no nick, no balance). **Check for updates** reads the latest release. Both sit at the bottom of the menu, above the "made by **Dreds** · vX.Y.Z" signature.
 - **Update notice on the game page.** The Piloto checks the latest release by itself: when the game opens, every 30 minutes and whenever you come back to the game tab (at most once every 10 minutes). When a newer one exists, a small box shows up right away in the middle of the game screen, with no reload: "New version vX.Y.Z", what changed in your language and an **Update** button that does the right thing for your browser. Its X only snoozes it for 1 hour (or until the game opens again). A release marked **URGENT** (serious bug) shows the box without an X and pauses the automation until you update. The first-run guide and the "What's new" box after an update show up the same way, without opening the Piloto; "What's new" lists only what changed since the last version you saw (6 lines at most), and these boxes wait until the game tab is visible. Apart from the urgent case they never block the game or the automation and close with X or Esc. (Firefox installs from the signed .xpi update by themselves, so the normal version notice doesn't show there; the urgent one does.)
 - **Health check after every game update:** checks that the game modules and functions the Piloto relies on still exist, and reports what broke instead of failing silently.
@@ -274,6 +275,12 @@ The screenshots come from `tests/docs-prints.mjs`: the real extension running ag
 ## Credits
 
 Built on top of **Radar do Mercado** and **/hunt**, two extensions by **Allan Hert**, used and published with his permission. PokeIdle Piloto merges both into a single hook and adds the vault, the routine, auto-resell and the safety layer.
+
+The Support box draws its QR code with [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 1.4.4 by Kazuhiko Arase (MIT), bundled in `extension/src/lib/qrcode.js` with its license notice.
+
+## Support
+
+This project is free and always will be. If it helps you, you can support it on [GitHub Sponsors](https://github.com/sponsors/DredsGG) (one-time or monthly). 🇧🇷 In Brazil? Pix: `fa525dad-afca-4683-845d-eee7225a53e3`
 
 ## Disclaimer
 

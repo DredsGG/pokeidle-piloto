@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.47.1': [
+        "Nuevo botón Apoyar ♥ en el pie, opcional: Pix (Brasil) o GitHub Sponsors (otros países). No cambia nada en el Piloto.",
+      ],
       '1.47.0': [
         "Nuevo Modo farm (pestaña Cazar): el Piloto calcula qué pokémon rinde más XP en tu nivel, del entrenador y del propio pokémon, y farmea con él sin parar. Si no lo tienes, captura uno, que entra al momento y evoluciona solo hasta el elegido. Recalcula 1 vez al día y cuando se abre una hunt nueva.",
       ],

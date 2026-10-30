@@ -93,6 +93,7 @@
     return `<div class="plt-sup-bts">
       <button type="button" class="plt-sup-bt" data-sup="bug" title="Relatar um bug para o Dreds" aria-expanded="${bugAberto}">${ICO_BUG}<span>${esc(tr('Relatar bug'))}</span></button>
       <button type="button" class="plt-sup-bt${procurando ? ' gira' : ''}" data-sup="checar" title="Procurar versão nova no GitHub">${ICO_UPD}<span>${esc(tr('Procurar atualização'))}</span></button>
+      ${PIH.apoiar ? `<button type="button" class="plt-sup-bt plt-sup-apoiar" data-sup="apoiar" aria-haspopup="dialog"><span>${esc(tr('Apoiar'))}</span><span class="plt-sup-coracao" aria-hidden="true">♥</span></button>` : ''}
     </div>${st ? `<div class="plt-sup-st${upd.disponivel ? ' novo' : status === 'nenhuma' ? ' ok' : status === 'procurando' ? ' busca' : ' erro'}">${upd.disponivel ? '' : status === 'nenhuma' ? '<i aria-hidden="true">✓</i>' : ''}<span>${esc(tr(st))}</span></div>` : ''}`;
   }
   function htmlCartoes() {
@@ -153,6 +154,7 @@
     const b = ev.target.closest('[data-sup]');
     if (!b || !b.closest('.plt-janela')) return;
     const a = b.dataset.sup;
+    if (a === 'apoiar') { PIH.apoiar?.abrir?.(b); return; } // 1.47.1: regra 16
     if (a === 'bug') { bugAberto = !bugAberto; pintar(); if (bugAberto) setTimeout(() => document.querySelector('[data-sup-oque]')?.focus(), 50); return; }
     if (a === 'bug-fechar') { bugAberto = false; pintar(); return; }
     if (a === 'checar') { status = 'procurando'; pintar(); pedir('checar'); return; }

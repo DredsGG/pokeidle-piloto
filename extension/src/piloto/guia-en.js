@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.47.1': [
+        "New Support ♥ button in the footer, optional: Pix (Brazil) or GitHub Sponsors (other countries). It changes nothing in the Pilot.",
+      ],
       '1.47.0': [
         "New Farm mode (Hunt tab): the Pilot works out which Pokémon earns the most XP at your level, for the trainer and for itself, and farms with it nonstop. If you don't have it, it catches one, which steps in right away and evolves by itself into the chosen one. Recalculates once a day and when a new hunt unlocks.",
       ],
