@@ -37,8 +37,8 @@
   const ler = () => {
     try {
       const c = JSON.parse(localStorage.getItem(CHAVE) || 'null') || {};
-      return { ligado: c.ligado === true, soBom: c.soBom === true, notaMin: NOTAS.includes(Number(c.notaMin)) ? Number(c.notaMin) : 4, recorte: c.recorte === 'faixa' ? 'faixa' : 'topo', alvos: Array.isArray(c.alvos) ? c.alvos : [], vistos: Array.isArray(c.vistos) ? c.vistos : [], desde: Number(c.desde) || 0, fim: c.fim || null, rodizioDepois: c.rodizioDepois === true };
-    } catch { return { ligado: false, soBom: false, notaMin: 4, recorte: 'topo', alvos: [], vistos: [], desde: 0, fim: null }; }
+      return { ligado: c.ligado === true, soBom: c.soBom === true, notaMin: NOTAS.includes(Number(c.notaMin)) ? Number(c.notaMin) : 4, recorte: c.recorte === 'faixa' ? 'faixa' : 'topo', alvos: Array.isArray(c.alvos) ? c.alvos : [], vistos: Array.isArray(c.vistos) ? c.vistos : [], desde: Number(c.desde) || 0, fim: c.fim || null, rodizioDepois: c.rodizioDepois === true, descartar: Array.isArray(c.descartar) ? c.descartar.filter((d) => d && Number.isInteger(d.id)).slice(-50) : [], descartados: Array.isArray(c.descartados) ? c.descartados.map(Number).filter(Boolean).slice(-500) : [] };
+    } catch { return { ligado: false, soBom: false, notaMin: 4, recorte: 'topo', alvos: [], vistos: [], desde: 0, fim: null, descartar: [], descartados: [] }; }
   };
   let cfg = ler();
   // 1.33 (o André: "um pokémon ser pulado por falta de hunt segura é impossível"): o "pulado para
@@ -171,6 +171,7 @@
         const bomAtual = atual ? await ehBom(atual, a) : false;
         const nota = notaTxt(await notaComoMeta(p, a));
         if (!atual || (bomNovo && !bomAtual) || (bomNovo === bomAtual && (await potencial(p)) > (await potencial(atual)) * 1.02)) {
+          if (atual) aDescartar(atual, a);
           a.capturadoId = p.id;
           if (bomNovo) { diario(`capturou um bom: ${p.nome} (Nv ${p.level}, nota ${nota}) — ${a.meta} do meta, guardado na Coleção`, 'ok'); guardarNaColecao(p); }
           else diario(`capturou ${p.nome} (Nv ${p.level}, nota ${nota}) — abaixo de ${notaTxt(cfg.notaMin)}, continua caçando ${a.meta}`);
@@ -182,6 +183,7 @@
         diario(`capturou ${p.nome} (Nv ${p.level}) — ${a.meta} do meta, guardado na Coleção`, 'ok');
         guardarNaColecao(p);
       } else if ((await potencial(p)) > (await potencial(atual)) * 1.02) {
+        aDescartar(atual, a);
         a.capturadoId = p.id;
         diario(`capturou um ${p.nome} melhor — ele fica no lugar do anterior (${atual.nome} Nv ${atual.level})`, 'ok');
         guardarNaColecao(p);
@@ -227,7 +229,7 @@
     const usados = new Set();
     let mexeu = false;
     for (const a of cfg.alvos) {
-      const cand = meus().filter((p) => !usados.has(p.id) && daFamilia(a, p));
+      const cand = meus().filter((p) => !usados.has(p.id) && !descartadosSet().has(p.id) && daFamilia(a, p));
       let melhor = null;
       let mv = -1;
       let mb = false;
@@ -250,6 +252,61 @@
     if (colecao.includes(p.id) || p.slot != null) return;
     PIH.pedir({ t: 'colecao.mover', pokemonId: p.id, para: 'colecao' }, 'metacaca');
   }
+
+  // 1.50.0 (relato #5, ponto 4): quando vem um melhor, o anterior (mesma família, pior) sai da
+  // Coleção do mesmo jeito que o Piloto já descarta: volta para o Depot (colecao.mover 'depot', que
+  // o gancho só aceita abaixo do Nv 50, fora do time, sem item, nunca shiny nem P5) e dali segue a
+  // tarefa do Depot (vender ou Oferendar, se ligada). Antes ele ficava na Coleção para sempre; e,
+  // mandado para o Depot à mão, a proteção "família do alvo" da rotina o guardava de novo.
+  // Um por volta, com as travas: nunca o capturado/"já tinha" de alguma vaga, shiny, P5, quem está
+  // no time ou é o ativo, quem segura item, o que a Guarda protege (PvP, os melhores de farm/PvP/
+  // treino, lendário), o que o Melhorar o time ou o Modo farm protegem, nem nota alta (3,5+, o mínimo
+  // do Mercado). Nada é vendido aqui e nada gasta ouro, Diamante ou Gema.
+  const NOTA_ALTA = 3.5;
+  const COL_NV_DEPOT = 50; // o gancho só devolve ao Depot abaixo do Nv 50 (1.34.1)
+  const descartadosSet = () => new Set(cfg.descartados || []);
+  function aDescartar(p, a) {
+    if (!p || !a) return;
+    if (!Array.isArray(cfg.descartar)) cfg.descartar = [];
+    if (cfg.descartar.some((d) => d.id === p.id)) return;
+    cfg.descartar.push({ id: p.id, raiz: a.raiz, em: Date.now() });
+    gravar();
+  }
+  const naColecao = (p) => ((eu && eu.automation && eu.automation.pokemonTravado) || []).map(Number).includes(Number(p.id));
+  async function descartarUm() {
+    if (!eu || !Array.isArray(cfg.descartar) || !cfg.descartar.length) return null;
+    if (!PIH.cofre || !PIH.cofre.liberado || !PIH.cofre.liberado('metacaca')) return null;
+    const d = cfg.descartar[0];
+    const p = porId(d.id);
+    const tirar = (txt, tipo) => { cfg.descartar.shift(); gravar(); if (txt) diario(txt, tipo); return txt; };
+    if (!p) return tirar(null); // já saiu (vendido, solto)
+    const a = cfg.alvos.find((x) => x.raiz === d.raiz) || null;
+    const quem = `${p.nome} Nv ${nf.format(p.level || 0)}`;
+    const fica = (porque) => tirar(`o anterior ${quem} fica: ${porque}`);
+    if (cfg.alvos.some((x) => x.capturadoId === p.id || x.tinhaId === p.id)) return tirar(null); // voltou a ser o do meta
+    if (p.shiny === true) return fica('é shiny');
+    if (Number(p.potencia) >= 5) return fica('é P5');
+    if (p.slot != null || p.id === eu.activeId) return fica('está no time');
+    if (Number(p.heldItemId) > 0) return fica('segura item');
+    const G = PIH.guarda && PIH.guarda.resumo ? PIH.guarda.resumo() : null;
+    if (!G || !G.pronto) return null; // espera a Guarda (sem ela, não dá para saber quem proteger)
+    if (G.ids.includes(p.id)) return fica('a Guarda protege (PvP, melhores de farm/PvP/treino, lendário)');
+    const outros = [...(PIH.cacadas && PIH.cacadas.protegidos ? PIH.cacadas.protegidos() : []), ...(PIH.farm && PIH.farm.protegidos ? PIH.farm.protegidos() : [])];
+    if (outros.includes(p.id)) return fica('o Melhorar o time ou o Modo farm protegem');
+    if (a) {
+      if (!N || typeof N.notaDePokemon !== 'function') return null; // espera a nota do jogo
+      const n = await notaComoMeta(p, a);
+      if (n != null && n >= NOTA_ALTA) return fica(`nota alta (${notaTxt(n)})`);
+    }
+    if (naColecao(p) && (Number(p.level) || 0) >= COL_NV_DEPOT) return fica(`na Coleção: Nv ${COL_NV_DEPOT}+ (o Piloto só tira da Coleção abaixo do Nv ${COL_NV_DEPOT})`);
+    cfg.descartados = [...descartadosSet(), p.id].slice(-500);
+    if (!naColecao(p)) return tirar(`o anterior ${quem} (veio um melhor) fica no Depot e não é mais guardado`, 'ok');
+    const r = PIH.pedir({ t: 'colecao.mover', pokemonId: p.id, para: 'depot' }, 'metacaca');
+    if (!r || !r.ok) { gravar(); return null; } // recusado agora: tenta na próxima volta
+    return tirar(`o anterior ${quem} sai da Coleção para o Depot (veio um melhor)`, 'ok');
+  }
+  let descartando = false;
+  setInterval(() => { if (descartando) return; descartando = true; descartarUm().catch(() => {}).finally(() => { descartando = false; }); }, 10_000);
 
   // ---- onde caçar -----------------------------------------------------------------------------
   function cacador() {
@@ -454,5 +511,5 @@
     return null;
   }
 
-  PIH.metaCaca = { html, definir, desligar, religarRodizio, ativo: () => cfg.ligado, protegidos, especiesAlvo, _interno: { cfg: () => cfg, st, tique, notaComoMeta, pego, escolherHunt, podeTentar, conferirCapturas, sanear, refazer: () => { saneado = false; } } };
+  PIH.metaCaca = { html, definir, desligar, religarRodizio, ativo: () => cfg.ligado, protegidos, especiesAlvo, descartados: () => [...descartadosSet()], _interno: { cfg: () => cfg, st, tique, notaComoMeta, pego, escolherHunt, podeTentar, conferirCapturas, sanear, descartarUm, refazer: () => { saneado = false; } } };
 })(globalThis);

@@ -30,6 +30,10 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.50.0': [
+        "Corregido: la poción que el Piloto marca en el juego ahora se elige por el HP de quien está peleando, no por el promedio del equipo. Subiendo uno débil en un equipo fuerte (el Magikarp del reporte #5), marca la Small Potion en vez de la Ultra.",
+        "Corregido: en Cazar el meta, cuando llega uno mejor, el anterior de nota baja sale de la Colección al Depot y no se guarda de nuevo. Shiny, P5, los del equipo, nota 3,5+, Nv 50+ y lo que protege la Guarda se quedan.",
+      ],
       '1.49.1': [
         "En la ventana Amigos del juego, cada amigo muestra su rango del PvP Clasificatorio junto al nombre: el emblema, el tier, los puntos y la posición si está en el top 100. El rango queda guardado y aparece en cuanto se abre la ventana.",
       ],

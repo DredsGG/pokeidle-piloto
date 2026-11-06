@@ -30,6 +30,10 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.50.0': [
+        "Fixed: the potion the Pilot sets in the game is now picked by the HP of the Pokémon that is fighting, not the team average. Leveling a weak one in a strong team (the Magikarp from issue #5), it sets Small Potion instead of Ultra.",
+        "Fixed: in Hunt the meta, when a better one comes, the previous low-grade one leaves the Collection for the Depot and is not kept again. Shiny, P5, team members, grade 3.5+, Lv 50+ and whatever the Guard protects stay.",
+      ],
       '1.49.1': [
         "In the game's Friends window, each friend shows their PvP Ranked rank next to the name: the emblem, the tier, the points and the position if they're in the top 100. Ranks are kept and show up as soon as the window opens.",
       ],

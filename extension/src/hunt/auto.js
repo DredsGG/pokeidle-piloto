@@ -626,8 +626,15 @@
     const revives = itens.filter((i) => i.category === 'revive' && vende(i) && Number(i.revivePct) > 0).sort((a, b) => a.revivePct - b.revivePct);
     const bolas = (welcome.catalogoBolas ?? []).filter((b) => b && b.compravel !== false && Number(b.priceGold) > 0 && !/beast|master/i.test(String(b.nome || ''))).sort((a, b) => a.priceGold - b.priceGold);
     if (!pocoes.length || !revives.length || !bolas.length) return null;
-    const falta = Math.max(1, hpMedio * (1 - limiar));
-    const cura = (i) => (Number(i.healPct) > 0 ? Number(i.healPct) * hpMedio : Number(i.healAmount));
+    // 1.50.0 (relato #5, ponto 1: Ultra Potion no Magikarp, lucro negativo): a poção que o jogo usa
+    // cura quem está lutando (o ativo), então ela é escolhida pelo HP máximo DELE, não pela média do
+    // time. Com time forte e um fraco subindo de nível, a média (~1.000) deixava só a Ultra para cima
+    // no filtro "cura 1/3 do que falta", e o Magikarp (150) gastava Ultra para curar 105. Sem o ativo
+    // (ou sem o HP dele), fica a média, como antes. O revive continua pela média do time.
+    const ativo = (eu.pokemons ?? []).find((p) => p && p.id === eu.activeId && Number(p.maxHp) > 0);
+    const hpLuta = ativo ? Number(ativo.maxHp) : hpMedio;
+    const falta = Math.max(1, hpLuta * (1 - limiar));
+    const cura = (i) => (Number(i.healPct) > 0 ? Number(i.healPct) * hpLuta : Number(i.healAmount));
     const util = (i) => Math.max(1, Math.min(cura(i), falta));
     // ouro livre para a reposição agora (o que o cofre deixa); o teste pode passar outro
     const livre = teste.livre ?? Math.min((Number(eu.gold) || 0) - (Number(cfg.repor.reservaOuro) || 0), PIH.cofre ? PIH.cofre.livre('repor') : Infinity);
@@ -646,9 +653,13 @@
     // pouco perto do que falta não segura a luta. Só entra quem cura pelo menos 1/3 do que falta
     // (se nenhuma cura isso, todas valem e a mais forte ganha no desempate).
     const forte = (i) => cura(i) >= falta / 3;
-    const ordenadas = [...pocoes].sort((a, b) => (forte(b) - forte(a)) || porUtil(a) - porUtil(b) || cura(b) - cura(a));
+    // 1.50.0: nunca uma poção que cura muito mais (o dobro) do que falta quando outra menor, que cabe,
+    // já cura o que falta — mesmo que ela saia mais barata por HP útil (o resto da cura é desperdício).
+    const basta = pocoes.filter((i) => cura(i) >= falta && cura(i) <= 2 * falta && cabe(i, 'pocao'));
+    const exagero = (i) => basta.length > 0 && cura(i) > 2 * falta;
+    const ordenadas = [...pocoes].sort((a, b) => (exagero(a) - exagero(b)) || (forte(b) - forte(a)) || porUtil(a) - porUtil(b) || cura(b) - cura(a));
     const baratas = [...pocoes].sort((a, b) => precoLoja(a) - precoLoja(b));
-    const pocao = hpMedio ? (ordenadas.find((i) => cabe(i, 'pocao')) ?? baratas[0]) : baratas[0];
+    const pocao = hpLuta ? (ordenadas.find((i) => cabe(i, 'pocao')) ?? baratas[0]) : baratas[0];
     const porHp = precoLoja(pocao) / util(pocao);
     const reviveBase = revives[0];
     let revive = reviveBase;
@@ -672,7 +683,7 @@
     const porBola = orcamentoH / Math.max(1, lancamentosH);
     const daBolsa = bolas.filter((b) => b.priceGold <= porBola && cabe(b, 'bola'));
     const bola = daBolsa.length ? daBolsa.sort((a, b) => (Number(b.catchRate) || 0) - (Number(a.catchRate) || 0) || b.priceGold - a.priceGold)[0] : bolas[0];
-    return { bola, pocao, revive, hpMedio: Math.round(hpMedio), porBola: Math.round(porBola), lancamentosH: Math.round(lancamentosH), limiar };
+    return { bola, pocao, revive, hpMedio: Math.round(hpMedio), hpLuta: Math.round(hpLuta), porBola: Math.round(porBola), lancamentosH: Math.round(lancamentosH), limiar };
   }
   async function conferirKit(forcar = false) {
     if (!cfg.repor.ligado || cfg.repor.kitAuto === false || !eu || !PIH.cofre?.liberado('hunt')) return null;
@@ -719,7 +730,7 @@
     kitPedido = { em: agora, ids: [`b${k.bola.id}`, `i${k.pocao.id}`, `i${k.revive.id}`] };
     PIH.pedir({ t: 'auto.set', ballIds: [k.bola.id], potionIds: [k.pocao.id], reviveIds: [k.revive.id] }, 'hunt');
     kitAtual = k; // só o kit que foi de fato mandado ao jogo (o candidato ainda esperando os 10 min não compra)
-    anotar(`automações do jogo: ${k.bola.nome}, ${k.pocao.name} e ${k.revive.name} (um de cada, pela conta: HP médio ${nf.format(k.hpMedio)}${k.porBola ? `, até ${nf.format(k.porBola)} de ouro por bola` : ''})`, 'ok');
+    anotar(`automações do jogo: ${k.bola.nome}, ${k.pocao.name} e ${k.revive.name} (um de cada, pela conta: HP de quem luta ${nf.format(k.hpLuta)}, médio do time ${nf.format(k.hpMedio)}${k.porBola ? `, até ${nf.format(k.porBola)} de ouro por bola` : ''})`, 'ok');
     return k;
   }
 

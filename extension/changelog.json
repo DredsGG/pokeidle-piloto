@@ -1,5 +1,19 @@
 {
   "versoes": {
+    "1.50.0": {
+      "pt": [
+        "Corrigido: a poção que o Piloto marca no jogo agora é escolhida pelo HP de quem está lutando, não pela média do time. Upando um pokémon fraco num time forte (o Magikarp do relato #5), ele marca a Small Potion em vez da Ultra.",
+        "Corrigido: no Caçar o meta, quando vem um melhor, o anterior de nota baixa sai da Coleção para o Depot e não é guardado de novo. Shiny, P5, quem está no time, nota 3,5+, Nv 50+ e o que a Guarda protege ficam."
+      ],
+      "en": [
+        "Fixed: the potion the Pilot sets in the game is now picked by the HP of the Pokémon that is fighting, not the team average. Leveling a weak one in a strong team (the Magikarp from issue #5), it sets Small Potion instead of Ultra.",
+        "Fixed: in Hunt the meta, when a better one comes, the previous low-grade one leaves the Collection for the Depot and is not kept again. Shiny, P5, team members, grade 3.5+, Lv 50+ and whatever the Guard protects stay."
+      ],
+      "es": [
+        "Corregido: la poción que el Piloto marca en el juego ahora se elige por el HP de quien está peleando, no por el promedio del equipo. Subiendo uno débil en un equipo fuerte (el Magikarp del reporte #5), marca la Small Potion en vez de la Ultra.",
+        "Corregido: en Cazar el meta, cuando llega uno mejor, el anterior de nota baja sale de la Colección al Depot y no se guarda de nuevo. Shiny, P5, los del equipo, nota 3,5+, Nv 50+ y lo que protege la Guarda se quedan."
+      ]
+    },
     "1.49.1": {
       "pt": [
         "Na janela Amigos do jogo, cada amigo mostra o rank do PvP Ranqueado ao lado do nome: o emblema, o tier, os pontos e a posição, se estiver no top 100. O rank fica guardado e aparece assim que a janela abre."

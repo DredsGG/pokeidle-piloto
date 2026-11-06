@@ -30,6 +30,10 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.50.0': [
+        "Corrigido: a poção que o Piloto marca no jogo agora é escolhida pelo HP de quem está lutando, não pela média do time. Upando um pokémon fraco num time forte (o Magikarp do relato #5), ele marca a Small Potion em vez da Ultra.",
+        "Corrigido: no Caçar o meta, quando vem um melhor, o anterior de nota baixa sai da Coleção para o Depot e não é guardado de novo. Shiny, P5, quem está no time, nota 3,5+, Nv 50+ e o que a Guarda protege ficam.",
+      ],
       '1.49.1': [
         "Na janela Amigos do jogo, cada amigo mostra o rank do PvP Ranqueado ao lado do nome: o emblema, o tier, os pontos e a posição, se estiver no top 100. O rank fica guardado e aparece assim que a janela abre.",
       ],

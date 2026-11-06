@@ -696,7 +696,9 @@
     for (const id of (PIH.cacadas ? PIH.cacadas.protegidos() : [])) ids.add(id);
     for (const id of (PIH.farm ? PIH.farm.protegidos() : [])) ids.add(id);
     const familiaMeta = new Set([...(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []), ...(PIH.cacadas ? PIH.cacadas.especiesAlvo() : []), ...(PIH.farm ? PIH.farm.especiesAlvo() : [])]);
-    for (const p of livres) if (familiaMeta.has(p.speciesId)) ids.add(p.id);
+    // 1.50.0: o anterior que o Caçar o meta descartou (veio um melhor) não é mais segurado pela família
+    const descartados = new Set(PIH.metaCaca && PIH.metaCaca.descartados ? PIH.metaCaca.descartados() : []);
+    for (const p of livres) if (familiaMeta.has(p.speciesId) && !descartados.has(p.id)) ids.add(p.id);
     if (cfg.pvp.time && Array.isArray(pvp.time)) for (const p of equipeAlvo(pvp.time)) ids.add(p.id);
     return livres.filter((p) => ids.has(p.id) || p.shiny || Number(p.potencia) >= POTENCIA_MAX);
   }
