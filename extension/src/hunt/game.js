@@ -129,4 +129,108 @@
       msCarga: Math.round(performance.now() - inicio),
     };
   })().catch((err) => { promessa = null; throw err; }));
+
+  // ---- 1.51.0: o Dia Sazonal (o "Bônus do Dia") -------------------------------------------------
+  // Todo dia às 18:00 de Brasília o servidor sorteia uma das 18 tipagens: chega em
+  // `estado.diaSazonal { tipo, fim }` e, na virada com o jogador aqui, na mensagem
+  // `{ t: 'diaSazonal', tipo }` (o hook repassa só o tipo). Nas hunts do Mapa, quem é dessa
+  // tipagem causa ×2 e recebe ×¼ de dano. A regra é a do próprio jogo (shared/dia-sazonal.mjs:
+  // `multDanoSazonal` e o piso de `danoSazonal`), pedida só quando o tipo aparece. Sem o dado,
+  // ou sem o módulo no formato esperado, o ranking fica exatamente como era (e o Diário diz).
+  const MODULO_SAZONAL = 'shared/dia-sazonal.mjs';
+  PIH.MODULO_SAZONAL = MODULO_SAZONAL;
+  // o nome que o jogo mostra em português (i18n do cliente, sazonal.tipo.*); o dicionário traduz
+  const NOME_TIPO = { NORMAL: 'Normal', FIRE: 'Fogo', WATER: 'Água', GRASS: 'Planta', ELECTRIC: 'Elétrico', ICE: 'Gelo', FIGHTING: 'Lutador', POISON: 'Veneno', GROUND: 'Terra', FLYING: 'Voador', PSYCHIC: 'Psíquico', BUG: 'Inseto', ROCK: 'Pedra', GHOST: 'Fantasma', DRAGON: 'Dragão', DARK: 'Sombrio', STEEL: 'Aço', FAIRY: 'Fada' };
+  const RE_TIPO = /^[A-Z]{3,10}$/;
+
+  /** O módulo do jogo serve? Só o formato: as 18 tipagens e a função do multiplicador. */
+  function validarSazonal(m) {
+    try {
+      if (!m || typeof m.multDanoSazonal !== 'function' || !Array.isArray(m.TIPOS_SAZONAIS) || m.TIPOS_SAZONAIS.length !== 18) return null;
+      const t = m.TIPOS_SAZONAIS[0];
+      const v = m.multDanoSazonal(t, [t], []);
+      if (!(Number.isFinite(v) && v > 0) || m.multDanoSazonal(null, [t], [t]) !== 1) return null;
+      const mult = m.multDanoSazonal;
+      const piso = typeof m.danoSazonal === 'function' ? m.danoSazonal : null;
+      return {
+        tipos: [...m.TIPOS_SAZONAIS],
+        mult,
+        // o golpe que acertava continua tirando pelo menos 1 (o ¼ não zera golpe)
+        dano: (d, k) => {
+          const r = piso ? Number(piso(d, k)) : Math.max(d > 0 ? 1 : 0, d * k);
+          return Number.isFinite(r) ? r : d;
+        },
+      };
+    } catch { return null; }
+  }
+
+  const sz = { lido: null, modulo: undefined, carregando: null, anunciado: null, falhaAnunciada: null };
+  const nomeTipo = (t) => NOME_TIPO[t] || t;
+  const diarioSz = (txt, tipo) => { try { PIH.cofre?.diario?.(txt, tipo); } catch { /* sem cofre */ } };
+  /** O tipo que vale para o ranking agora: lido do servidor, uma das 18 do módulo do jogo. */
+  function tipoValido() {
+    const m = sz.modulo;
+    return m && sz.lido && m.tipos.includes(sz.lido) ? sz.lido : null;
+  }
+  function anunciar() {
+    const t = tipoValido();
+    if (t) {
+      if (t !== sz.anunciado) {
+        sz.anunciado = t;
+        diarioSz(`Dia Sazonal: ${nomeTipo(t)} (2× dano causado, ¼ recebido nas hunts do Mapa); ranking ajustado`, 'info');
+        emitirMudou();
+      }
+      return;
+    }
+    if (sz.lido && sz.modulo === null && sz.falhaAnunciada !== sz.lido) {
+      sz.falhaAnunciada = sz.lido;
+      diarioSz(`Dia Sazonal: ${nomeTipo(sz.lido)} — o módulo do jogo (dia-sazonal) não carregou ou mudou de formato; ranking sem o ajuste do dia`, 'aviso');
+    }
+    if (sz.anunciado) { sz.anunciado = null; emitirMudou(); }
+  }
+  function emitirMudou() { try { PIH.emit?.('sazonal.mudou', { tipo: tipoValido() }); } catch { /* nada */ } }
+  function carregarModuloSazonal() {
+    if (sz.modulo !== undefined || sz.carregando) return;
+    sz.carregando = importar(MODULO_SAZONAL)
+      .then((m) => validarSazonal(m))
+      .catch(() => null)
+      .then((v) => { sz.modulo = v; sz.carregando = null; anunciar(); });
+  }
+  function receberTipo(tipo) {
+    const t = typeof tipo === 'string' && RE_TIPO.test(tipo) ? tipo : null;
+    if (t === sz.lido) return;
+    sz.lido = t;
+    if (t) carregarModuloSazonal();
+    if (sz.modulo !== undefined) anunciar();
+  }
+  if (typeof PIH.on === 'function') {
+    PIH.on('estado', (e) => { if (e && Object.prototype.hasOwnProperty.call(e, 'diaSazonal')) receberTipo(e.diaSazonal && e.diaSazonal.tipo); });
+    PIH.on('diaSazonal', (m) => receberTipo(m && m.tipo));
+  }
+
+  /**
+   * O `ctx.consts` do motor (um lugar só para todos que montam o ranking). `sazonal: false` para
+   * quem não usa o Dia Sazonal (Caçar o meta, Melhorar o time, rodízio): o consts de antes.
+   */
+  PIH.constsDoRanking = (welcome, { sazonal = true } = {}) => {
+    const w = welcome || {};
+    const c = { tabelaTipos: w.tabelaTipos, ampliacaoHunt: w.ampliacaoHunt, multHpSelvagem: w.multHpSelvagem, multDanoSelvagem: w.multDanoSelvagem, tiposBoost: w.tiposBoost };
+    const t = sazonal ? tipoValido() : null;
+    if (t) {
+      const m = sz.modulo;
+      c.sazonal = Object.freeze({ tipo: t, mult: (tiposAtaca, tiposApanha) => m.mult(t, tiposAtaca, tiposApanha), dano: m.dano });
+    }
+    return c;
+  };
+  PIH.sazonal = Object.freeze({
+    tipo: tipoValido,
+    lido: () => sz.lido,
+    situacao: () => (!sz.lido ? 'sem-dado' : sz.modulo === undefined ? 'carregando' : sz.modulo ? (tipoValido() ? 'ok' : 'tipo-desconhecido') : 'sem-modulo'),
+    nome: nomeTipo,
+    _interno: {
+      validar: validarSazonal,
+      // para os testes do motor: o tipo lido e o módulo já validado
+      definir: (tipo, moduloValidado) => { sz.lido = tipo; sz.modulo = moduloValidado; },
+    },
+  });
 })(globalThis);

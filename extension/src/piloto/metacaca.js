@@ -336,7 +336,7 @@
     const jogo = await PIH.carregarJogo();
     const ctx = {
       mod: jogo.mod, especies: jogo.especies, precoItem: jogo.precoItem, hunts,
-      consts: { tabelaTipos: welcome.tabelaTipos, ampliacaoHunt: welcome.ampliacaoHunt, multHpSelvagem: welcome.multHpSelvagem, multDanoSelvagem: welcome.multDanoSelvagem, tiposBoost: welcome.tiposBoost },
+      consts: PIH.constsDoRanking(welcome, { sazonal: false }),
       eu, geo: (slug) => (PIH.geo ? PIH.geo.daHunt(slug) : null), ritmoMedido: () => null,
     };
     let melhor = null;

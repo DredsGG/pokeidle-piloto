@@ -294,7 +294,7 @@
     const jogo = await PIH.carregarJogo();
     const ctx = {
       mod: jogo.mod, especies: jogo.especies, precoItem: jogo.precoItem, hunts: [h],
-      consts: { tabelaTipos: welcome.tabelaTipos, ampliacaoHunt: welcome.ampliacaoHunt, multHpSelvagem: welcome.multHpSelvagem, multDanoSelvagem: welcome.multDanoSelvagem, tiposBoost: welcome.tiposBoost },
+      consts: PIH.constsDoRanking(welcome, { sazonal: false }),
       eu, geo: (slug) => (PIH.geo ? PIH.geo.daHunt(slug) : null), ritmoMedido: () => null,
     };
     const aguenta = (pk) => {
@@ -410,7 +410,7 @@
     const jogo = await PIH.carregarJogo();
     const ctx = {
       mod: jogo.mod, especies: jogo.especies, precoItem: jogo.precoItem, hunts: [h],
-      consts: { tabelaTipos: welcome.tabelaTipos, ampliacaoHunt: welcome.ampliacaoHunt, multHpSelvagem: welcome.multHpSelvagem, multDanoSelvagem: welcome.multDanoSelvagem, tiposBoost: welcome.tiposBoost },
+      consts: PIH.constsDoRanking(welcome, { sazonal: false }),
       eu, geo: (slug) => (PIH.geo ? PIH.geo.daHunt(slug) : null), ritmoMedido: () => null,
     };
     // 1.22 (pedido do André): 'ciclo' — o próximo do time (pela ordem das vagas) vira o ativo, um de

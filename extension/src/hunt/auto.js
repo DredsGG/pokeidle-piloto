@@ -69,7 +69,7 @@
     const jogo = await PIH.carregarJogo();
     const precoItem = new Map(jogo.precoItem);
     for (const i of welcome.itensNossos ?? []) if (i?.name && Number(i.npcPrice) > 0) precoItem.set(i.name, Number(i.npcPrice));
-    const consts = { tabelaTipos: welcome.tabelaTipos, ampliacaoHunt: welcome.ampliacaoHunt, multHpSelvagem: welcome.multHpSelvagem, multDanoSelvagem: welcome.multDanoSelvagem, tiposBoost: welcome.tiposBoost };
+    const consts = PIH.constsDoRanking(welcome, { sazonal: false }); // a janela Time e o ritmo da Reposição: sem o Dia Sazonal
     const bonusLootPct = PIH.lootPct ? PIH.lootPct(jogo, eu, welcome) : 0;
     const out = new Map();
     let n = 0;
@@ -94,7 +94,7 @@
     for (const i of welcome.itensNossos ?? []) if (i?.name && Number(i.npcPrice) > 0) precoItem.set(i.name, Number(i.npcPrice));
     const ctx = {
       mod: jogo.mod, especies: jogo.especies, precoItem, hunts: welcome.hunts ?? [],
-      consts: { tabelaTipos: welcome.tabelaTipos, ampliacaoHunt: welcome.ampliacaoHunt, multHpSelvagem: welcome.multHpSelvagem, multDanoSelvagem: welcome.multDanoSelvagem, tiposBoost: welcome.tiposBoost },
+      consts: PIH.constsDoRanking(welcome),
       eu,
       bonusLootPct: PIH.lootPct ? PIH.lootPct(jogo, eu, welcome) : 0,
       geo: (slug) => PIH.geo?.daHunt(slug) ?? null,
@@ -808,6 +808,8 @@
     iniciarRotina({ destino: ultimaHunt, curar: true, compras: comprasPendentes(), motivo: `parado no Centro: curando e voltando para ${nomeHunt(ultimaHunt)}` });
   }
   PIH.on('estado', (e) => { eu = e; if (naHunt()) ultimaHunt = e.huntSlug; notarMudanca(); passo(); try { registrarConsumo(e); } catch { /* sem medida */ } });
+  // 1.51.0: o Dia Sazonal mudou (virada das 18:00 ou 1ª leitura): a análise refaz já
+  PIH.on('sazonal.mudou', () => { ultimaAnalise = 0; });
   setInterval(() => {
     try {
       passo();

@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.51.0": {
+      "pt": [
+        "O ranking de hunts (aba Caçar e Modo farm) agora leva em conta o Dia Sazonal do jogo: nas hunts do Mapa, quem é da tipagem do dia bate o dobro e apanha um quarto. Num dia de Inseto, a hunt de inseto cai para quem não é Inseto. A conta é refeita sozinha na virada das 18:00."
+      ],
+      "en": [
+        "The hunt ranking (Hunt tab and Farm mode) now takes the game's Seasonal Day into account: in Map hunts, Pokémon of the day's type hit twice as hard and take a quarter of the damage. On a Bug day, the bug hunt drops for anyone who isn't Bug. It is worked out again by itself at the 18:00 turnover."
+      ],
+      "es": [
+        "El ranking de hunts (pestaña Cazar y Modo farm) ahora tiene en cuenta el Día Estacional del juego: en las hunts del Mapa, los del tipo del día pegan el doble y reciben un cuarto. En un día de Bicho, la hunt de bichos baja para quien no es Bicho. La cuenta se rehace sola en el cambio de las 18:00."
+      ]
+    },
     "1.50.0": {
       "pt": [
         "Corrigido: a poção que o Piloto marca no jogo agora é escolhida pelo HP de quem está lutando, não pela média do time. Upando um pokémon fraco num time forte (o Magikarp do relato #5), ele marca a Small Potion em vez da Ultra.",

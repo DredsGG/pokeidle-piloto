@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.51.0': [
+        "El ranking de hunts (pestaña Cazar y Modo farm) ahora tiene en cuenta el Día Estacional del juego: en las hunts del Mapa, los del tipo del día pegan el doble y reciben un cuarto. En un día de Bicho, la hunt de bichos baja para quien no es Bicho. La cuenta se rehace sola en el cambio de las 18:00.",
+      ],
       '1.50.0': [
         "Corregido: la poción que el Piloto marca en el juego ahora se elige por el HP de quien está peleando, no por el promedio del equipo. Subiendo uno débil en un equipo fuerte (el Magikarp del reporte #5), marca la Small Potion en vez de la Ultra.",
         "Corregido: en Cazar el meta, cuando llega uno mejor, el anterior de nota baja sale de la Colección al Depot y no se guarda de nuevo. Shiny, P5, los del equipo, nota 3,5+, Nv 50+ y lo que protege la Guarda se quedan.",

@@ -239,20 +239,39 @@
    * e, com o gasto de poção no ouro/h, isso pesaria no ranking. ⚠️ a Pokepédia descreve a regra para
    * "o pokemon"; que o servidor use a mesma para o selvagem é a leitura mais provável, não confirmada.
    */
-  function ameacaDoSelvagem(esp, nivel, pk, ef, ctx) {
+  /**
+   * 1.51.0: o Dia Sazonal do jogo (`ctx.consts.sazonal`, montado por PIH.constsDoRanking com a
+   * função do próprio jogo). Só nas hunts do Mapa: boss, arena, Safari, Mística e Centro ficam sem
+   * fator. ⚠️ A Outland conta como Mapa (o cliente mostra o ícone nela; o servidor não é público).
+   */
+  const huntDoMapa = (h) => !!h && !(h.boss || h.arena || h.safari || h.mistico || h.centro || h.mapa === false);
+  const sazonalDa = (h, ctx) => {
+    const s = ctx.consts?.sazonal;
+    return s && typeof s.mult === 'function' && typeof s.dano === 'function' && huntDoMapa(h) ? s : null;
+  };
+  /** O dano depois do dia: ×2 se quem bate é da tipagem, ×¼ se quem apanha é; piso de 1 (o do jogo). */
+  function comSazonal(s, d, tiposAtaca, tiposApanha) {
+    if (!s) return d;
+    const k = Number(s.mult(tiposAtaca, tiposApanha));
+    if (!Number.isFinite(k) || k <= 0 || k === 1) return d;
+    return s.dano(d, k);
+  }
+
+  function ameacaDoSelvagem(esp, nivel, pk, ef, ctx, h = null) {
     const st = statsSelvagem(esp, nivel);
     const tiposPk = pk.tipos;
     const tiposEsp = tiposDe(esp);
     const multDano = ctx.consts.multDanoSelvagem ?? 1.8;
+    const sazonal = h ? sazonalDa(h, ctx) : null;
     const comSpeed = (cd) => (ctx.mod?.cooldown?.cooldownGolpeComSpeed ? ctx.mod.cooldown.cooldownGolpeComSpeed(cd, esp.baseSpeed, REGRAS.ivSelvagemMedio) : cd);
     const golpes = (esp.attacks ?? []).filter((a) => (a.learnLevel ?? 1) <= nivel).map((a) => {
       const fisico = a.category !== 'SPECIAL';
-      const d = dano(nivel, Math.max(REGRAS.poderMinimo, a.power), fisico ? st.atk : st.spAtk,
-        fisico ? pk.stats.def : pk.stats.spDef, tiposEsp.includes(a.type), ef(a.type, tiposPk[0], tiposPk[1]));
+      const d = comSazonal(sazonal, dano(nivel, Math.max(REGRAS.poderMinimo, a.power), fisico ? st.atk : st.spAtk,
+        fisico ? pk.stats.def : pk.stats.spDef, tiposEsp.includes(a.type), ef(a.type, tiposPk[0], tiposPk[1])), tiposEsp, tiposPk);
       return { d, cdS: Math.max(0.1, (Number(comSpeed(a.cooldownMs)) || 0) / 1000) };
     }).filter((g) => g.d > 0).sort((a, b) => b.d - a.d);
     const tipoInv = tipoDaInvestida(tiposEsp, ef, tiposPk);
-    const inv = dano(nivel, REGRAS.investidaPower, st.atk, pk.stats.def, true, ef(tipoInv, tiposPk[0], tiposPk[1]));
+    const inv = comSazonal(sazonal, dano(nivel, REGRAS.investidaPower, st.atk, pk.stats.def, true, ef(tipoInv, tiposPk[0], tiposPk[1])), tiposEsp, tiposPk);
     const cdInv = cdPeloIv(REGRAS.investidaCdMs, REGRAS.ivSelvagemMedio) / 1000;
     // 120 s de luta, do começo (tudo pronto): o selvagem fica muito mais tempo em você do que isso só
     // nos abates longos, e aí o ritmo já é o de recarga
@@ -328,14 +347,15 @@
     let ttk = 0, dps = 0, hitMax = 0, hitMedio = 0, xpKill = 0, ouroKill = 0, lootKill = 0, efMedia = 0;
     let melhorGolpe = null, melhorDano = -1;
     const alvos = [];
+    const sazonal = sazonalDa(h, ctx);
     for (const { esp, pontos } of especiesHunt) {
       const w = pontos / total;
       const tiposAlvo = tiposDe(esp);
       const st = statsSelvagem(esp, nivel);
       const golpes = golpesPk.map((g) => {
         const fisico = g.category !== 'SPECIAL';
-        const d = dano(pk.level, Math.max(REGRAS.poderMinimo, g.power), fisico ? pk.stats.atk : pk.stats.spAtk,
-          fisico ? st.def : st.spDef, pk.tipos.includes(g.type), ef(g.type, tiposAlvo[0], tiposAlvo[1]));
+        const d = comSazonal(sazonal, dano(pk.level, Math.max(REGRAS.poderMinimo, g.power), fisico ? pk.stats.atk : pk.stats.spAtk,
+          fisico ? st.def : st.spDef, pk.tipos.includes(g.type), ef(g.type, tiposAlvo[0], tiposAlvo[1])), pk.tipos, tiposAlvo);
         return { d, cdS: g.cooldownMs / 1000, g };
       });
       for (const g of golpes) {
@@ -343,7 +363,7 @@
       }
       const tipoInv = tipoDaInvestida(pk.tipos, ef, tiposAlvo);
       const investida = {
-        d: dano(pk.level, REGRAS.investidaPower, pk.stats.atk, st.def, true, ef(tipoInv, tiposAlvo[0], tiposAlvo[1])),
+        d: comSazonal(sazonal, dano(pk.level, REGRAS.investidaPower, pk.stats.atk, st.def, true, ef(tipoInv, tiposAlvo[0], tiposAlvo[1])), pk.tipos, tiposAlvo),
         cdS: cdInvS,
       };
       const multHp = ctx.consts.multHpSelvagem ?? 5;
@@ -357,7 +377,7 @@
       if (!Number.isFinite(s)) { ttk = Infinity; break; }
       ttk += w * s;
 
-      const ameaca = ameacaDoSelvagem(esp, nivel, pk, ef, ctx);
+      const ameaca = ameacaDoSelvagem(esp, nivel, pk, ef, ctx, h);
       dps += w * ameaca.dps;
       hitMedio += w * ameaca.hitMedio;
       hitMax = Math.max(hitMax, ameaca.hitMax);

@@ -414,7 +414,7 @@
   }
   // O que vem do SERVIDOR (estado, welcome, campo, erro) só o hook publica: a página não pode
   // fingir um saldo maior para o cofre aprovar (auditoria de 2026-10-19, caso C2).
-  const TIPOS_DO_SERVIDOR = new Set(['welcome', 'estado', 'campo.init', 'campo', 'erro', 'pvp', 'perfil', 'piloto.enviado', 'campeonato', 'showdown', 'chat', 'chat.mute', 'batalha.achados', 'amigos']);
+  const TIPOS_DO_SERVIDOR = new Set(['welcome', 'estado', 'campo.init', 'campo', 'erro', 'pvp', 'perfil', 'piloto.enviado', 'campeonato', 'showdown', 'chat', 'chat.mute', 'batalha.achados', 'amigos', 'diaSazonal']);
   PIH.emit = (tipo, dado) => { if (!TIPOS_DO_SERVIDOR.has(tipo)) emitirInterno(tipo, dado); };
 
   // O cofre se registra UMA vez (o primeiro script da extensão, em document_start, antes de
@@ -528,6 +528,7 @@
     else if (cab.includes('"t":"amigos"')) tipo = 'amigos'; // 1.49.1: a lista de amigos (só os nicks, para o rank do PvP)
     else if (cab.includes('"t":"campeonato"')) tipo = 'campeonato'; // 1.32: torneios (Mundial e Amador)
     else if (cab.includes('"t":"showdown"')) tipo = 'showdown'; // 1.32: o Showdown semanal
+    else if (cab.includes('"t":"diaSazonal"')) tipo = 'diaSazonal'; // 1.51.0: a virada do Dia Sazonal (só o tipo)
     // 1.33.8 (build de teste do André; pública desde a 1.37.0): o chat, para o respondedor do Dúvidas. Fica no mundo da página
     // (TIPOS_DO_SERVIDOR: não sai para a ponte nem para o fundo).
     else if (cab.includes('"t":"chat"')) tipo = 'chat';
@@ -540,6 +541,12 @@
     if (!tipo) return;
     let m;
     try { m = JSON.parse(texto); } catch { return; }
+    if (tipo === 'diaSazonal') {
+      // só o tipo (uma palavra em maiúsculas); nada mais da mensagem passa
+      const t = m && typeof m.tipo === 'string' && /^[A-Z]{3,10}$/.test(m.tipo) ? m.tipo : null;
+      if (t) emitirInterno('diaSazonal', { tipo: t });
+      return;
+    }
     if (tipo === 'welcome') {
       emitirInterno('welcome', m);
       if (m.estado) entregarEstado({ ...m.estado, cheio: true });

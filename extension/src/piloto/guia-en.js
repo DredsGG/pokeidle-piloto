@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.51.0': [
+        "The hunt ranking (Hunt tab and Farm mode) now takes the game's Seasonal Day into account: in Map hunts, Pokémon of the day's type hit twice as hard and take a quarter of the damage. On a Bug day, the bug hunt drops for anyone who isn't Bug. It is worked out again by itself at the 18:00 turnover.",
+      ],
       '1.50.0': [
         "Fixed: the potion the Pilot sets in the game is now picked by the HP of the Pokémon that is fighting, not the team average. Leveling a weak one in a strong team (the Magikarp from issue #5), it sets Small Potion instead of Ultra.",
         "Fixed: in Hunt the meta, when a better one comes, the previous low-grade one leaves the Collection for the Depot and is not kept again. Shiny, P5, team members, grade 3.5+, Lv 50+ and whatever the Guard protects stay.",

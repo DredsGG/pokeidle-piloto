@@ -653,7 +653,13 @@
   };
 
   // Frases com partes variáveis (a primeira que casar vale).
+  // 1.51.0: o Dia Sazonal (os nomes das tipagens como o jogo mostra em cada idioma)
+  const TIPO_SAZ = { 'Normal': ['Normal', 'Normal'], 'Fogo': ['Fire', 'Fuego'], 'Água': ['Water', 'Agua'], 'Planta': ['Grass', 'Planta'], 'Elétrico': ['Electric', 'Eléctrico'], 'Gelo': ['Ice', 'Hielo'], 'Lutador': ['Fighting', 'Lucha'], 'Veneno': ['Poison', 'Veneno'], 'Terra': ['Ground', 'Tierra'], 'Voador': ['Flying', 'Volador'], 'Psíquico': ['Psychic', 'Psíquico'], 'Inseto': ['Bug', 'Bicho'], 'Pedra': ['Rock', 'Roca'], 'Fantasma': ['Ghost', 'Fantasma'], 'Dragão': ['Dragon', 'Dragón'], 'Sombrio': ['Dark', 'Siniestro'], 'Aço': ['Steel', 'Acero'], 'Fada': ['Fairy', 'Hada'] };
+  const tipoSaz = (t, i) => (TIPO_SAZ[t] ? TIPO_SAZ[t][i] : t);
   const regras = [
+    // ---- 1.51.0: Dia Sazonal ----
+    [/^Dia Sazonal: (.+?) \(2× dano causado, ¼ recebido nas hunts do Mapa\); ranking ajustado$/u, (m) => `Seasonal Day: ${tipoSaz(m[1], 0)} (2× damage dealt, ¼ taken in Map hunts); ranking adjusted`, (m) => `Día Estacional: ${tipoSaz(m[1], 1)} (2× daño causado, ¼ recibido en las hunts del Mapa); ranking ajustado`],
+    [/^Dia Sazonal: (.+?) — o módulo do jogo \(dia-sazonal\) não carregou ou mudou de formato; ranking sem o ajuste do dia$/u, (m) => `Seasonal Day: ${tipoSaz(m[1], 0)} — the game's module (dia-sazonal) didn't load or changed format; ranking without the day's adjustment`, (m) => `Día Estacional: ${tipoSaz(m[1], 1)} — el módulo del juego (dia-sazonal) no cargó o cambió de formato; ranking sin el ajuste del día`],
     [/^rotina: rodízio: (.+?) \(Nv (\d+)\) não luta com segurança em nenhuma hunt liberada — fica fora do rodízio por enquanto$/u, 'routine: rotation: $1 (Lv $2) cannot fight safely in any unlocked hunt — left out of the rotation for now', 'rutina: rotación: $1 (Nv $2) no lucha con seguridad en ninguna hunt liberada — queda fuera de la rotación por ahora'],
     [/^time: automático: (.+)$/u, (m) => `team: automatic: ${m[1]}`, (m) => `equipo: automático: ${m[1]}`],
     [/^hoje: (\d+) respondidas · (\d+) puladas · (\d+) sem resposta · (\d+) respostas na base$/u, 'today: $1 answered · $2 skipped · $3 unanswered · $4 answers in the base', 'hoy: $1 respondidas · $2 omitidas · $3 sin respuesta · $4 respuestas en la base'],

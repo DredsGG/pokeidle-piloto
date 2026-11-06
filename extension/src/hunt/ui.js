@@ -1024,13 +1024,7 @@
       especies: jogo.especies,
       precoItem,
       hunts: welcome.hunts ?? [],
-      consts: {
-        tabelaTipos: welcome.tabelaTipos,
-        ampliacaoHunt: welcome.ampliacaoHunt,
-        multHpSelvagem: welcome.multHpSelvagem,
-        multDanoSelvagem: welcome.multDanoSelvagem,
-        tiposBoost: welcome.tiposBoost,
-      },
+      consts: PIH.constsDoRanking(welcome), // 1.51.0: com o Dia Sazonal
       eu,
       bonusLootPct: lootPct(jogo, eu, welcome),
       geo: (slug) => PIH.geo?.daHunt(slug) ?? null,
@@ -1062,6 +1056,7 @@
   const redesenharSe = (abas) => { if (painel && abas.includes(prefs.aba) && !digitando()) desenhar(); };
   PIH.on('auto.diario', () => redesenharSe(['hunts', 'resumo']));
   PIH.on('piloto.diario', () => { redesenharSe(['cofre', 'resumo']); pintarBarra(); });
+  PIH.on('sazonal.mudou', () => redesenharSe(['hunts'])); // 1.51.0: o ranking da aba Caçar com o dia novo
   PIH.on('welcome', (m) => {
     welcome = m;
     preaquecer();

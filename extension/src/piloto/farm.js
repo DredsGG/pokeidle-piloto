@@ -74,7 +74,7 @@
   function contexto(jogo, hunts) {
     return {
       mod: jogo.mod, especies: jogo.especies, precoItem: jogo.precoItem, hunts,
-      consts: { tabelaTipos: welcome.tabelaTipos, ampliacaoHunt: welcome.ampliacaoHunt, multHpSelvagem: welcome.multHpSelvagem, multDanoSelvagem: welcome.multDanoSelvagem, tiposBoost: welcome.tiposBoost },
+      consts: PIH.constsDoRanking(welcome),
       eu, geo: (slug) => (PIH.geo ? PIH.geo.daHunt(slug) : null), ritmoMedido: () => null,
     };
   }
@@ -135,6 +135,8 @@
 
   // ---- calcular o melhor -------------------------------------------------------------------------
   const st = { motivo: '', calculando: false, escolha: null, irEm: 0, ativoEm: 0, huntEm: 0, ranking: [], nLiberadas: 0 };
+  // 1.51.0: o Dia Sazonal mudou (virada das 18:00 ou 1ª leitura): refaz a conta do farm
+  PIH.on('sazonal.mudou', () => { st.recalcularJa = true; });
   async function calcular() {
     if (st.calculando || !eu || !welcome || !PIH.engine || !PIH.carregarJogo) return null;
     st.calculando = true;
