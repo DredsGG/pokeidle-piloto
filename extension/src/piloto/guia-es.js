@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.49.1': [
+        "En la ventana Amigos del juego, cada amigo muestra su rango del PvP Clasificatorio junto al nombre: el emblema, el tier, los puntos y la posición si está en el top 100. El rango queda guardado y aparece en cuanto se abre la ventana.",
+      ],
       '1.48.0': [
         "Nuevo aviso: si el /hunt o el Radar del Mercado originales siguen activados junto con el Piloto, avisa en el centro de la pantalla y en el Diario y explica cómo desactivarlos. El Piloto ya hace todo lo que ellos hacen, y los dos juntos se disputan el mismo lugar en la pantalla.",
       ],

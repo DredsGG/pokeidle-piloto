@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.49.1': [
+        "In the game's Friends window, each friend shows their PvP Ranked rank next to the name: the emblem, the tier, the points and the position if they're in the top 100. Ranks are kept and show up as soon as the window opens.",
+      ],
       '1.48.0': [
         "New notice: if the original /hunt or Market Radar stay on together with the Pilot, it warns you in the middle of the screen and in the Log and explains how to turn them off. The Pilot already does everything they do, and running both makes them fight over the same spot on screen.",
       ],

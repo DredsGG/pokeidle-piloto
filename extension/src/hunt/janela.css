@@ -646,3 +646,19 @@ html[data-piloto-tema="claro"] .plt-janela .plt-tab tbody tr:hover td { backgrou
 @media (prefers-reduced-motion: no-preference) {
   .plt-ap-fundo .plt-ap-caixa { animation: plt-guia-entra .18s ease-out; }
 }
+
+/* ---- 1.49.0: rank do PvP ao lado de cada amigo, na janela Amigos do jogo (1.49.1) ----------------- */
+.amigo-linha > .plt-ar-caixa { margin-left: auto; flex: none; display: flex; align-items: center; min-width: 0; }
+.plt-ar { display: inline-flex; align-items: center; gap: 4px; max-width: 86px; }
+.plt-ar img { width: 20px; height: 20px; object-fit: contain; flex: none; image-rendering: auto; }
+.plt-ar-txt { display: grid; line-height: 1.1; min-width: 0; text-align: right; }
+.plt-ar-txt b { font: 700 10.5px/1.15 "Barlow", sans-serif; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plt-ar-txt small { font: 600 10px/1.15 "Barlow", sans-serif; color: rgba(255, 244, 232, .7); white-space: nowrap; }
+.plt-ar[data-tier="bronze"] b { color: #e3a46b; }
+.plt-ar[data-tier="prata"] b { color: #d6dde6; }
+.plt-ar[data-tier="ouro"] b { color: #ffd257; }
+.plt-ar[data-tier="platina"] b { color: #7fe3d3; }
+.plt-ar[data-tier="diamante"] b { color: #9cc8ff; }
+.plt-ar[data-tier="mestre"] b { color: #d59cff; }
+.plt-ar[data-tier="challenger"] b { color: #ff9a8a; }
+.plt-ar-sem, .plt-ar-carregando { font: 600 10.5px/1 "Barlow", sans-serif; color: rgba(255, 244, 232, .55); }

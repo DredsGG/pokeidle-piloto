@@ -414,7 +414,7 @@
   }
   // O que vem do SERVIDOR (estado, welcome, campo, erro) só o hook publica: a página não pode
   // fingir um saldo maior para o cofre aprovar (auditoria de 2026-10-19, caso C2).
-  const TIPOS_DO_SERVIDOR = new Set(['welcome', 'estado', 'campo.init', 'campo', 'erro', 'pvp', 'perfil', 'piloto.enviado', 'campeonato', 'showdown', 'chat', 'chat.mute', 'batalha.achados']);
+  const TIPOS_DO_SERVIDOR = new Set(['welcome', 'estado', 'campo.init', 'campo', 'erro', 'pvp', 'perfil', 'piloto.enviado', 'campeonato', 'showdown', 'chat', 'chat.mute', 'batalha.achados', 'amigos']);
   PIH.emit = (tipo, dado) => { if (!TIPOS_DO_SERVIDOR.has(tipo)) emitirInterno(tipo, dado); };
 
   // O cofre se registra UMA vez (o primeiro script da extensão, em document_start, antes de
@@ -525,6 +525,7 @@
     else if (cab.includes('"t":"erro"')) tipo = 'erro';
     else if (cab.includes('"t":"pvp"')) tipo = 'pvp';
     else if (cab.includes('"t":"perfil"')) tipo = 'perfil'; // 1.23: o perfil público (ranking.perfil), para a aba Meta
+    else if (cab.includes('"t":"amigos"')) tipo = 'amigos'; // 1.49.1: a lista de amigos (só os nicks, para o rank do PvP)
     else if (cab.includes('"t":"campeonato"')) tipo = 'campeonato'; // 1.32: torneios (Mundial e Amador)
     else if (cab.includes('"t":"showdown"')) tipo = 'showdown'; // 1.32: o Showdown semanal
     // 1.33.8 (build de teste do André; pública desde a 1.37.0): o chat, para o respondedor do Dúvidas. Fica no mundo da página
@@ -567,7 +568,7 @@
   }
 
   // ---- limitador de taxa (um só, para radar e piloto) ----------------------------------------
-  const RE_LEITURA = /^(market\.(itens|item|listar|historico|historicoCompras|historicoGlobal|meus|cotarLote|favoritos|especies)|ranking\.|guild\.info|pvp\.info|ginasio\.info|orbs\.painel)/;
+  const RE_LEITURA = /^(market\.(itens|item|listar|historico|historicoCompras|historicoGlobal|meus|cotarLote|favoritos|especies)|ranking\.|guild\.info|pvp\.info|ginasio\.info|orbs\.painel|amigos\.info)/;
   const BALDES = {
     leitura: { taxa: 2, rajada: 1, fichas: 1, em: agora() }, // 1.12.3: sem rajada (era 10): no máximo 3 leituras em qualquer 1 s, o limite do servidor (que o jogo também usa)
     escrita: { taxa: 1, rajada: 3, fichas: 3, em: agora() },
@@ -718,6 +719,9 @@
     'showdown.inscrever': (p) => (typeof p.id === 'string' && /^[\w:.-]{1,40}$/.test(p.id) ? { t: 'showdown.inscrever', id: p.id } : null),
     // 1.23: o perfil público de um jogador (o mesmo clique no nick do placar), só leitura.
     'ranking.perfil': (p) => (typeof p.nick === 'string' && /^[\p{L}\p{N}_.\-]{1,30}$/u.test(p.nick) ? { t: 'ranking.perfil', nick: p.nick } : null),
+    // 1.49.1: a lista de amigos (o mesmo pedido que o jogo faz ao abrir a janela Amigos), só leitura,
+    // para o rank do PvP de cada amigo já estar pronto quando a janela abrir.
+    'amigos.info': () => ({ t: 'amigos.info' }),
     'pvp.fila.entrar': () => ({ t: 'pvp.fila.entrar' }),
     'pvp.time.salvar': (p) => {
       const ids = Array.isArray(p.pokemonIds) ? p.pokemonIds : null;
@@ -785,7 +789,10 @@
     const r = cofreRef.autorizar(pedido, origem);
     if (!r.ok) return r;
     if (filaPih.length > 50) { cofreRef.estornar(r.reserva); return { ok: false, motivo: 'fila cheia' }; }
-    filaPih.push({ pedido, origem, custo: r.custo, reserva: r.reserva, em: agora() });
+    const item = { pedido, origem, custo: r.custo, reserva: r.reserva, em: agora() };
+    // 1.49.1: o rank dos amigos com a janela Amigos aberta (a pessoa está olhando) passa à frente das
+    // leituras de fundo do radar; fica atrás só dos outros pedidos dele mesmo. Não muda o ritmo do balde.
+    if (origem === 'amigos-ja') { const i = filaPih.findIndex((x) => x.origem !== 'amigos-ja'); filaPih.splice(i < 0 ? filaPih.length : i, 0, item); } else filaPih.push(item);
     agendarFilaPih();
     return { ok: true, motivo: null };
   };

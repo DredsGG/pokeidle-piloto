@@ -1,5 +1,27 @@
 {
   "versoes": {
+    "1.49.1": {
+      "pt": [
+        "Na janela Amigos do jogo, cada amigo mostra o rank do PvP Ranqueado ao lado do nome: o emblema, o tier, os pontos e a posição, se estiver no top 100. O rank fica guardado e aparece assim que a janela abre."
+      ],
+      "en": [
+        "In the game's Friends window, each friend shows their PvP Ranked rank next to the name: the emblem, the tier, the points and the position if they're in the top 100. Ranks are kept and show up as soon as the window opens."
+      ],
+      "es": [
+        "En la ventana Amigos del juego, cada amigo muestra su rango del PvP Clasificatorio junto al nombre: el emblema, el tier, los puntos y la posición si está en el top 100. El rango queda guardado y aparece en cuanto se abre la ventana."
+      ]
+    },
+    "1.48.0": {
+      "pt": [
+        "Novo aviso: se o /hunt ou o Radar do Mercado originais ficarem ligados junto com o Piloto, ele avisa no meio da tela e no Diário e explica como desativar. O Piloto já faz tudo o que eles fazem, e os dois juntos disputam o mesmo lugar na tela."
+      ],
+      "en": [
+        "New notice: if the original /hunt or Market Radar stay on together with the Pilot, it warns you in the middle of the screen and in the Log and explains how to turn them off. The Pilot already does everything they do, and running both makes them fight over the same spot on screen."
+      ],
+      "es": [
+        "Nuevo aviso: si el /hunt o el Radar del Mercado originales siguen activados junto con el Piloto, avisa en el centro de la pantalla y en el Diario y explica cómo desactivarlos. El Piloto ya hace todo lo que ellos hacen, y los dos juntos se disputan el mismo lugar en la pantalla."
+      ]
+    },
     "1.47.1": {
       "pt": [
         "Novo botão Apoiar ♥ no rodapé, opcional: Pix (Brasil) ou GitHub Sponsors (outros países). Não muda nada no Piloto."
