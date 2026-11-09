@@ -30,6 +30,15 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.53.0': [
+        "Nueva opción \"Vender los de nota baja\" en la pestaña Rutina, apagada de fábrica: encendida, solo lista en el Diario lo que vendería; vender de verdad pide un segundo interruptor y nunca toca shiny, P5, equipo ni nota 3,5+.",
+      ],
+      '1.52.0': [
+        "Responder en Dudas (sigue apagado de fábrica): ahora espera un tiempo aleatorio, no responde si otro jugador ya respondió, solo una pestaña responde cada pregunta, el texto varía y hay límite por hora.",
+      ],
+      '1.51.2': [
+        "Corregido: cuando un cambio de ítem en las automatizaciones del juego no salía, la Reposición podía dejar de comprar todo, hasta quedarte sin bolas. Ahora sigue comprando lo que está marcado en el juego, y el Diario avisa.",
+      ],
       '1.51.1': [
         "Corregido: el Piloto no podía marcar la Golden Potion en las automatizaciones del juego, y el juego podía quedarse con una poción sin existencias. Ahora se marca de verdad, y el Diario avisa cuando un cambio no sale.",
       ],

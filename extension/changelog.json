@@ -1,5 +1,38 @@
 {
   "versoes": {
+    "1.53.0": {
+      "pt": [
+        "Nova opção \"Vender os de nota baixa\" na aba Rotina, desligada de fábrica: ligada, só lista no Diário o que venderia; a venda de verdade pede um segundo interruptor e nunca toca em shiny, P5, time ou nota 3,5+."
+      ],
+      "en": [
+        "New option \"Sell the low-grade ones\" in the Routine tab, off by default: when on it only lists in the journal what it would sell; really selling takes a second switch and never touches shiny, P5, team or grade 3.5+."
+      ],
+      "es": [
+        "Nueva opción \"Vender los de nota baja\" en la pestaña Rutina, apagada de fábrica: encendida, solo lista en el Diario lo que vendería; vender de verdad pide un segundo interruptor y nunca toca shiny, P5, equipo ni nota 3,5+."
+      ]
+    },
+    "1.52.0": {
+      "pt": [
+        "Responder no Dúvidas (segue desligado de fábrica): agora espera um tempo aleatório, não responde se outro jogador já respondeu, só uma aba responde cada pergunta, o texto varia e há limite por hora."
+      ],
+      "en": [
+        "Answer in Questions (still off by default): it now waits a random time, stays quiet if another player already answered, only one tab answers each question, the wording varies and there is an hourly limit."
+      ],
+      "es": [
+        "Responder en Dudas (sigue apagado de fábrica): ahora espera un tiempo aleatorio, no responde si otro jugador ya respondió, solo una pestaña responde cada pregunta, el texto varía y hay límite por hora."
+      ]
+    },
+    "1.51.2": {
+      "pt": [
+        "Corrigido: quando uma troca de item nas automações do jogo não dava certo, a Reposição podia parar de comprar tudo, até a bola zerar. Agora ela segue comprando o que está marcado no jogo, e o Diário avisa."
+      ],
+      "en": [
+        "Fixed: when a switch of items in the game's automations didn't go through, Restock could stop buying everything, until your balls ran out. It now keeps buying what is set in the game, and the journal tells you."
+      ],
+      "es": [
+        "Corregido: cuando un cambio de ítem en las automatizaciones del juego no salía, la Reposición podía dejar de comprar todo, hasta quedarte sin bolas. Ahora sigue comprando lo que está marcado en el juego, y el Diario avisa."
+      ]
+    },
     "1.51.1": {
       "pt": [
         "Corrigido: o Piloto não conseguia marcar a Golden Potion nas automações do jogo, e o jogo podia ficar com uma poção sem estoque. Agora ela é marcada de verdade, e o Diário avisa quando uma troca não dá certo."

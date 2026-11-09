@@ -686,6 +686,16 @@
       return { t: 'ball.throw', ballId: p.ballId, slot: p.slot };
     },
     'shop.sellAllPokemons': (p) => (int(p.ateId, 1, ID) ? { t: 'shop.sellAllPokemons', ateId: p.ateId } : null),
+    // 1.53.0: a venda de um pokémon (só a "Vender os de nota baixa"). Segunda trava, além da do módulo: só do
+    // Depot, e nunca shiny, P5, ativo, time, inicial, ovo ou quem segura item, pelo estado que o servidor mandou.
+    'shop.sellPokemon': (p) => {
+      const e = pihUltimo.get('estado') || {};
+      if (!int(p.pokemonId, 1, ID)) return null;
+      const pk = (e.pokemons || []).find((x) => x && x.id === p.pokemonId);
+      if (!pk || pk.slot != null || pk.id === e.activeId || pk.shiny || pk.starter || pk.ovo || (Number(pk.potencia) || 0) >= 5 || Number(pk.heldItemId) > 0) return null;
+      if (((e.automation && e.automation.pokemonTravado) || []).map(Number).includes(pk.id)) return null;
+      return { t: 'shop.sellPokemon', pokemonId: p.pokemonId };
+    },
     // 1.12.4: guardar um pokémon SEU na Coleção (protege da venda do Depot). Para fora ("depot"), só o caso da 1.34.1 abaixo.
     // 1.16: montar o time de campo (janela Time). Entrar: um pokémon SEU, numa vaga livre (0 a 4),
     // que o seu nível de treinador deixa usar (nível do pokémon ≤ treinador + 5, ou o inicial). Sair

@@ -59,7 +59,7 @@ await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
   setTimeout(() => ws.send(JSON.stringify(welcome)), 300);
   setInterval(() => ws.send(JSON.stringify({ t: 'estado', estado: { servidorAgora: Date.now() } })), 1000);
 });
-await ctx.addInitScript(() => { try { localStorage.setItem('piloto:dev:manual', '1'); localStorage.setItem('piloto:dev:semGuia', '1'); localStorage.setItem('piloto:idioma', 'pt'); } catch {} });
+await ctx.addInitScript(() => { try { localStorage.setItem('piloto:dev:manual', '1'); if (!localStorage.getItem('piloto:teste:duvidas:v1')) localStorage.setItem('piloto:teste:duvidas:v1', JSON.stringify({ ligado: false, atrasoMinS: 20, atrasoMaxS: 20 })); localStorage.setItem('piloto:dev:semGuia', '1'); localStorage.setItem('piloto:idioma', 'pt'); } catch {} });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => erros.push(String(e)));
 await page.goto('https://pokeidle.io/app');
@@ -107,7 +107,7 @@ fala('zeca', 'quanto xp perde quando morre?');
 await sleep(23000);
 let f = falas(a);
 console.log('LOG', await page.evaluate(() => JSON.stringify(window.__pokeidleHunt.testeDuvidas._interno.log.slice(0, 3))));
-ok(f.length === 1 && f[0].canal === 'duvidas' && /^@zeca desmaiar/.test(f[0].texto) && f[0].idioma === 'pt', `respondeu: ${JSON.stringify(f.map((x) => x.texto))}`);
+ok(f.length === 1 && f[0].canal === 'duvidas' && /^@zeca (?:[^\s,]+, )?desmaiar/.test(f[0].texto) && f[0].idioma === 'pt', `respondeu: ${JSON.stringify(f.map((x) => x.texto))}`);
 
 // 2) logo depois: segura 5 min (não responde outra)
 a = recebidos.length;

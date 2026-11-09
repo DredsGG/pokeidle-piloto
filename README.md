@@ -9,7 +9,7 @@ Hunt optimizer, market radar, team manager and daily routine in one browser exte
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
 ![Browsers](https://img.shields.io/badge/Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20GX%20·%20Firefox%20140+-works-6d4aff)
-![Version](https://img.shields.io/badge/version-1.51.1-e53935)
+![Version](https://img.shields.io/badge/version-1.53.0-e53935)
 ![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-2e7d32)
 
 <img src="docs/hunt-tab.png" width="80%" alt="The Piloto window in Automatic mode, Hunt tab: hunt switching, restock, team rotation, Outland tier, automatic Poké Ball and auto-reload, above the ranking of the best hunts">
@@ -81,6 +81,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 
 **Daily routine**
 - Battle pass claims, XP Share (the furthest-behind team members in empty slots), highest unlocked Outland tier, Ranked queue, Auto Collection kept on Legendary · Shiny · P5+ · the market's minimum grade, and Depot cleaning (it first moves your team, shinies and top-potential Pokémon into the Collection). A Pokémon Auto Collection kept below Lv 50 (the market only takes them from there) that's no use to the team, PvP or the meta goes back to the Depot and is sold. When it claims the daily pass reward it also closes the reward pop-up and the pass window.
+- **Sell the low-grade ones (opt-in, off by default).** In Auto mode, one round per hour, with a limit per round. When on it only simulates: the journal lists what it would sell, with level, grade and gold. Really selling takes a second switch. It sells one Pokémon at a time below a grade cut (2.0 by default, 3.4 at most, so grade 3.5+ is never sold) and never a shiny, P5, team member, the active one, the starter, anyone holding an item or with a TM or refining, what the Guard protects, the family of a Hunt the meta, Improve the team or Farm mode target, or the last of a species. From the Collection, only what it saw enter by itself on capture, below Lv 50: it goes back to the Depot first and can only be sold in a later round. The emergency stop and Off stop it right away.
 - **PvP battle screen minimized.** Keeps the game's own PvP "Battle screen" option on Minimized, so a fight never covers the farm (if you pick "Don't show", it stays as you chose). It's a browser-side setting of the game: nothing is sent to the server.
 - **Tournaments.** Signs you up for every tournament as soon as registration opens: the monthly World (trainer Lv 300+) and Amateur (Lv 100+), and the weekly Showdown. Registration is free; it never cancels a registration and doesn't touch your team.
 - **Irreversible actions are opt-in:** evolving and hatching eggs you own. With Evolve on, **the team evolves the moment it reaches the level**, any Pokémon, the starter too; if the stone is missing the Radar buys one on the market right away (gold only, through the vault) and team stones never go to resale. A shiny evolves only with a Shiny Stone you already have (never bought); Outland and Mega never. Outside the team, the starter and Pokémon with a skin, a held item, a refinement or an XP Share post are left out and the log says why once a day. A command with no effect is tried again in 2 minutes, up to 3 times.
@@ -95,7 +96,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 
 **Questions channel (opt-in)**
 
-- A **Questions** tab can answer the chat's Questions channel by itself, from a closed base of 53 answers taken from the game's own Pokepedia (and the evolution stone computed with the game's modules). It is **off by default**. When on, it only answers a question when exactly one answer clearly matches, waits 20 s and stays quiet if someone else already helped, speaks at most once every 5 minutes (the same person every 30 min, the same answer every 15 min), never posts links, only writes in the Questions channel and stops if the game mutes the account. The tab shows each question next to the answer the Piloto gave.
+- A **Questions** tab can answer the chat's Questions channel by itself, from a closed base of 53 answers taken from the game's own Pokepedia (and the evolution stone computed with the game's modules). It is **off by default**. When on, it only answers a question when exactly one answer clearly matches, waits a random time (25 to 150 s by default, editable) and stays quiet if another player already answered; only one tab of the browser answers each question, the wording varies without changing the fact, and there is an hourly limit (4 by default, editable). It speaks at most once every 5 minutes (the same person every 30 min, the same answer every 15 min), never gives the same answer twice to the same question, never posts links, only writes in the Questions channel and stops if the game mutes the account. The tab shows each question next to the answer the Piloto gave.
 
 **Support**
 
@@ -125,7 +126,7 @@ An automation that spends in-game money needs hard limits more than features. Ev
 
 And under the vault, the WebSocket hook itself enforces:
 
-- **Closed command list.** The pilot can send only 27 game commands, each validated against the game's own format. Anything else is dropped. The game's automation settings (`auto.set`) only accept two changes: turning on the Ranked auto-queue (VIP) and setting exactly one ball, one potion and one revive from the game's own catalog (never Beast or Master Ball); every other automation field is copied from the server's state, never from the request.
+- **Closed command list.** The pilot can send only 28 game commands, each validated against the game's own format. Anything else is dropped. The game's automation settings (`auto.set`) only accept two changes: turning on the Ranked auto-queue (VIP) and setting exactly one ball, one potion and one revive from the game's own catalog (never Beast or Master Ball); every other automation field is copied from the server's state, never from the request.
 - **Absolute block on 20 commands:** gem withdrawal, diamond shop, VIP pass, guild donation, sending coins or trades, chat and DMs, and guild or Pokémon-level changes. Purchases only in `gold`; a gem purchase is refused at the hook.
 - **Hardened against the page:** the allow-list only accepts own keys (`Object.hasOwn`), requests are copied and frozen, and the command type and block list are checked again right before sending. Tests try to swap the vault, forge state and rewrite the send function from the page, and they fail.
 - **One rate limiter for everything:** reads ~2/s, writes 1/s with a burst of 3.
@@ -244,6 +245,9 @@ node tests/so-meta.mjs        # only meta Pokémon join the team; the comp it fo
 node tests/kit.mjs            # one ball, one potion and one revive picked for the account, and the hook accepts only that
 node tests/pocao-luta.mjs     # the potion follows the HP of the Pokémon that is fighting: a weak one in a strong team gets Small Potion, not Ultra
 node tests/kit-golden.mjs     # the Golden Potion is really set in the game's automations; a refused switch is reported in the journal and not retried every cycle
+node tests/kit-bola.mjs       # a kit switch that is refused or not applied never stops Restock from buying the ball at zero; the vault stays the final lock
+node tests/duvidas-uma-conta.mjs # Questions: random delay in the range, already answered by someone else, one tab per question, varied wording, hourly limit
+node tests/vender-nota-baixa.mjs # low-grade sale: off by default, simulation sends nothing, every lock holds, limit per round, emergency stop, a protected Pokémon never goes in the command
 node tests/guia.mjs           # first-run guide on a new install, "What's new" once per version, Esc and X close it
 node tests/aviso-solto.mjs    # guide, What's new and the new-version notice show up by themselves on the game page (new install, simulated update, simulated newer release in PT/EN/ES); X snoozes for 1 h; an URGENT release has no X and pauses the automation
 node tests/idioma-inicial.mjs # first-run language from the browser (pt, en, es; anything else English); a saved choice wins

@@ -30,6 +30,15 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.53.0': [
+        "New option \"Sell the low-grade ones\" in the Routine tab, off by default: when on it only lists in the journal what it would sell; really selling takes a second switch and never touches shiny, P5, team or grade 3.5+.",
+      ],
+      '1.52.0': [
+        "Answer in Questions (still off by default): it now waits a random time, stays quiet if another player already answered, only one tab answers each question, the wording varies and there is an hourly limit.",
+      ],
+      '1.51.2': [
+        "Fixed: when a switch of items in the game's automations didn't go through, Restock could stop buying everything, until your balls ran out. It now keeps buying what is set in the game, and the journal tells you.",
+      ],
       '1.51.1': [
         "Fixed: the Pilot couldn't set the Golden Potion in the game's automations, and the game could stay on a potion you had run out of. It is now really set, and the journal tells you when a switch doesn't go through.",
       ],

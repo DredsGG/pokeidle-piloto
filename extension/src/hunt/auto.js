@@ -613,6 +613,8 @@
   // para TODOS os itens que o jogo marca de fábrica numa conta nova, até Max Revive)
   let kitPedido = null;
   let kitRecusado = null; // 1.51.1: { chave, em } do último kit que o hook ou o cofre recusou
+  let kitEnviado = null; // 1.51.2: { chave, em } do último kit mandado, até o jogo confirmar
+  const KIT_CONFIRMA_MS = 60_000;
   let kitIds = null; // as chaves do último kit escolhido (b<id>, i<id>)
   let kitAtual = null; // 1.34: a bola, a poção e o revive do kit aplicado no jogo (para comprar mesmo desmarcados)
   function escolherKit(teste = {}) {
@@ -702,11 +704,25 @@
     kitIds = new Set([`b${k.bola.id}`, `i${k.pocao.id}`, `i${k.revive.id}`]);
     const a = eu.automation ?? {};
     const igual = (ids, id) => Array.isArray(ids) && ids.length === 1 && Number(ids[0]) === Number(id);
-    if (igual(a.ballIds, k.bola.id) && igual(a.potionIds, k.pocao.id) && igual(a.reviveIds, k.revive.id)) { kitVisto = null; kitAtual = k; return k; }
+    if (igual(a.ballIds, k.bola.id) && igual(a.potionIds, k.pocao.id) && igual(a.reviveIds, k.revive.id)) { kitVisto = null; kitEnviado = null; kitAtual = k; return k; }
     const chave = `${k.bola.id}/${k.pocao.id}/${k.revive.id}`;
     const agora = Date.now();
     // 1.51.1: o mesmo kit recusado há pouco espera, mesmo sendo "urgente" (ver o PIH.pedir abaixo)
     if (!forcar && kitRecusado && kitRecusado.chave === chave && agora - kitRecusado.em < KIT_ESTAVEL_MS) return k;
+    // 1.51.2 (item 3 da auditoria, Ultra Ball em 0): o pedido saiu e o jogo não aplicou. Sem isto o kit "urgente"
+    // repetia a cada ~6 s e a Reposição nunca chegava às compras. Item novo sem estoque o jogo não marca: esse não conta.
+    if (!forcar && kitEnviado?.chave === chave) {
+      const faltam = [['ballIds', k.bola, eu.balls], ['potionIds', k.pocao, eu.items], ['reviveIds', k.revive, eu.items]].filter(([campo, it]) => !igual(a[campo], it.id));
+      if (faltam.some(([, it, est]) => Number(est?.[it.id]) > 0)) {
+        if (agora - kitEnviado.em < KIT_CONFIRMA_MS) return k;
+        kitEnviado = null;
+        kitPedido = null;
+        kitAtual = null; // a Reposição volta a comprar o que está marcado no jogo
+        kitRecusado = { chave, em: agora };
+        anotar(`automações do jogo: o jogo não aplicou ${k.bola.nome}, ${k.pocao.name} e ${k.revive.name}; tento de novo em 10 min`, 'aviso');
+        return k;
+      }
+    }
     // a primeira vez (conta nova vem com tudo marcado, ou um item só não está marcado): na hora
     const primeira = !kitTrocadoEm && !(igual(a.potionIds, a.potionIds?.[0]) && igual(a.reviveIds, a.reviveIds?.[0]) && igual(a.ballIds, a.ballIds?.[0]));
     // 1.36.1: troca URGENTE — o item marcado de uma categoria que muda está abaixo do mínimo (vai
@@ -737,6 +753,7 @@
       return k;
     }
     kitRecusado = null;
+    kitEnviado = { chave, em: agora };
     kitTrocadoEm = agora;
     kitVisto = null;
     kitPedido = { em: agora, ids: [`b${k.bola.id}`, `i${k.pocao.id}`, `i${k.revive.id}`] };

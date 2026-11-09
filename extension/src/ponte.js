@@ -338,6 +338,29 @@
     });
     setTimeout(lerUpd, 1500);
     // 1.31 (regra 12): o "já viu" do guia de primeiro uso e das novidades, no storage.local
+    // 1.52.0: o respondedor do Dúvidas pede a trava aqui (só a ponte enxerga o chrome.storage). Sem comparar e
+    // gravar de uma vez, ela grava, espera um pouco e confere de quem ficou: quem foi sobrescrito desiste.
+    const CHAVE_TRAVAS_DUV = 'piloto:duvidas:travas';
+    const VALE_TRAVA_MS = 10 * 60_000;
+    const respTrava = (pedido, ok) => { try { document.dispatchEvent(new CustomEvent('piloto:duvidas-trava-resposta', { detail: JSON.stringify({ pedido, ok }) })); } catch (e) { erro(e); } };
+    document.addEventListener('piloto:duvidas-trava', async (ev) => {
+      let d = {};
+      try { d = JSON.parse(ev.detail) || {}; } catch { return; }
+      if (!Number.isInteger(d.pedido) || !/^[ch]\d{1,20}$/.test(String(d.chave)) || !/^[a-z0-9]{1,16}$/.test(String(d.token))) return;
+      const s2 = storage();
+      if (!s2) return respTrava(d.pedido, false);
+      try {
+        const agora = Date.now();
+        const lidas = (await s2.get(CHAVE_TRAVAS_DUV))[CHAVE_TRAVAS_DUV] || {};
+        const vivas = Object.fromEntries(Object.entries(lidas).filter(([, v]) => v && v.ate > agora));
+        if (vivas[d.chave] && vivas[d.chave].token !== d.token) return respTrava(d.pedido, false);
+        vivas[d.chave] = { token: d.token, ate: agora + VALE_TRAVA_MS };
+        await s2.set({ [CHAVE_TRAVAS_DUV]: vivas });
+        await new Promise((r) => setTimeout(r, 300 + Math.random() * 300));
+        const depois = (await s2.get(CHAVE_TRAVAS_DUV))[CHAVE_TRAVAS_DUV] || {};
+        respTrava(d.pedido, !!depois[d.chave] && depois[d.chave].token === d.token);
+      } catch (e) { erro(e); respTrava(d.pedido, false); }
+    });
     const CHAVE_GUIA = 'piloto:guia';
     const mandarGuia = (g) => { try { document.dispatchEvent(new CustomEvent('piloto:guia-estado', { detail: JSON.stringify(g && typeof g === 'object' ? g : {}) })); } catch (e) { erro(e); } };
     document.addEventListener('piloto:guia-ler', () => {

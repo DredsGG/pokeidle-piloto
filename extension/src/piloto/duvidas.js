@@ -6,7 +6,11 @@
 // Regras para não virar spam nem "informação falsa" (Termos, "Convivência no chat"):
 // - só o canal Dúvidas, só pergunta (tem "?" ou começa com palavra de pergunta), só mensagem nova;
 // - só responde quando UMA resposta da base bate com folga; empate ou dúvida: não responde;
-// - espera 20 s: se outra pessoa falou no Dúvidas nesse meio tempo, não responde (alguém já ajudou);
+// - 1.52.0 (ponto 6 do #5: todas as contas respondiam igual): espera um tempo aleatório (25 a 150 s,
+//   editável); se outro jogador respondeu nesse meio tempo, não responde; uma trava no chrome.storage faz
+//   só uma aba responder cada pergunta; o texto varia na abertura e no fecho, e o fato continua o da base;
+//   limite de respostas por hora; nunca repete a mesma resposta para a mesma pergunta. Numa outra conta, em
+//   outro navegador ou PC, a trava não alcança: o que separa as contas é o atraso e a releitura do chat;
 // - no máximo 1 resposta a cada 5 min, a mesma pessoa só depois de 30 min, a mesma resposta só
 //   depois de 15 min; nada com link; o gancho ainda segura 4 min entre mensagens e só deixa o Dúvidas;
 // - para tudo se o jogo mutar a conta ou recusar (o disjuntor do cofre desliga o módulo).
@@ -20,7 +24,6 @@
 
   const CHAVE = 'piloto:teste:duvidas:v1';
   const CHAVE_LOG = 'piloto:teste:duvidas:log';
-  const ESPERA_MS = 20_000;
   const ENTRE_MS = 5 * 60_000;
   const MESMA_PESSOA_MS = 30 * 60_000;
   const MESMA_RESPOSTA_MS = 15 * 60_000;
@@ -29,7 +32,7 @@
   const log = lerJ(CHAVE_LOG, []);
   // 1.37.0: desligado de fábrica. Quem já usava (a build do André, com registro) continua ligado.
   const salvo = lerJ(CHAVE, null);
-  const cfg = { ligado: salvo ? salvo.ligado !== false : log.length > 0, ...(salvo || {}) };
+  const cfg = { ligado: salvo ? salvo.ligado !== false : log.length > 0, atrasoMinS: 25, atrasoMaxS: 150, limiteHora: 4, ...(salvo || {}) };
   if (!salvo && cfg.ligado) gravarJ(CHAVE, cfg);
   // 1.36.2: guarda mais (1.000 linhas): as perguntas sem resposta são a matéria-prima da base
   const anotar = (e) => { log.unshift({ em: Date.now(), ...e }); log.length = Math.min(log.length, 1000); gravarJ(CHAVE_LOG, log); };
@@ -37,6 +40,56 @@
   let eu = null;
   PIH.on('estado', (e) => { eu = e; });
   const meuNick = () => String((eu && eu.nick) || '').toLowerCase();
+  const minhaConta = () => (eu && eu.id != null ? eu.id : null);
+  const daConta = (x) => x.conta == null || x.conta === minhaConta();
+
+  // ---- 1.52.0: atraso, limite e trava ----------------------------------------------------------
+  const numero = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
+  const entre = (n, a, b) => Math.min(b, Math.max(a, n));
+  const faixaS = () => { const min = entre(numero(cfg.atrasoMinS, 25), 10, 600); return { min, max: entre(numero(cfg.atrasoMaxS, 150), min, 900) }; };
+  const limiteHora = () => entre(Math.round(numero(cfg.limiteHora, 4)), 1, 12);
+  const sortearAtraso = () => { const { min, max } = faixaS(); return Math.round((min + Math.random() * (max - min)) * 1000); };
+  // A trava vem da ponte, que enxerga o chrome.storage; sem resposta dela, não responde.
+  const tokenInstancia = Math.random().toString(36).slice(2, 12);
+  const esperandoTrava = new Map();
+  let pedidoTrava = 0;
+  document.addEventListener('piloto:duvidas-trava-resposta', (ev) => {
+    let d = {};
+    try { d = JSON.parse(ev.detail) || {}; } catch { return; }
+    const fn = esperandoTrava.get(d.pedido);
+    if (fn) { esperandoTrava.delete(d.pedido); fn(d.ok === true); }
+  });
+  const pegarTrava = (chave) => new Promise((res) => {
+    const pedido = ++pedidoTrava;
+    const t = setTimeout(() => { esperandoTrava.delete(pedido); res(false); }, 4000);
+    esperandoTrava.set(pedido, (ok) => { clearTimeout(t); res(ok); });
+    document.dispatchEvent(new CustomEvent('piloto:duvidas-trava', { detail: JSON.stringify({ pedido, chave, token: tokenInstancia }) }));
+  });
+  // a chave é o id da mensagem no chat; sem id, um resumo numérico (nick e texto não vão para o storage)
+  function chaveDaPergunta(m, nick, ts, texto) {
+    if (Number.isFinite(Number(m.id))) return `c${Number(m.id)}`;
+    let h = 5381;
+    for (const ch of `${nick}|${ts}|${texto}`) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0;
+    return `h${h}`;
+  }
+  // ---- 1.52.0: a mesma resposta, em redações diferentes ---------------------------------------
+  const VARIA = {
+    pt: { abre: ['', 'oi,', 'opa,', 'então,', 'olha,'], fecha: ['', ' Boa caçada!', ' Espero que ajude.', ' Abraço!'] },
+    en: { abre: ['', 'hi,', 'hey,', 'so,', 'well,'], fecha: ['', ' Good hunting!', ' Hope that helps.', ' Cheers!'] },
+    es: { abre: ['', 'hola,', 'mira,', 'bueno,', 'pues,'], fecha: ['', ' ¡Buena caza!', ' Espero que ayude.', ' ¡Saludos!'] },
+  };
+  let ultimaRedacao = '';
+  function variar(txt, idi, de) {
+    const base = `@${de} ${txt}`.slice(0, 240);
+    const v = VARIA[idi] || VARIA.pt;
+    const sorteia = (l) => l[Math.floor(Math.random() * l.length)];
+    for (let i = 0; i < 12; i++) {
+      const a = sorteia(v.abre);
+      const s = `@${de} ${a ? `${a} ` : ''}${txt}${sorteia(v.fecha)}`;
+      if (s.length <= 240 && s !== ultimaRedacao) { ultimaRedacao = s; return s; }
+    }
+    return base;
+  }
 
   const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
   const PERGUNTA = /\?|^(como|onde|qual|quais|quanto|quantos|quando|porque|por que|pq|o que|oq|tem como|alguem sabe|alguem|sabem|how|where|what|which|when|why|is there|can i|does|como se|donde|cual|cuanto|cuando|por que|que es|se puede)\b/;
@@ -325,7 +378,16 @@
   const st = { ultimaEm: 0, porNick: new Map(), porResposta: new Map(), pendente: null, ultimaFalaEm: 0, mutadoAte: 0 };
   PIH.on('chat.mute', (m) => { st.mutadoAte = Number(m && m.ate) || Date.now() + 3_600_000; anotar({ acao: 'parou', motivo: 'o jogo mutou a conta' }); });
 
-  function porQueNao(nick, idResp) {
+  const naHora = () => log.filter((x) => x.acao === 'respondi' && daConta(x) && Date.now() - x.em < 3_600_000).length;
+  const jaDei = (idResp, perguntaN) => log.some((x) => x.acao === 'respondi' && daConta(x) && x.faq === idResp && norm(x.pergunta) === perguntaN);
+  // alguém que não é quem perguntou citou a pessoa, ou disse algo que não é outra pergunta
+  const pareceResposta = (cru, quemPerguntou) => { const t = norm(cru); return t.includes(quemPerguntou) || !ehPergunta(t); };
+  const jaRespondida = (pend) => {
+    anotar({ acao: 'pulou', motivo: 'pergunta já respondida por outro', de: pend.de, idi: pend.idi, pergunta: pend.pergunta, faq: pend.r.id });
+    PIH.cofre?.diario?.('Dúvidas: pergunta já respondida por outro; não respondi', 'info');
+  };
+
+  function porQueNao(nick, idResp, perguntaN) {
     const n = Date.now();
     if (!cfg.ligado) return 'desligado';
     if (!PIH.cofre || !PIH.cofre.liberado || !PIH.cofre.liberado('duvidas')) return 'Piloto desligado (ou disjuntor)';
@@ -333,6 +395,8 @@
     if (n - st.ultimaEm < ENTRE_MS) return 'menos de 5 min da última resposta';
     if (n - (st.porNick.get(nick) || 0) < MESMA_PESSOA_MS) return 'mesma pessoa há menos de 30 min';
     if (n - (st.porResposta.get(idResp) || 0) < MESMA_RESPOSTA_MS) return 'mesma resposta há menos de 15 min';
+    if (naHora() >= limiteHora()) return `limite de ${limiteHora()} respostas por hora`;
+    if (jaDei(idResp, perguntaN)) return 'a mesma resposta para a mesma pergunta já foi dada';
     return null;
   }
 
@@ -345,7 +409,7 @@
       const ts = Number(m.ts) || Date.now();
       if (nick === meuNick()) return;
       // alguém falou depois da pergunta pendente: talvez já tenha respondido
-      if (st.pendente && nick !== st.pendente.nick && ts >= st.pendente.ts) st.pendente.outros = true;
+      if (st.pendente && nick !== st.pendente.nick && ts >= st.pendente.ts && pareceResposta(m.texto, st.pendente.nick)) st.pendente.outros = true;
       if (Date.now() - ts > 60_000) return; // histórico ao entrar: não responde o passado
       const texto = norm(m.texto);
       if (!ehPergunta(texto) || texto.length < 8 || texto.length > 300) return;
@@ -354,23 +418,28 @@
       const pergunta = String(m.texto).slice(0, 200);
       if (!r) { anotar({ acao: 'sem resposta', de, idi, pergunta }); return; }
       if (r.pulou) { anotar({ acao: 'pulou', motivo: r.pulou, de, idi, pergunta }); return; }
-      const nao = porQueNao(nick, r.id);
+      const perguntaN = norm(pergunta);
+      const nao = porQueNao(nick, r.id, perguntaN);
       if (nao) { anotar({ acao: 'pulou', motivo: nao, de, idi, pergunta, faq: r.id }); return; }
       if (st.pendente) { anotar({ acao: 'pulou', motivo: 'já tem outra na espera', de, idi, pergunta, faq: r.id }); return; }
-      const pend = { nick, de, ts, idi, pergunta, r, outros: false };
+      const pend = { nick, de, ts, idi, pergunta, r, outros: false, chave: chaveDaPergunta(m, nick, ts, texto) };
       st.pendente = pend;
-      setTimeout(() => {
-        st.pendente = null;
-        if (pend.outros) { anotar({ acao: 'pulou', motivo: 'outra pessoa falou antes (talvez já respondeu)', de, idi, pergunta, faq: r.id }); return; }
-        const nao2 = porQueNao(nick, r.id);
-        if (nao2) { anotar({ acao: 'pulou', motivo: nao2, de, idi, pergunta, faq: r.id }); return; }
-        const texto2 = `@${de} ${r.txt}`.slice(0, 240);
-        const ok = PIH.pedir({ t: 'chat.send', canal: 'duvidas', idioma: idi, texto: texto2 }, 'duvidas');
-        if (!ok.ok) { anotar({ acao: 'pulou', motivo: `o gancho recusou: ${ok.motivo}`, de, idi, pergunta, faq: r.id }); return; }
-        const n = Date.now();
-        st.ultimaEm = n; st.porNick.set(nick, n); st.porResposta.set(r.id, n);
-        anotar({ acao: 'respondi', de, idi, pergunta, faq: r.id, resposta: texto2 });
-      }, ESPERA_MS);
+      setTimeout(async () => {
+        try {
+          if (pend.outros) { jaRespondida(pend); return; }
+          const nao2 = porQueNao(nick, r.id, perguntaN);
+          if (nao2) { anotar({ acao: 'pulou', motivo: nao2, de, idi, pergunta, faq: r.id }); return; }
+          const minha = await pegarTrava(pend.chave);
+          if (pend.outros) { jaRespondida(pend); return; }
+          if (!minha) { anotar({ acao: 'pulou', motivo: 'outra aba ficou com esta pergunta', de, idi, pergunta, faq: r.id }); return; }
+          const texto2 = variar(r.txt, idi, de);
+          const ok = PIH.pedir({ t: 'chat.send', canal: 'duvidas', idioma: idi, texto: texto2 }, 'duvidas');
+          if (!ok.ok) { anotar({ acao: 'pulou', motivo: `o gancho recusou: ${ok.motivo}`, de, idi, pergunta, faq: r.id }); return; }
+          const n = Date.now();
+          st.ultimaEm = n; st.porNick.set(nick, n); st.porResposta.set(r.id, n);
+          anotar({ acao: 'respondi', de, idi, pergunta, faq: r.id, resposta: texto2, conta: minhaConta() });
+        } catch (e) { console.warn('[piloto] teste-duvidas:', e); } finally { if (st.pendente === pend) st.pendente = null; }
+      }, sortearAtraso());
     } catch (e) { console.warn('[piloto] teste-duvidas:', e); }
   });
 
@@ -399,15 +468,20 @@
     return `${K.grupo('Dúvidas do chat')}
       ${K.linha({ id: 'teste-duvidas', icone: 'duvidas', nome: 'Responder no Dúvidas', alvo: 'teste:ligado', on: cfg.ligado, trava,
     status: `hoje: ${conta('respondi')} respondidas · ${conta('pulou')} puladas · ${conta('sem resposta')} sem resposta · ${BASE.length} respostas na base`,
-    dica: 'Desligado de fábrica. Ligado, responde sozinho no canal Dúvidas quando uma resposta da base (tirada da Pokepédia do jogo e dos módulos dele) bate com certeza. Espera 20 s e não responde se alguém já falou; no máximo 1 a cada 5 min, a mesma pessoa a cada 30 min. Aqui aparecem só as respostas; o resto fica guardado para a base crescer.' })}
+    dica: 'Desligado de fábrica. Ligado, responde sozinho no canal Dúvidas quando uma resposta da base (tirada da Pokepédia do jogo e dos módulos dele) bate com certeza. Só uma conta por pergunta: espera um tempo aleatório, não responde se outro já respondeu, só uma aba responde, o texto varia e há limite por hora. Aqui aparecem só as respostas; o resto fica guardado para a base crescer.',
+    ajustes: `${K.fcampo('Espera mínima (s)', K.numero('teste:atrasoMinS', faixaS().min, 10, 600, 5, trava))}${K.fcampo('Espera máxima (s)', K.numero('teste:atrasoMaxS', faixaS().max, 10, 900, 5, trava))}${K.fcampo('Respostas por hora', K.numero('teste:limiteHora', limiteHora(), 1, 12, 1, trava))}` })}
       <div class="plt-tdu">${cards || '<p class="plt-tdu-vazio">Nenhuma resposta ainda. Quando o Piloto responder alguém no canal Dúvidas, a pergunta e a resposta aparecem aqui.</p>'}</div>`;
   }
   function definir(caminho, v) {
+    if (['atrasoMinS', 'atrasoMaxS', 'limiteHora'].includes(caminho)) {
+      if (Number.isFinite(Number(v))) { cfg[caminho] = Number(v); gravarJ(CHAVE, cfg); }
+      return;
+    }
     if (caminho !== 'ligado') return;
     cfg.ligado = !!v;
     gravarJ(CHAVE, cfg);
     anotar({ acao: cfg.ligado ? 'ligado' : 'desligado' });
   }
 
-  PIH.duvidas = PIH.testeDuvidas = { html, definir, _interno: { respostaBase, respostaEvo, ehPergunta, norm, st, log, BASE } };
+  PIH.duvidas = PIH.testeDuvidas = { html, definir, _interno: { respostaBase, respostaEvo, ehPergunta, norm, st, log, BASE, cfg, sortearAtraso, variar, pareceResposta, pegarTrava } };
 })(globalThis);
