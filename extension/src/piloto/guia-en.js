@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.51.1': [
+        "Fixed: the Pilot couldn't set the Golden Potion in the game's automations, and the game could stay on a potion you had run out of. It is now really set, and the journal tells you when a switch doesn't go through.",
+      ],
       '1.51.0': [
         "The hunt ranking (Hunt tab and Farm mode) now takes the game's Seasonal Day into account: in Map hunts, Pokémon of the day's type hit twice as hard and take a quarter of the damage. On a Bug day, the bug hunt drops for anyone who isn't Bug. It is worked out again by itself at the 18:00 turnover.",
       ],

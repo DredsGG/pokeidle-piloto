@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.51.1': [
+        "Corrigido: o Piloto não conseguia marcar a Golden Potion nas automações do jogo, e o jogo podia ficar com uma poção sem estoque. Agora ela é marcada de verdade, e o Diário avisa quando uma troca não dá certo.",
+      ],
       '1.51.0': [
         "O ranking de hunts (aba Caçar e Modo farm) agora leva em conta o Dia Sazonal do jogo: nas hunts do Mapa, quem é da tipagem do dia bate o dobro e apanha um quarto. Num dia de Inseto, a hunt de inseto cai para quem não é Inseto. A conta é refeita sozinha na virada das 18:00.",
       ],

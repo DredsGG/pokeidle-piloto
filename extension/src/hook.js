@@ -761,8 +761,9 @@
       if (!b || b.compravel === false || !(Number(b.priceGold) > 0) || /beast|master/i.test(String(b.nome || ''))) return null;
       // as poções e revives que o NPC vende (assets/items.json do jogo, 2026-10-27): Small, Great,
       // Ultra, Hyper e Ultimate Potion; Revive e Max Revive. A Medicine (sem preço) fica de fora.
-      // 1.33: e a Golden Potion (cura em %), que vem no welcome (itensNossos) — só se o jogo a vende em ouro
-      const nossa = (Array.isArray(w.itensNossos) ? w.itensNossos : []).some((i) => i && Number(i.id) === pocao && i.category === 'heal' && Number(i.healPct) > 0 && Number(i.priceGold) > 0);
+      // 1.33: e a Golden Potion (cura em %), que vem no welcome (itensNossos) — só se o jogo a vende em ouro.
+      // 1.51.1: a loja vende poção pelo npcPrice e o welcome não manda mais priceGold nesse item (visto em 2026-11-06).
+      const nossa = (Array.isArray(w.itensNossos) ? w.itensNossos : []).some((i) => i && Number(i.id) === pocao && i.category === 'heal' && Number(i.healPct) > 0 && (Number(i.npcPrice) > 0 || Number(i.priceGold) > 0));
       if ((![200, 201, 202, 203, 204].includes(pocao) && !nossa) || ![205, 206].includes(revive)) return null;
       return { ...e.automation, t: 'auto.set', ballIds: [bola], potionIds: [pocao], reviveIds: [revive] };
     },

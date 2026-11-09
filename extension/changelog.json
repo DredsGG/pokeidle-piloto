@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.51.1": {
+      "pt": [
+        "Corrigido: o Piloto não conseguia marcar a Golden Potion nas automações do jogo, e o jogo podia ficar com uma poção sem estoque. Agora ela é marcada de verdade, e o Diário avisa quando uma troca não dá certo."
+      ],
+      "en": [
+        "Fixed: the Pilot couldn't set the Golden Potion in the game's automations, and the game could stay on a potion you had run out of. It is now really set, and the journal tells you when a switch doesn't go through."
+      ],
+      "es": [
+        "Corregido: el Piloto no podía marcar la Golden Potion en las automatizaciones del juego, y el juego podía quedarse con una poción sin existencias. Ahora se marca de verdad, y el Diario avisa cuando un cambio no sale."
+      ]
+    },
     "1.51.0": {
       "pt": [
         "O ranking de hunts (aba Caçar e Modo farm) agora leva em conta o Dia Sazonal do jogo: nas hunts do Mapa, quem é da tipagem do dia bate o dobro e apanha um quarto. Num dia de Inseto, a hunt de inseto cai para quem não é Inseto. A conta é refeita sozinha na virada das 18:00."

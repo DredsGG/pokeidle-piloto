@@ -513,7 +513,7 @@
     return janela.reduce((s, x) => s + (Number(x.q[chave]) || 0), 0) / (ms / 3_600_000);
   }
   // as poções do jogo que não estão no items.json (a Golden Potion vem no welcome, com cura em %)
-  const pocaoNossa = (id) => (welcome?.itensNossos ?? []).some((i) => Number(i?.id) === Number(id) && i.category === 'heal' && Number(i.priceGold) > 0);
+  const pocaoNossa = (id) => (welcome?.itensNossos ?? []).some((i) => Number(i?.id) === Number(id) && i.category === 'heal' && precoLoja(i) > 0);
   const itemPorId = (id) => jogoCache?.itensPorId?.get(Number(id)) ?? (welcome?.itensNossos ?? []).find((i) => Number(i?.id) === Number(id)) ?? null;
   // 1.43.1 (relato #3, ZaryImortal: "acabou com todo o meu gold"): a loja do jogo cobra a poção e o
   // revive pelo `npcPrice` (lido no app.js em 29/10: a vitrine usa `preco: item.npcPrice`, e a conta
@@ -612,6 +612,7 @@
   // 1.33: o kit acabou de ser pedido e o jogo ainda não confirmou — a reposição espera (senão compra
   // para TODOS os itens que o jogo marca de fábrica numa conta nova, até Max Revive)
   let kitPedido = null;
+  let kitRecusado = null; // 1.51.1: { chave, em } do último kit que o hook ou o cofre recusou
   let kitIds = null; // as chaves do último kit escolhido (b<id>, i<id>)
   let kitAtual = null; // 1.34: a bola, a poção e o revive do kit aplicado no jogo (para comprar mesmo desmarcados)
   function escolherKit(teste = {}) {
@@ -704,6 +705,8 @@
     if (igual(a.ballIds, k.bola.id) && igual(a.potionIds, k.pocao.id) && igual(a.reviveIds, k.revive.id)) { kitVisto = null; kitAtual = k; return k; }
     const chave = `${k.bola.id}/${k.pocao.id}/${k.revive.id}`;
     const agora = Date.now();
+    // 1.51.1: o mesmo kit recusado há pouco espera, mesmo sendo "urgente" (ver o PIH.pedir abaixo)
+    if (!forcar && kitRecusado && kitRecusado.chave === chave && agora - kitRecusado.em < KIT_ESTAVEL_MS) return k;
     // a primeira vez (conta nova vem com tudo marcado, ou um item só não está marcado): na hora
     const primeira = !kitTrocadoEm && !(igual(a.potionIds, a.potionIds?.[0]) && igual(a.reviveIds, a.reviveIds?.[0]) && igual(a.ballIds, a.ballIds?.[0]));
     // 1.36.1: troca URGENTE — o item marcado de uma categoria que muda está abaixo do mínimo (vai
@@ -725,10 +728,18 @@
       if (!kitVisto || kitVisto.chave !== chave) { kitVisto = { chave, em: agora }; return k; }
       if (agora - kitVisto.em < KIT_ESTAVEL_MS || agora - kitTrocadoEm < KIT_INTERVALO_MS) return k;
     }
+    // 1.51.1 (conta do André, 2026-11-06): o retorno era ignorado. O pedido recusado virava "ok" no Diário,
+    // o kit recusado passava a ser comprado e, com a poção marcada sem estoque, repetia a cada volta.
+    const pedido = PIH.pedir({ t: 'auto.set', ballIds: [k.bola.id], potionIds: [k.pocao.id], reviveIds: [k.revive.id] }, 'hunt');
+    if (!pedido?.ok) {
+      kitRecusado = { chave, em: agora };
+      anotar(`automações do jogo: não troquei para ${k.bola.nome}, ${k.pocao.name} e ${k.revive.name} (${pedido?.motivo ?? 'recusado'}); tento de novo em 10 min`, 'aviso');
+      return k;
+    }
+    kitRecusado = null;
     kitTrocadoEm = agora;
     kitVisto = null;
     kitPedido = { em: agora, ids: [`b${k.bola.id}`, `i${k.pocao.id}`, `i${k.revive.id}`] };
-    PIH.pedir({ t: 'auto.set', ballIds: [k.bola.id], potionIds: [k.pocao.id], reviveIds: [k.revive.id] }, 'hunt');
     kitAtual = k; // só o kit que foi de fato mandado ao jogo (o candidato ainda esperando os 10 min não compra)
     anotar(`automações do jogo: ${k.bola.nome}, ${k.pocao.name} e ${k.revive.name} (um de cada, pela conta: HP de quem luta ${nf.format(k.hpLuta)}, médio do time ${nf.format(k.hpMedio)}${k.porBola ? `, até ${nf.format(k.porBola)} de ouro por bola` : ''})`, 'ok');
     return k;

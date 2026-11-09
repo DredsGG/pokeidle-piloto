@@ -9,7 +9,7 @@ Hunt optimizer, market radar, team manager and daily routine in one browser exte
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
 ![Browsers](https://img.shields.io/badge/Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20GX%20·%20Firefox%20140+-works-6d4aff)
-![Version](https://img.shields.io/badge/version-1.51.0-e53935)
+![Version](https://img.shields.io/badge/version-1.51.1-e53935)
 ![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-2e7d32)
 
 <img src="docs/hunt-tab.png" width="80%" alt="The Piloto window in Automatic mode, Hunt tab: hunt switching, restock, team rotation, Outland tier, automatic Poké Ball and auto-reload, above the ranking of the best hunts">
@@ -243,6 +243,7 @@ node tests/outland-meta.mjs   # Outland variants don't count for the meta and th
 node tests/so-meta.mjs        # only meta Pokémon join the team; the comp it follows changes after 24 h
 node tests/kit.mjs            # one ball, one potion and one revive picked for the account, and the hook accepts only that
 node tests/pocao-luta.mjs     # the potion follows the HP of the Pokémon that is fighting: a weak one in a strong team gets Small Potion, not Ultra
+node tests/kit-golden.mjs     # the Golden Potion is really set in the game's automations; a refused switch is reported in the journal and not retried every cycle
 node tests/guia.mjs           # first-run guide on a new install, "What's new" once per version, Esc and X close it
 node tests/aviso-solto.mjs    # guide, What's new and the new-version notice show up by themselves on the game page (new install, simulated update, simulated newer release in PT/EN/ES); X snoozes for 1 h; an URGENT release has no X and pauses the automation
 node tests/idioma-inicial.mjs # first-run language from the browser (pt, en, es; anything else English); a saved choice wins
