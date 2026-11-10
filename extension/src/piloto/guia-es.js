@@ -28,8 +28,7 @@
     ],
     novidades: {
       '1.53.2': [
-        "Carpeta de la Colección corregida a \"Pokédex\" (antes se creó como \"PokéDesk\"); si la carpeta antigua existe, el Piloto la usa y no crea otra.",
-        "La carpeta ahora se crea en cuanto se activa la opción, sin esperar el siguiente ciclo de 20s.",
+        "La carpeta \"Pokédex\" se crea en cuanto se activa la opción, sin esperar el siguiente ciclo de 20s.",
         "Cada evolución es una especie diferente: Pichu, Pikachu y Raichu tienen su propio lugar en la Pokédex.",
         "La Pokédex mantiene solo 1 por especie: el duplicado que pasa la regla de la Colección vuelve a la General y el que no pasa va al Depot.",
       ],

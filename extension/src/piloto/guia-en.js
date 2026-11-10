@@ -28,8 +28,7 @@
     ],
     novidades: {
       '1.53.2': [
-        "Collection folder corrected to \"Pokédex\" (it was created as \"PokéDesk\"); if the old folder exists, the Pilot uses it and doesn't create another.",
-        "The folder is now created as soon as the option is turned on, without waiting for the next 20s tick.",
+        "The \"Pokédex\" folder is created as soon as the option is turned on, without waiting for the next 20s tick.",
         "Each evolution is a different species: Pichu, Pikachu and Raichu each get their own slot in the Pokédex.",
         "The Pokédex keeps only 1 per species: a duplicate that passes the Collection rule goes back to General, and one that doesn't goes to the Depot.",
       ],

@@ -976,11 +976,7 @@
     if (!eu || !Array.isArray(eu.pastas)) return null;
     // Nome sem acento e sem diferenciar maiúsculas: "Pokédex", "Pokedex" e "POKÉDEX" são a mesma pasta.
     const norm = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    const atual = eu.pastas.find((p) => p && norm(p.nome) === 'pokedex');
-    if (atual) return atual;
-    // Compatibilidade: a 1.53.1 criava "PokéDesk" (nome errado). Se a pasta antiga existir, usa ela
-    // em vez de criar uma segunda.
-    return eu.pastas.find((p) => p && norm(p.nome) === 'pokedesk') || null;
+    return eu.pastas.find((p) => p && norm(p.nome) === 'pokedex') || null;
   }
 
   async function tarefaPastaPokedex() {
@@ -993,19 +989,6 @@
 
     const pastas = Array.isArray(eu.pastas) ? eu.pastas : [];
     const pasta = pastaPokedex();
-
-    // 1.1 Compatibilidade: a 1.53.1 criava "PokéDesk". Se a pasta antiga ainda existe, renomeia para
-    //     "Pokédex" em vez de deixar o nome errado (uma vez a cada 60 s, se o servidor recusar).
-    if (pasta) {
-      const nomeNorm = String(pasta.nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-      if (nomeNorm === 'pokedesk' && venceu('pokedexRenomear', 60_000)) {
-        marcar('pokedexRenomear');
-        return pedir(
-          { t: 'colecao.pasta.editar', pasta: pasta.id, nome: 'Pokédex', icone: pasta.icone || 'bola' },
-          'Coleção: renomeando a pasta PokéDesk para Pokédex'
-        );
-      }
-    }
 
     // 1. Se a pasta não existe e ainda há vaga (< 5 pastas), cria a pasta "Pokédex"
     if (!pasta) {

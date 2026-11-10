@@ -28,8 +28,7 @@
     ],
     novidades: {
       '1.53.2': [
-        "Pasta da Coleção corrigida para \"Pokédex\" (antes saiu como \"PokéDesk\"); se a pasta antiga existir, o Piloto usa ela e não cria outra.",
-        "A pasta agora é criada na hora em que a opção é ligada, sem esperar o próximo tique de 20s.",
+        "A pasta \"Pokédex\" é criada na hora em que a opção é ligada, sem esperar o próximo tique de 20s.",
         "Cada evolução é uma espécie diferente: Pichu, Pikachu e Raichu ganham um lugar cada um na Pokédex.",
         "A Pokédex mantém só 1 por espécie: a duplicata que passa na regra da Coleção volta para a Geral e a que não passa vai ao Depot.",
       ],

@@ -2,20 +2,17 @@
   "versoes": {
     "1.53.2": {
       "pt": [
-        "Pasta da Coleção corrigida para \"Pokédex\" (antes saiu como \"PokéDesk\"); se a pasta antiga existir, o Piloto usa ela e não cria outra.",
-        "A pasta agora é criada na hora em que a opção é ligada, sem esperar o próximo tique de 20s.",
+        "A pasta \"Pokédex\" é criada na hora em que a opção é ligada, sem esperar o próximo tique de 20s.",
         "Cada evolução é uma espécie diferente: Pichu, Pikachu e Raichu ganham um lugar cada um na Pokédex.",
         "A Pokédex mantém só 1 por espécie; duplicatas que passam na regra da Coleção voltam para a Geral e as que não passam vão ao Depot."
       ],
       "en": [
-        "Collection folder corrected to \"Pokédex\" (it was created as \"PokéDesk\"); if the old folder exists, the Pilot uses it and doesn't create another.",
-        "The folder is now created as soon as the option is turned on, without waiting for the next 20s tick.",
+        "The \"Pokédex\" folder is created as soon as the option is turned on, without waiting for the next 20s tick.",
         "Each evolution is a different species: Pichu, Pikachu and Raichu each get their own slot in the Pokédex.",
         "The Pokédex keeps only 1 per species; duplicates that pass the Collection rule go back to General and those that don't go to the Depot."
       ],
       "es": [
-        "Carpeta de la Colección corregida a \"Pokédex\" (antes se creó como \"PokéDesk\"); si la carpeta antigua existe, el Piloto la usa y no crea otra.",
-        "La carpeta ahora se crea en cuanto se activa la opción, sin esperar el siguiente ciclo de 20s.",
+        "La carpeta \"Pokédex\" se crea en cuanto se activa la opción, sin esperar el siguiente ciclo de 20s.",
         "Cada evolución es una especie diferente: Pichu, Pikachu y Raichu tienen su propio lugar en la Pokédex.",
         "La Pokédex mantiene solo 1 por especie; los duplicados que pasan la regla de la Colección vuelven a la General y los que no pasan van al Depot."
       ]
