@@ -337,9 +337,12 @@
     const soMeta = cfg.doMeta !== false;
     if (soMeta) {
       for (const p of timeCampo()) { const c = porIdC.get(p.id); if (c && !time.includes(c) && time.length < MAX_EQUIPE) time.push(c); }
+      // 1.53.1: se ainda faltam pokémon para completar 5 no time (conta nova ou vagas vazias),
+      // preenche com os melhores disponíveis para a conta nunca ficar com time desfalcado
+      for (const c of cand) { if (time.length >= MAX_EQUIPE) break; if (!time.includes(c)) time.push(c); }
       // 1.37.1 (relato #3, ok do André): quem não é do meta não prende a vaga. Um de fora do meta
       // com 2% mais Poder entra no lugar do mais fraco de fora do meta. Os do meta e os travados
-      // nunca saem por isso, e vaga vazia continua sem ser preenchida por quem é de fora do meta.
+      // nunca saem por isso.
       for (const c of cand) {
         if (time.includes(c)) continue;
         const trocaveis = time.filter((p) => !fixos.has(p.id) && p.id !== eu.activeId);

@@ -395,6 +395,8 @@
   let mostrando = POR_PAGINA;
   let assinatura = '';
   let relogio = 0;
+  let buscaPokemon = '';
+  let timerBusca = null;
   const abertas = new Set(); // linhas com a explicação ("?") aberta
   const layoutDo = (modo) => (modo === 'manual' ? 'manual' : modo === 'desligado' ? 'desligado' : 'automatico');
 
@@ -441,7 +443,19 @@
     document.body.append(painel);
     painel.addEventListener('click', aoClicarNoPainel);
     painel.addEventListener('change', aoMudarNoPainel);
-    painel.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches('input')) ev.target.blur(); });
+    painel.addEventListener('input', aoDigitarNoPainel);
+    painel.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' && ev.target.matches('input')) {
+        if (ev.target.matches('.pih-busca-pk')) {
+          clearTimeout(timerBusca);
+          if (buscaPokemon !== ev.target.value) {
+            buscaPokemon = ev.target.value;
+            desenhar();
+          }
+        }
+        ev.target.blur();
+      }
+    });
     pintarBotaoTema();
     pintarMoldura();
     posicionarPainel();
@@ -462,6 +476,7 @@
   }
   PIH.on?.('extrato.mudou', () => { if (painel && prefs.aba === 'extrato') { ultimoHtml = ''; desenhar(); } });
   function fecharPainel() {
+    clearTimeout(timerBusca);
     clearInterval(relogio);
     soltarMercado();
     painel?.remove();
@@ -471,7 +486,21 @@
     removeEventListener('keydown', aoTeclar, true);
     removeEventListener('pointerdown', aoClicarFora, true);
   }
-  const aoTeclar = (ev) => { if (ev.key === 'Escape') fecharPainel(); };
+  const aoTeclar = (ev) => {
+    if (ev.key === 'Escape') {
+      const buscaEl = document.activeElement?.matches?.('.pih-busca-pk') ? document.activeElement : null;
+      if (buscaEl && (buscaPokemon || buscaEl.value)) {
+        ev.stopPropagation();
+        clearTimeout(timerBusca);
+        buscaEl.value = '';
+        buscaPokemon = '';
+        ultimoHtml = '';
+        desenhar();
+        return;
+      }
+      fecharPainel();
+    }
+  };
   const aoClicarFora = (ev) => {
     const caminho = ev.composedPath();
     // 1.32.2: clicar no quadro solto do guia/novidades/versão nova (piloto/guia.js) não fecha o painel
@@ -498,7 +527,6 @@
     else if (mod === 'avisos') PIH.avisos?.definir?.(caminho, valor);
     else if (mod === 'torneio') PIH.torneio?.definir?.(caminho, valor);
     else if (mod === 'teste') PIH.testeDuvidas?.definir?.(caminho, valor);
-    else if (mod === 'vendanota') PIH.vendaNota?.definir?.(caminho, valor);
     else if (mod === 'extrato') PIH.extrato?.definir?.(caminho, valor);
     ultimoHtml = '';
     desenhar();
@@ -515,7 +543,7 @@
       setTimeout(() => { ultimoHtml = ''; desenhar(); }, r.ok ? 1500 : 2500);
       return;
     }
-    if (t.matches('.cfg-cat[data-aba]')) { prefs.aba = t.dataset.aba; gravarJson(CHAVE_PREFS, prefs); mostrando = POR_PAGINA; ultimoHtml = ''; desenhar(); return; }
+    if (t.matches('.cfg-cat[data-aba]')) { clearTimeout(timerBusca); prefs.aba = t.dataset.aba; gravarJson(CHAVE_PREFS, prefs); mostrando = POR_PAGINA; ultimoHtml = ''; desenhar(); return; }
     if (t.matches('[data-idioma]')) {
       PIH.idioma?.definir(t.dataset.idioma);
       for (const x of painel.querySelectorAll('[data-idioma]')) x.setAttribute('aria-pressed', String(x === t));
@@ -537,6 +565,7 @@
     if (!acao) return;
     if (acao === 'fechar') fecharPainel();
     else if (acao === 'tema') { definirTema(temaAtual() === 'claro' ? 'escuro' : 'claro'); pintarBotaoTema(); }
+    else if (acao === 'limpar-busca') { clearTimeout(timerBusca); buscaPokemon = ''; ultimoHtml = ''; desenhar(); painel?.querySelector('.pih-busca-pk')?.focus(); }
     else if (acao === 'mais') { mostrando += POR_PAGINA; ultimoHtml = ''; desenhar(); }
     else if (acao === 'extrato-mais') { PIH.extrato?.mais?.(); ultimoHtml = ''; desenhar(); }
     else if (acao === 'plateia-abrir') PIH.plateia?.abrirAgora?.();
@@ -546,6 +575,14 @@
   }
   function aoMudarNoPainel(ev) {
     const el = ev.target;
+    if (el.matches('.pih-busca-pk')) {
+      clearTimeout(timerBusca);
+      if (buscaPokemon !== el.value) {
+        buscaPokemon = el.value;
+        desenhar();
+      }
+      return;
+    }
     if (!el.matches('[data-definir]') || el.disabled) return;
     let v = el.value;
     if (el.type === 'number') {
@@ -555,6 +592,20 @@
       v = Math.max(el.min !== '' ? Number(el.min) : -Infinity, el.max !== '' ? Math.min(Number(el.max), n) : n);
     }
     rotear(el.dataset.definir, v);
+  }
+  function aoDigitarNoPainel(ev) {
+    const el = ev.target;
+    if (el.matches('.pih-busca-pk')) {
+      clearTimeout(timerBusca);
+      const val = el.value;
+      timerBusca = setTimeout(() => {
+        if (!painel) return;
+        if (buscaPokemon !== val) {
+          buscaPokemon = val;
+          desenhar();
+        }
+      }, 1000);
+    }
   }
 
   function posicionarPainel() {
@@ -899,7 +950,13 @@
   }
   const cfgAuto = () => { try { return PIH.auto?._interno?.cfg?.(); } catch { return null; } };
   let topSlug = null;
-  function linhaHtml(l, i) {
+  const normTxt = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  function especiesDaHunt(slug, jogo) {
+    const h = (welcome?.hunts ?? []).find((x) => x.slug === slug);
+    if (!h || !Array.isArray(h.especies)) return [];
+    return h.especies.map((e) => jogo?.especies?.get(Number(e.pokeId))?.name || '').filter(Boolean);
+  }
+  function linhaHtml(l, i, pksMatch = null) {
     const medido = l.kphMedido != null ? ` · você fez ${num(l.kphMedido)} abates/h aqui com este pokémon (referência; não muda o ranking)` : '';
     const aprox = l.aoe
       ? `<span class="pih-aprox" title="Estimativa com o TM AoE: ${l.engajados.toFixed(1).replace('.', ',')} selvagens em você ao mesmo tempo${l.geoMedida ? '' : '; geometria padrão'}${medido}">≈AoE</span>`
@@ -908,14 +965,15 @@
         : `<span class="pih-aprox" title="Geometria padrão (sem onda cheia medida nesta hunt)${medido}">≈</span>`;
     const cls = [l.slug === topSlug && !l.inviavel ? 'pih-top' : '', l.liberada ? '' : 'pih-bloq'].filter(Boolean).join(' ');
     const golpe = l.melhorGolpe ? `${esc(l.melhorGolpe.nome)} ×${l.efetividade.toFixed(2).replace('.', ',')}` : '';
+    const matchHtml = pksMatch && pksMatch.length ? `<small class="pih-match-pk" title="Pokémon encontrado nesta hunt">🎯 ${esc(pksMatch.join(', '))}</small>` : '';
     if (l.inviavel) {
       return `<tr class="${cls}"><td class="pih-pos">${i + 1}</td>
-        <td class="pih-hunt"><b>${esc(l.nome)}</b><small>${regiao(l.regiao)} · Nv ${num(l.nivel)}</small></td>
+        <td class="pih-hunt"><b>${esc(l.nome)}</b><small>${regiao(l.regiao)} · Nv ${num(l.nivel)}</small>${matchHtml}</td>
         <td colspan="5"><span class="pih-perigo">${l.motivo === 'morre antes de matar' ? 'morre antes de matar' : 'não mata o selvagem'}</span></td></tr>`;
     }
     return `<tr class="${cls}" title="${esc(golpe)}">
       <td class="pih-pos">${i + 1}</td>
-      <td class="pih-hunt">${retratoHunt(l)}<span class="pih-hunt-txt"><b>${esc(l.nome)}${l.slug === eu?.huntSlug && !eu?.noCentro ? ' <i class="pih-aqui">você está aqui</i>' : ''}</b><small>${regiao(l.regiao)} · Nv ${num(l.nivel)}${l.liberada ? '' : ' · 🔒'}</small></span></td>
+      <td class="pih-hunt">${retratoHunt(l)}<span class="pih-hunt-txt"><b>${esc(l.nome)}${l.slug === eu?.huntSlug && !eu?.noCentro ? ' <i class="pih-aqui">você está aqui</i>' : ''}</b><small>${regiao(l.regiao)} · Nv ${num(l.nivel)}${l.liberada ? '' : ' · 🔒'}</small>${matchHtml}</span></td>
       <td>${curto(prefs.ordem === 'ouro' ? l.ouroH : l.xpPokemonH)}</td>
       <td>${aprox}${num(l.kph)}</td>
       <td>${segundos(l.ttk)}</td>
@@ -931,25 +989,50 @@
     const evitar = cfgAuto()?.hunt?.evitarRisco !== false;
     const arriscada = (l) => PIH.engine.arriscada(l);
     const grupo = (l) => (l.inviavel ? 2 : evitar && arriscada(l) ? 1 : 0);
-    const linhas = r.linhas.map((l, i) => [l, i]).sort((a, b) => (grupo(a[0]) - grupo(b[0])) || (a[1] - b[1])).map((x) => x[0]);
+    let linhas = r.linhas.map((l, i) => [l, i]).sort((a, b) => (grupo(a[0]) - grupo(b[0])) || (a[1] - b[1])).map((x) => x[0]);
     if (!linhas.length) return '<div class="pih-erro">Nenhuma hunt liberada para o seu nível de treinador.</div>';
+
+    const barraBusca = `<div class="pih-busca-wrap">
+      <span class="pih-busca-ico">${ico('lupa')}</span>
+      <input type="search" class="pih-busca-pk" placeholder="Buscar pokémon ou hunt…" value="${esc(buscaPokemon)}" autocomplete="off" spellcheck="false">
+      ${buscaPokemon ? `<button type="button" class="pih-busca-limpar" data-acao="limpar-busca" title="Limpar busca (Esc)">×</button>` : ''}
+    </div>`;
+
+    const q = normTxt(buscaPokemon);
+    const matchMap = new Map();
+    if (q) {
+      linhas = linhas.filter((l) => {
+        const nomeHunt = normTxt(l.nome);
+        const pks = especiesDaHunt(l.slug, jogo);
+        const pksMatch = pks.filter((pkNome) => normTxt(pkNome).includes(q));
+        if (pksMatch.length) matchMap.set(l.slug, pksMatch);
+        return nomeHunt.includes(q) || pksMatch.length > 0;
+      });
+    }
+
     // 1.18: o 👑 é o mesmo destino da Troca de hunt (top 1 liberado, sem risco se "Evitar risco")
     const top = (PIH.auto?.melhorDe ? PIH.auto.melhorDe(linhas, prefs.ordem === 'ouro' ? 'ouro' : 'xp') : null) || linhas.find((l) => !l.inviavel);
     topSlug = top ? top.slug : null;
     const outro = prefs.ordem === 'ouro' ? 'XP/h' : 'Ouro/h';
-    const limite = manual ? mostrando : 5;
-    const melhor = top ? `<div class="plt-caixa pih-melhor">
+    const limite = q ? linhas.length : (manual ? mostrando : 5);
+    const melhor = (!q && top) ? `<div class="plt-caixa pih-melhor">
         <span class="pih-coroa">👑</span>
         <div><strong>${esc(top.nome)}</strong> <span class="pih-dim">${regiao(top.regiao)} · Nv ${num(top.nivel)}</span><br>
         ${curto(top.xpPokemonH)} XP/h do pokémon · ${curto(top.xpTreinadorH)} XP/h do treinador · ${curto(top.ouroH)} ouro/h · ${num(top.kph)} abates/h${top.melhorGolpe ? ` · ${esc(top.melhorGolpe.nome)}` : ''}</div>
       </div>` : '';
-    return `${melhor}
-      <div class="plt-caixa pih-lista"><table class="plt-tab pih-tab">
-        <thead><tr><th>#</th><th>Hunt</th><th>${prefs.ordem === 'ouro' ? 'Ouro/h' : 'XP/h'}</th><th>Abates/h</th><th>Mata em</th><th>Risco</th><th>${outro}</th></tr></thead>
-        <tbody>${linhas.slice(0, limite).map(linhaHtml).join('')}</tbody>
-      </table>
-      ${manual && linhas.length > mostrando ? `<button type="button" class="cfg-escala-bt plt-mais" data-acao="mais">mostrar mais (${linhas.length - mostrando})</button>` : ''}
-      </div>
+
+    const conteudoTabela = linhas.length
+      ? `<div class="plt-caixa pih-lista"><table class="plt-tab pih-tab">
+          <thead><tr><th>#</th><th>Hunt</th><th>${prefs.ordem === 'ouro' ? 'Ouro/h' : 'XP/h'}</th><th>Abates/h</th><th>Mata em</th><th>Risco</th><th>${outro}</th></tr></thead>
+          <tbody>${linhas.slice(0, limite).map((l, i) => linhaHtml(l, i, matchMap.get(l.slug))).join('')}</tbody>
+        </table>
+        ${manual && !q && linhas.length > mostrando ? `<button type="button" class="cfg-escala-bt plt-mais" data-acao="mais">mostrar mais (${linhas.length - mostrando})</button>` : ''}
+        </div>`
+      : `<div class="plt-caixa pih-vazio">Nenhuma hunt encontrada para "${esc(buscaPokemon)}".</div>`;
+
+    return `${barraBusca}
+      ${melhor}
+      ${conteudoTabela}
       ${manual ? `<div class="pih-rodape">Dados do jogo ${jogo.versao ? `v${esc(jogo.versao)}` : 'no ar'} · ${r.linhas.length}/${r.total} hunts · cálculo em ${r.ms} ms · ranking com ondas cheias · geometria medida em ${PIH.geo?.huntsMedidas?.() ?? 0} hunts (≈ = padrão · ● = você já caçou aqui, passe o mouse)${r.aoe ? ` · TM AoE: ${r.aoe.alvosPorGolpe.toFixed(1).replace('.', ',')} alvos/golpe` : ''}</div>` : ''}`;
   }
 
@@ -963,6 +1046,11 @@
   let ultimaAba = '';
   function pintarSeMudou(alvo, aba, html) {
     if (aba === ultimaAba && html === ultimoHtml && alvo.childElementCount) return false;
+    const buscaEl = painel?.querySelector('.pih-busca-pk');
+    const tinhaFoco = buscaEl && document.activeElement === buscaEl;
+    const selStart = tinhaFoco ? buscaEl.selectionStart : null;
+    const selEnd = tinhaFoco ? buscaEl.selectionEnd : null;
+
     ultimaAba = aba;
     ultimoHtml = html;
     const rolagem = alvo.scrollTop;
@@ -971,6 +1059,16 @@
       if (abertas.has(l.dataset.linha)) { l.classList.add('aberta'); l.querySelector('.cfg-ajuda')?.setAttribute('aria-expanded', 'true'); }
     }
     alvo.scrollTop = rolagem;
+
+    if (tinhaFoco) {
+      const novoInput = painel?.querySelector('.pih-busca-pk');
+      if (novoInput) {
+        novoInput.focus();
+        if (selStart != null && selEnd != null) {
+          try { novoInput.setSelectionRange(selStart, selEnd); } catch {}
+        }
+      }
+    }
     return true;
   }
 
@@ -989,7 +1087,7 @@
     if (aba !== 'mercado') soltarMercado();
     if (aba === 'mercado') { ultimaAba = 'mercado'; ultimoHtml = ''; montarMercado(alvo); return; }
     if (aba === 'resumo') { pintarSeMudou(alvo, aba, topo + blocoResumo()); return; }
-    if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '') + (PIH.avisos ? PIH.avisos.linha(layout) : '') + (PIH.plateia ? PIH.plateia.linha(layout) : '') + (PIH.torneio ? PIH.torneio.linha(layout) : '') + (PIH.vendaNota ? PIH.vendaNota.linha(layout) : '')); return; }
+    if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '') + (PIH.avisos ? PIH.avisos.linha(layout) : '') + (PIH.plateia ? PIH.plateia.linha(layout) : '') + (PIH.torneio ? PIH.torneio.linha(layout) : '')); return; }
     if (aba === 'cofre') { pintarSeMudou(alvo, aba, topo + (PIH.cofre ? PIH.cofre.html(layout) : '')); return; }
     if (aba === 'duvidas') { pintarSeMudou(alvo, aba, topo + (PIH.testeDuvidas ? PIH.testeDuvidas.html(layout) : '')); return; }
     if (aba === 'extrato') { if (pintarSeMudou(alvo, aba, topo + (PIH.extrato ? PIH.extrato.html(layout) : ''))) PIH.extrato?.hidratar?.(alvo); return; }

@@ -686,8 +686,7 @@
       return { t: 'ball.throw', ballId: p.ballId, slot: p.slot };
     },
     'shop.sellAllPokemons': (p) => (int(p.ateId, 1, ID) ? { t: 'shop.sellAllPokemons', ateId: p.ateId } : null),
-    // 1.53.0: a venda de um pokémon (só a "Vender os de nota baixa"). Segunda trava, além da do módulo: só do
-    // Depot, e nunca shiny, P5, ativo, time, inicial, ovo ou quem segura item, pelo estado que o servidor mandou.
+    // Venda unitária de pokémon no Market NPC: só do Depot, e nunca shiny, P5, ativo, time, inicial, ovo ou quem segura item.
     'shop.sellPokemon': (p) => {
       const e = pihUltimo.get('estado') || {};
       if (!int(p.pokemonId, 1, ID)) return null;
@@ -718,13 +717,22 @@
       const pk = (e.pokemons || []).find((x) => x && x.id === p.pokemonId);
       if (!int(p.pokemonId, 1, ID) || !pk) return null;
       if (p.para === 'colecao') return { t: 'colecao.mover', pokemonId: p.pokemonId, para: 'colecao' };
-      // 1.34.1 (pedido do André): de volta ao Depot SÓ o que o Mercado ainda não aceita (abaixo do
-      // Nv 50) e que está na Coleção — nunca shiny, P5, quem está no time, o ativo ou quem segura item.
+      // 1.34.1: de volta ao Depot o que não é shiny, P5, quem está no time, o ativo ou quem segura item
       const naColecao = ((e.automation && e.automation.pokemonTravado) || []).map(Number).includes(pk.id);
-      if (p.para === 'depot' && naColecao && pk.slot == null && pk.id !== e.activeId && !pk.shiny && (Number(pk.potencia) || 0) < 5 && (Number(pk.level) || 0) < 50 && !(Number(pk.heldItemId) > 0)) {
+      if (p.para === 'depot' && naColecao && pk.slot == null && pk.id !== e.activeId && !pk.shiny && (Number(pk.potencia) || 0) < 5 && !(Number(pk.heldItemId) > 0)) {
         return { t: 'colecao.mover', pokemonId: p.pokemonId, para: 'depot' };
       }
       return null;
+    },
+    'colecao.pasta.criar': (p) => {
+      if (typeof p.nome !== 'string' || !p.nome.trim()) return null;
+      const nome = p.nome.trim().slice(0, 20);
+      const icone = typeof p.icone === 'string' && p.icone ? p.icone : 'bola';
+      return { t: 'colecao.pasta.criar', nome, icone };
+    },
+    'colecao.pasta.mover': (p) => {
+      if (!int(p.pokemonId, 1, ID) || !int(p.pasta, 0, ID)) return null;
+      return { t: 'colecao.pasta.mover', pokemonId: p.pokemonId, pasta: p.pasta };
     },
     // PvP Ranqueado (1.2.1): ler, montar a equipe (1 a 5 pokémon seus, sem repetir) e entrar na fila.
     'pvp.info': () => ({ t: 'pvp.info' }),

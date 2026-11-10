@@ -182,6 +182,10 @@ html[data-piloto-tema="claro"] .plt-conteudo .plt-opcao,
 html[data-piloto-tema="claro"] .plt-conteudo .pih-ctrl label { color: #4c2a2a; }
 html[data-piloto-tema="claro"] .plt-conteudo input[type="number"],
 html[data-piloto-tema="claro"] .plt-conteudo select { color: #3a1d22; background: #fffbf4; }
+html[data-piloto-tema="claro"] .plt-conteudo .pih-busca-pk,
+html[data-piloto-tema="claro"] .plt-janela .pih-busca-pk { color: #3a1d22; background: #fffbf4; }
+html[data-piloto-tema="claro"] .plt-conteudo .pih-match-pk,
+html[data-piloto-tema="claro"] .plt-janela .pih-match-pk { color: #8a5a12; }
 html[data-piloto-tema="claro"] .plt-conteudo .pih-tab tbody tr:hover td { background: rgba(72, 14, 30, .05); }
 html[data-piloto-tema="claro"] .plt-conteudo .pih-tab tr.pih-top td { background: rgba(35, 121, 63, .1); }
 html[data-piloto-tema="claro"] .plt-conteudo .plt-dica:hover,
@@ -367,6 +371,27 @@ html[data-piloto-tema="claro"] .plt-conteudo .plt-card-cab b { color: #3a1d22; t
 .pih-tab td.pih-hunt b { font-weight: 700; }
 .pih-tab td.pih-hunt small { display: block; color: var(--p-dim); font-size: 11px; }
 .pih-pos { color: var(--p-dim); width: 1%; }
+/* Busca de pokémon/hunt (aba Caçar) */
+.pih-busca-wrap { position: relative; display: flex; align-items: center; gap: 6px; margin: 0 0 8px; }
+.pih-busca-ico { position: absolute; left: 8px; display: inline-flex; color: var(--p-dim); pointer-events: none; }
+.pih-busca-ico .plt-ico { width: 14px; height: 14px; }
+.pih-busca-pk {
+  flex: 1; min-width: 0; min-height: 30px; padding: 4px 30px 4px 30px; border: 0; border-radius: 6px;
+  font: 600 12.5px/1.2 "Barlow", "Segoe UI", sans-serif; color: var(--p-texto);
+  background: var(--p-vazio); box-shadow: inset 0 0 0 2px var(--p-linha), 0 1px 0 var(--p-luz2);
+  outline: none;
+}
+.pih-busca-pk::placeholder { color: var(--p-dim); opacity: .8; }
+.pih-busca-pk:focus { box-shadow: inset 0 0 0 2px var(--p-rx), 0 0 0 2px var(--p-vao-luz); }
+.pih-busca-pk::-webkit-search-cancel-button { display: none; }
+.pih-busca-limpar {
+  position: absolute; right: 5px; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%;
+  cursor: pointer; font: 700 14px/1 var(--p-tahoma); color: #fff; background: var(--p-vao2);
+  box-shadow: inset 0 0 0 1px var(--p-linha);
+}
+.pih-busca-limpar:hover { background: var(--p-rx-esc); }
+.pih-vazio { padding: 16px 12px; text-align: center; color: var(--p-dim); }
+.pih-match-pk { display: block; margin-top: 2px; color: var(--p-ouro-luz); font-size: 11px; }
 .pih-mais {
   border: 0; border-radius: 6px; cursor: pointer; min-height: 28px; padding: 0 12px; margin-top: 8px; width: 100%;
   font: 700 11px/1 var(--p-tahoma); text-transform: uppercase; color: #fff;

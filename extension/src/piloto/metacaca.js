@@ -61,6 +61,14 @@
   // ---- o "melhor": o Poder no nível máximo que você pode usar (a fórmula do ⚔ do jogo) ----------
   let N = null;
   (async () => { try { N = await import(`${location.origin}/shared/nota-pokemon.mjs`); } catch { N = null; } })();
+  let MIST = null;
+  (async () => { try { const m = await import(`${location.origin}/shared/mistico.mjs`); MIST = m && typeof m.ehLendarioOuMitico === 'function' ? m : null; } catch { MIST = null; } })();
+  const ehLendario = (p) => {
+    if (!p) return false;
+    if (p.lendario || p.mitico) return true;
+    if (!MIST) return false;
+    try { return !!MIST.ehLendarioOuMitico(p.speciesId); } catch { return false; }
+  };
   async function potencial(p) {
     try {
       const j = await PIH.carregarJogo();
@@ -91,6 +99,21 @@
     return n;
   }
   const notaGuardada = (p, a) => (p && a ? notas.get(chaveNota(p, a)) : undefined);
+  const notaMinimaColecao = () => {
+    try {
+      const ac = eu?.automation?.autoColecao;
+      if (ac && ac.nota && ac.nota.on && Number(ac.nota.min) > 0) return Number(ac.nota.min);
+    } catch {}
+    return 3.5;
+  };
+  const atingeColecaoJa = (p, a) => !!p && (p.shiny === true || Number(p.potencia) >= 5 || ehLendario(p) || (notaGuardada(p, a) ?? -1) >= notaMinimaColecao());
+  async function atingeColecao(p, a) {
+    if (!p) return false;
+    // 1.53: o "Auto Coleção no ponto" é universal: shiny, P5 e lendário/mítico sempre entram.
+    if (p.shiny === true || Number(p.potencia) >= 5 || ehLendario(p)) return true;
+    const n = await notaComoMeta(p, a);
+    return n != null && n >= notaMinimaColecao();
+  }
   // é bom? (só vale com a opção ligada; desligada, qualquer um serve, como sempre)
   const bomJa = (p, a) => !!p && (p.shiny === true || Number(p.potencia) >= 5 || (notaGuardada(p, a) ?? -1) >= cfg.notaMin);
   async function ehBom(p, a) { if (!p) return false; if (p.shiny === true || Number(p.potencia) >= 5) return true; const n = await notaComoMeta(p, a); return n != null && n >= cfg.notaMin; }
@@ -111,7 +134,17 @@
       const membros = PIH.meta.familia.membrosDoMeta ? PIH.meta.familia.membrosDoMeta({ speciesId: a.speciesId, nome: a.nome }) : (raizId != null ? PIH.meta.familia.membros(raizId) : []);
       // a mesma família pode aparecer duas vezes na comp (ex.: Charizard e Mega Charizard): cada vaga precisa do seu
       const usados = new Set(alvos.map((x) => x.capturadoId).filter(Boolean));
-      const tenho = meus().filter((p) => PIH.meta.familia.serve(p, { speciesId: a.speciesId, nome: a.nome }) && !usados.has(p.id)).sort((x, y) => poderDe(y) - poderDe(x))[0] || null;
+      const cand = meus().filter((p) => PIH.meta.familia.serve(p, { speciesId: a.speciesId, nome: a.nome }) && !usados.has(p.id));
+      let tenho = null;
+      if (cfg.soBom) {
+        for (const p of cand) {
+          if (atingeColecaoJa(p, a)) {
+            if (!tenho || poderDe(p) > poderDe(tenho)) tenho = p;
+          }
+        }
+      } else {
+        tenho = cand.sort((x, y) => poderDe(y) - poderDe(x))[0] || null;
+      }
       alvos.push({ meta: a.nome, metaId: a.speciesId, raiz: raizId, membros, capturadoId: tenho ? tenho.id : null, tinhaId: tenho ? tenho.id : null, tinha: !!tenho, espera: null, semHuntNoJogo: false });
     }
     // 1.41.0: só uma caçada por vez (Melhorar o time e Completar a Pokédex devolvem a Troca de hunt e o rodízio antes)
@@ -166,16 +199,36 @@
       if (!a) continue;
       const atual = a.capturadoId ? porId(a.capturadoId) : null;
       if (cfg.soBom) {
-        // 1.45.0: ruim não fecha o alvo; o bom toma o lugar de quem não é bom
-        const bomNovo = await ehBom(p, a);
-        const bomAtual = atual ? await ehBom(atual, a) : false;
+        // Caçar por nota ativo: vai para a Coleção se atingir a meta da Coleção (3,5+, shiny, P5 ou regra Auto Coleção).
+        const podeColecao = await atingeColecao(p, a);
         const nota = notaTxt(await notaComoMeta(p, a));
-        if (!atual || (bomNovo && !bomAtual) || (bomNovo === bomAtual && (await potencial(p)) > (await potencial(atual)) * 1.02)) {
-          if (atual) aDescartar(atual, a);
+        if (!podeColecao) {
+          // Não atinge a nota da Coleção: não vai para a Coleção e fica no Depot para o Esvaziar o Depot vender
+          diario(`capturou ${p.nome} (Nv ${p.level}, nota ${nota}) — abaixo de ${notaTxt(notaMinimaColecao())}, continua caçando ${a.meta}`);
+          continue;
+        }
+        const bomNovo = await ehBom(p, a); // atingiu a nota definida do Caçar por nota (ex: 4,0+)
+        if (!atual) {
           a.capturadoId = p.id;
-          if (bomNovo) { diario(`capturou um bom: ${p.nome} (Nv ${p.level}, nota ${nota}) — ${a.meta} do meta, guardado na Coleção`, 'ok'); guardarNaColecao(p); }
-          else diario(`capturou ${p.nome} (Nv ${p.level}, nota ${nota}) — abaixo de ${notaTxt(cfg.notaMin)}, continua caçando ${a.meta}`);
-        } else if (!bomNovo) diario(`capturou ${p.nome} (Nv ${p.level}, nota ${nota}) — abaixo de ${notaTxt(cfg.notaMin)}, continua caçando ${a.meta}`);
+          guardarNaColecao(p);
+          if (bomNovo) diario(`capturou um bom: ${p.nome} (Nv ${p.level}, nota ${nota}) — ${a.meta} do meta atingido, guardado na Coleção`, 'ok');
+          else diario(`capturou ${p.nome} (Nv ${p.level}, nota ${nota}) — guardado na Coleção, continua caçando ${a.meta} nota ${notaTxt(cfg.notaMin)}+`);
+        } else {
+          // Já tem um: só substitui se a nota for maior (ou nota igual e potencial > 2%)
+          const nNovo = (await notaComoMeta(p, a)) ?? 0;
+          const nAtual = (await notaComoMeta(atual, a)) ?? 0;
+          const vNovo = await potencial(p);
+          const vAtual = await potencial(atual);
+          if (nNovo > nAtual || (nNovo === nAtual && vNovo > vAtual * 1.02)) {
+            aDescartar(atual, a); // o anterior sai da Coleção para o Depot e é vendido
+            a.capturadoId = p.id;
+            guardarNaColecao(p);
+            if (bomNovo) diario(`capturou um bom: ${p.nome} melhor (nota ${notaTxt(nNovo)} > ${notaTxt(nAtual)}) — ${a.meta} do meta atingido! Substitui o ${atual.nome}`, 'ok');
+            else diario(`capturou um ${p.nome} melhor (nota ${notaTxt(nNovo)} > ${notaTxt(nAtual)}) — fica no lugar do ${atual.nome}, continua caçando ${a.meta} nota ${notaTxt(cfg.notaMin)}+`);
+          } else {
+            diario(`capturou ${p.nome} (Nv ${p.level}, nota ${nota}) — não supera o ${atual.nome} atual (nota ${notaTxt(nAtual)}), continua caçando ${a.meta}`);
+          }
+        }
         continue;
       }
       if (!atual) {
@@ -232,16 +285,33 @@
       const cand = meus().filter((p) => !usados.has(p.id) && !descartadosSet().has(p.id) && daFamilia(a, p));
       let melhor = null;
       let mv = -1;
-      let mb = false;
-      // 1.45.0: com "Só aceitar um bom", o bom vem antes (depois, o de mais Poder)
-      for (const p of cand) { const v = await potencial(p); const b = cfg.soBom ? await ehBom(p, a) : false; if ((b && !mb) || (b === mb && v > mv)) { mv = v; mb = b; melhor = p; } }
+      let mNota = -1;
+      for (const p of cand) {
+        if (cfg.soBom && !(await atingeColecao(p, a))) continue;
+        const v = await potencial(p);
+        const n = (await notaComoMeta(p, a)) ?? 0;
+        if (!melhor || (cfg.soBom ? (n > mNota || (n === mNota && v > mv)) : v > mv)) {
+          mv = v; mNota = n; melhor = p;
+        }
+      }
       let atual = a.capturadoId ? porId(a.capturadoId) : null;
       if (atual && !daFamilia(a, atual)) { a.capturadoId = null; atual = null; mexeu = true; } // 1.32: não serve mais (Outland)
-      const bAtual = atual && cfg.soBom ? await ehBom(atual, a) : false;
-      if (melhor && (!atual || usados.has(atual.id) || (melhor.id !== atual.id && ((mb && !bAtual) || (mb === bAtual && mv > (await potencial(atual)) * 1.02))))) {
-        if (atual && !usados.has(atual.id)) diario(`${a.meta}: você já tem um ${melhor.nome} melhor (Nv ${melhor.level}) — ele fica no lugar do ${atual.nome} Nv ${atual.level}`, 'ok');
-        else if (!atual) diario(`${a.meta}: você já tem ${melhor.nome} (Nv ${melhor.level}) — não precisa caçar`, 'ok');
+      if (atual && cfg.soBom && !(await atingeColecao(atual, a))) {
+        aDescartar(atual, a);
+        a.capturadoId = null; atual = null; mexeu = true;
+      }
+      const nAtual = atual ? ((await notaComoMeta(atual, a)) ?? 0) : -1;
+      const vAtual = atual ? await potencial(atual) : -1;
+      const deveTrocar = melhor && (!atual || usados.has(atual.id) || (melhor.id !== atual.id && (cfg.soBom ? (mNota > nAtual || (mNota === nAtual && mv > vAtual * 1.02)) : mv > vAtual * 1.02)));
+      if (deveTrocar) {
+        if (atual && !usados.has(atual.id)) {
+          aDescartar(atual, a);
+          diario(`${a.meta}: você já tem um ${melhor.nome} melhor (Nv ${melhor.level}) — ele fica no lugar do ${atual.nome} Nv ${atual.level}`, 'ok');
+        } else if (!atual) {
+          diario(`${a.meta}: você já tem ${melhor.nome} (Nv ${melhor.level}) — não precisa caçar`, 'ok');
+        }
         a.capturadoId = melhor.id; a.tinhaId = melhor.id; a.tinha = true; mexeu = true;
+        guardarNaColecao(melhor);
       }
       if (a.capturadoId) usados.add(a.capturadoId);
     }
@@ -286,6 +356,7 @@
     if (cfg.alvos.some((x) => x.capturadoId === p.id || x.tinhaId === p.id)) return tirar(null); // voltou a ser o do meta
     if (p.shiny === true) return fica('é shiny');
     if (Number(p.potencia) >= 5) return fica('é P5');
+    if (ehLendario(p)) return fica('é lendário/mítico');
     if (p.slot != null || p.id === eu.activeId) return fica('está no time');
     if (Number(p.heldItemId) > 0) return fica('segura item');
     const G = PIH.guarda && PIH.guarda.resumo ? PIH.guarda.resumo() : null;
@@ -296,7 +367,8 @@
     if (a) {
       if (!N || typeof N.notaDePokemon !== 'function') return null; // espera a nota do jogo
       const n = await notaComoMeta(p, a);
-      if (n != null && n >= NOTA_ALTA) return fica(`nota alta (${notaTxt(n)})`);
+      const corteCol = Math.min(NOTA_ALTA, notaMinimaColecao());
+      if (n != null && n >= corteCol) return fica(`nota alta (${notaTxt(n)})`);
     }
     if (naColecao(p) && (Number(p.level) || 0) >= COL_NV_DEPOT) return fica(`na Coleção: Nv ${COL_NV_DEPOT}+ (o Piloto só tira da Coleção abaixo do Nv ${COL_NV_DEPOT})`);
     cfg.descartados = [...descartadosSet(), p.id].slice(-500);
@@ -469,9 +541,9 @@
   } catch { /* sem armazenamento */ }
   setInterval(() => { tique(); }, 10_000);
 
-  // Os guardados: o capturado de cada família e, enquanto caça, toda a família dos alvos no Depot.
+  // Os guardados: apenas o capturado de cada vaga do meta. Excedentes ficam livres no Depot para venda normal.
   const protegidos = () => cfg.alvos.map((a) => a.capturadoId).filter(Boolean);
-  const especiesAlvo = () => (cfg.ligado ? cfg.alvos.flatMap((a) => a.membros.map((m) => m.id)) : []);
+  const especiesAlvo = () => [];
 
   // ---- a linha na aba Meta ----------------------------------------------------------------------
   function html({ modo, arte }) {

@@ -28,7 +28,7 @@
     chocadeira: { ligado: false, comprarP2: false },
     depot: { modo: 'off', limiar: 50, horas: 1 },
     pvp: { fila: false, time: false, mini: true },
-    autoColecao: { ligado: true }, // 1.18: todo mundo com a extensão (pedido do André)
+    autoColecao: { ligado: true, manterUmaEspecie: false }, // 1.18: todo mundo com a extensão (pedido do André)
   };
   const ler = () => {
     try {
@@ -685,22 +685,137 @@
   // a equipe do PvP (que mora no Depot) não é protegida. Antes de vender, o Piloto leva para a
   // Coleção (colecao.mover, um por tique) a equipe do PvP salva e a que ele vai montar, os shiny e
   // os P5. Enquanto sobrar algum desses fora da Coleção, não vende.
+  // 1.53: com o "Auto Coleção no ponto" ligado, ele vale ACIMA de qualquer outra função: antes de
+  // vender, todo pokémon bom ou vendável (nota ≥ o mínimo do Mercado, shiny, P5, lendário/mítico)
+  // vai para a Coleção e nunca é jogado fora — a regra do jogo é lida com a nota do próprio jogo.
   const POTENCIA_MAX = 5;
+  let modNota = null;
+  (async () => {
+    try { modNota = await import(`${location.origin}/shared/nota-pokemon.mjs`); } catch { modNota = null; }
+  })();
+  let modMistico = null;
+  (async () => {
+    try {
+      const m = await import(`${location.origin}/shared/mistico.mjs`);
+      modMistico = m && typeof m.ehLendarioOuMitico === 'function' ? m : null;
+    } catch { modMistico = null; }
+  })();
+  let jogoEspecies = null;
+
+  function lerNotaPk(p) {
+    if (!p || !modNota || typeof modNota.notaDePokemon !== 'function') return null;
+    try {
+      const esp = jogoEspecies ? jogoEspecies.get(Number(p.speciesId)) : null;
+      const r = modNota.notaDePokemon(p, esp || null);
+      const v = Number(r && typeof r === 'object' ? r.nota : r);
+      return Number.isFinite(v) ? v : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function ehLendarioOuMitico(p) {
+    if (!p) return false;
+    if (p.lendario || p.mitico) return true;
+    if (modMistico) {
+      try { return !!modMistico.ehLendarioOuMitico(p.speciesId); } catch { /* cai na heurística */ }
+    }
+    const esp = jogoEspecies ? jogoEspecies.get(Number(p.speciesId)) : null;
+    if (esp && (esp.lendario || esp.mitico || esp.raridade === 'lendario' || esp.raridade === 'mitico' || esp.raridade === 'lendaria' || esp.raridade === 'mitica')) return true;
+    return false;
+  }
+
+  function atingeAutoColecao(p) {
+    if (!p) return false;
+    if (p.shiny === true || Number(p.potencia) >= POTENCIA_MAX) return true;
+    if (ehLendarioOuMitico(p)) return true;
+    // a regra recomendada (a que o Piloto mantém no jogo) sempre guarda a partir do mínimo do
+    // Mercado; se o módulo do jogo não carregou, o piso conhecido é 3,5.
+    const notaMin = Number(notaMercado) > 0 ? Number(notaMercado) : 3.5;
+    const n = lerNotaPk(p);
+    return n != null && n >= notaMin;
+  }
+
+  function compararExemplares(a, b) {
+    if (!a && !b) return 0;
+    if (!a) return 1;
+    if (!b) return -1;
+    const na = lerNotaPk(a);
+    const nb = lerNotaPk(b);
+    if (na != null && nb != null && Math.abs(nb - na) >= 0.001) return nb - na;
+    if (na != null && nb == null) return -1;
+    if (nb != null && na == null) return 1;
+    const potA = Number(a.potencia) || 0;
+    const potB = Number(b.potencia) || 0;
+    if (potB !== potA) return potB - potA;
+    const qA = Number(a.qualidade) || 0;
+    const qB = Number(b.qualidade) || 0;
+    if (qB !== qA) return qB - qA;
+    const pA = Number(a.poder) || 0;
+    const pB = Number(b.poder) || 0;
+    if (pB !== pA) return pB - pA;
+    const lA = Number(a.level) || 0;
+    const lB = Number(b.level) || 0;
+    if (lB !== lA) return lB - lA;
+    return (Number(b.id) || 0) - (Number(a.id) || 0);
+  }
+
+  function melhoresPorEspecie() {
+    const mapa = new Map();
+    for (const p of (eu?.pokemons || [])) {
+      const spId = Number(p.speciesId);
+      if (!spId) continue;
+      const atual = mapa.get(spId);
+      if (!atual || compararExemplares(p, atual) < 0) {
+        mapa.set(spId, p);
+      }
+    }
+    return mapa;
+  }
+
   function protegidosDoDepot(livres) {
     const ids = new Set(pvp.time || []);
     // quem a janela Time está tirando do time de campo vai para a Coleção: nunca vende no meio
     for (const id of (PIH.time && PIH.time.protegidos ? PIH.time.protegidos() : [])) ids.add(id);
-    // 1.24: os do meta (capturados) e, enquanto o Caçar o meta está ligado, toda a família dos alvos
+    // 1.53.1: sempre protege os 5 pokémon escolhidos para o time principal
+    if (PIH.time && PIH.time.alvoPrincipal) {
+      for (const id of PIH.time.alvoPrincipal()) ids.add(id);
+    }
+    // 1.24: os do meta (apenas o capturado de cada vaga; excedentes ficam no Depot para venda)
     for (const id of (PIH.metaCaca ? PIH.metaCaca.protegidos() : [])) ids.add(id);
     // 1.41.0: as promessas do Melhorar o time e, enquanto ele caça, a família do alvo (até ser avaliada)
     for (const id of (PIH.cacadas ? PIH.cacadas.protegidos() : [])) ids.add(id);
     for (const id of (PIH.farm ? PIH.farm.protegidos() : [])) ids.add(id);
-    const familiaMeta = new Set([...(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []), ...(PIH.cacadas ? PIH.cacadas.especiesAlvo() : []), ...(PIH.farm ? PIH.farm.especiesAlvo() : [])]);
+    const familiaMeta = new Set([...(PIH.cacadas ? PIH.cacadas.especiesAlvo() : []), ...(PIH.farm ? PIH.farm.especiesAlvo() : [])]);
     // 1.50.0: o anterior que o Caçar o meta descartou (veio um melhor) não é mais segurado pela família
     const descartados = new Set(PIH.metaCaca && PIH.metaCaca.descartados ? PIH.metaCaca.descartados() : []);
     for (const p of livres) if (familiaMeta.has(p.speciesId) && !descartados.has(p.id)) ids.add(p.id);
     if (cfg.pvp.time && Array.isArray(pvp.time)) for (const p of equipeAlvo(pvp.time)) ids.add(p.id);
-    return livres.filter((p) => ids.has(p.id) || p.shiny || Number(p.potencia) >= POTENCIA_MAX);
+
+    // 1.53.1: garantia de time mínimo para contas novas (sempre manter ao menos 5 pokémon no total)
+    const totalPokemons = eu && Array.isArray(eu.pokemons) ? eu.pokemons.length : 0;
+    if (totalPokemons <= 5) {
+      for (const p of livres) ids.add(p.id);
+    } else {
+      const travados = new Set(((eu && eu.automation && eu.automation.pokemonTravado) || []).map(Number));
+      const seguros = (eu.pokemons || []).filter((p) => p.slot != null || p.id === eu.activeId || travados.has(Number(p.id)));
+      if (seguros.length < 5) {
+        const faltam = 5 - seguros.length;
+        const ordenados = livres.slice().sort((a, b) => (Number(b.poder) || Number(b.level) || 0) - (Number(a.poder) || Number(a.level) || 0));
+        for (let i = 0; i < Math.min(faltam, ordenados.length); i++) ids.add(ordenados[i].id);
+      }
+    }
+
+    // 1.53.1: manter ao menos 1 Pokémon de cada espécie (o melhor exemplar da espécie)
+    if (cfg.autoColecao.manterUmaEspecie) {
+      const melhores = melhoresPorEspecie();
+      for (const p of livres) {
+        const melhor = melhores.get(Number(p.speciesId));
+        if (melhor && melhor.id === p.id) ids.add(p.id);
+      }
+    }
+
+    return livres.filter((p) => ids.has(p.id) || ehLendarioOuMitico(p) || (cfg.autoColecao.ligado ? atingeAutoColecao(p) : (p.shiny || Number(p.potencia) >= POTENCIA_MAX)));
   }
   async function tarefaDepot() {
     const c = cfg.depot;
@@ -711,7 +826,13 @@
     const depot = (eu.pokemons || []).filter((p) => p.slot == null && p.id !== eu.activeId && !travados.has(Number(p.id)) && Number(p.heldItemId) !== ID_XP_SHARE_HELD);
     if (!depot.length) return false;
     // com o Auto Coleção no ponto ligado, só vende depois que a regra estiver salva no jogo
-    if (cfg.autoColecao.ligado && !autoColecaoOk) { await tarefaAutoColecao(); if (!autoColecaoOk) return false; }
+    if (cfg.autoColecao.ligado) {
+      if (!modNota) { try { modNota = await import(`${location.origin}/shared/nota-pokemon.mjs`); } catch {} }
+      if (!modMistico) { try { const m = await import(`${location.origin}/shared/mistico.mjs`); modMistico = m && typeof m.ehLendarioOuMitico === 'function' ? m : null; } catch {} }
+      if (!jogoEspecies && PIH.carregarJogo) { try { const j = await PIH.carregarJogo(); jogoEspecies = j.especies; } catch {} }
+      if (!autoColecaoOk) { await tarefaAutoColecao(); if (!autoColecaoOk) return false; }
+      if (!modNota || !jogoEspecies) return false;
+    }
     // Sem a equipe do PvP lida ainda (com o PvP ligado): espera — não dá para saber quem proteger.
     if ((cfg.pvp.time || cfg.pvp.fila) && (eu.level || 0) >= PVP_NIVEL_MIN && pvp.time === null) return false;
     const guardar = protegidosDoDepot(depot);
@@ -722,7 +843,9 @@
         return false;
       }
       marcar(`col:${p.id}`);
-      const motivo = (pvp.time || []).includes(p.id) ? 'equipe do PvP' : p.shiny ? 'shiny' : Number(p.potencia) >= POTENCIA_MAX ? 'P5' : 'equipe do PvP';
+      const nPk = lerNotaPk(p);
+      const ehMelhorEsp = cfg.autoColecao.manterUmaEspecie && melhoresPorEspecie().get(Number(p.speciesId))?.id === p.id;
+      const motivo = (pvp.time || []).includes(p.id) ? 'equipe do PvP' : p.shiny ? 'shiny' : Number(p.potencia) >= POTENCIA_MAX ? 'P5' : ehLendarioOuMitico(p) ? 'lendário' : nPk != null && nPk >= (Number(notaMercado) > 0 ? Number(notaMercado) : 3.5) ? `nota ${String(nPk).replace('.', ',')}` : ehMelhorEsp ? '1 por espécie' : 'Auto Coleção';
       return pedir({ t: 'colecao.mover', pokemonId: p.id, para: 'colecao' }, `Depot: guardando ${p.nome} (${motivo}) na Coleção antes de vender`);
     }
     const mods0 = await modulos();
@@ -754,13 +877,10 @@
   // ---- 1.34.1: Coleção sem saída (pedido do André, 28/10) -------------------------------------
   // O Auto Coleção guarda na captura todo pokémon de nota 3,5+, mas o Mercado só aceita anunciar
   // (fora shiny, P5 e lendário/mítico) a partir do Nv 50 (MERCADO_POKEMON_MIN do jogo). Abaixo
-  // disso ele ficava parado na Coleção: a venda automática não lista e o NPC não compra. Agora, quem
-  // ENTROU SOZINHO na Coleção na captura (vista nesta sessão: chegou e já estava na Coleção em até
-  // 15 s), abaixo do Nv 50, volta para o Depot e sai na venda — menos o que a Guarda protege (time,
-  // PvP, XP Share, item, shiny, lendário, os melhores de farm/PvP e os que valem treinar), os do
-  // meta e quem segura item. O que estava na Coleção antes (ou que você travou à mão depois) nunca
-  // é tocado: o jogo não diz quem pôs o cadeado, então só vale o que o Piloto viu chegar.
-  // (as variáveis do rastro moram lá em cima, junto do eu: o 'estado' pode chegar antes daqui)
+  // disso ele ficava parado na Coleção: a venda automática não lista e o NPC não compra.
+  // 1.53: o "Auto Coleção no ponto" passou a valer acima de qualquer outra função — o que a regra
+  // guardou NUNCA volta para o Depot nem é vendido, mesmo abaixo do Nv 50. A tarefa fica desligada
+  // (o rastro continua sendo mantido só para diagnóstico no _interno).
   function rastrearColecao() {
     if (!eu || !Array.isArray(eu.pokemons)) return;
     const agora = Date.now();
@@ -786,29 +906,110 @@
     }
   }
   async function tarefaColecaoBaixa() {
-    if (!cfg.autoColecao.ligado || cfg.depot.modo === 'off' || !colRegra.size || !eu || !venceu('colBaixa', 30_000)) return false;
-    const G = PIH.guarda && PIH.guarda.resumo ? PIH.guarda.resumo() : null;
-    if (!G || !G.pronto) return false; // sem a Guarda pronta, não dá para saber quem proteger
-    const protegidos = new Set(G.ids);
-    for (const id of (PIH.time && PIH.time.doMeta ? PIH.time.doMeta() : [])) protegidos.add(id);
-    for (const id of (PIH.metaCaca ? PIH.metaCaca.protegidos() : [])) protegidos.add(id);
-    for (const id of (PIH.cacadas ? PIH.cacadas.protegidos() : [])) protegidos.add(id);
-    for (const id of (PIH.farm ? PIH.farm.protegidos() : [])) protegidos.add(id);
-    const familiaMeta = new Set([...(PIH.metaCaca ? PIH.metaCaca.especiesAlvo() : []), ...(PIH.cacadas ? PIH.cacadas.especiesAlvo() : []), ...(PIH.farm ? PIH.farm.especiesAlvo() : [])]);
-    const a = PIH.time && PIH.time._interno && PIH.time._interno.st && PIH.time._interno.st.analise;
-    const analiseEm = (a && a.em) || 0;
-    const col = new Set(((eu.automation && eu.automation.pokemonTravado) || []).map(Number));
-    const porId = new Map(eu.pokemons.map((p) => [p && p.id, p]));
-    for (const [id, chegou] of colRegra) {
-      const p = porId.get(id);
-      // saiu da Coleção, morreu na venda, ou é dos que ficam guardados de vez
-      if (!p || !col.has(id) || (Number(p.level) || 0) >= COL_NV_MERCADO || p.shiny || Number(p.potencia) >= POTENCIA_MAX || p.slot != null || p.id === eu.activeId || Number(p.heldItemId) > 0 || familiaMeta.has(p.speciesId)) { colRegra.delete(id); continue; }
-      if (protegidos.has(id)) continue; // a Guarda pode soltar depois (outra análise)
-      if (analiseEm < chegou + 1000) { if (venceu('colBaixaAnalise', 60_000) && PIH.time && PIH.time.analisar) { marcar('colBaixaAnalise'); try { PIH.time.analisar(); } catch { /* depois */ } } continue; } // a janela Time ainda não avaliou este
-      marcar('colBaixa');
-      colRegra.delete(id);
-      return pedir({ t: 'colecao.mover', pokemonId: id, para: 'depot' }, `Coleção: ${p.nome} (Nv ${p.level}) volta para o Depot — o Mercado só aceita a partir do Nv ${COL_NV_MERCADO}`);
+    // 1.53.1: Com "Manter ao menos 1 Pokemon de cada espécie" ativo, devolve ao Depot apenas duplicatas
+    // inferiores da mesma espécie cuja versão melhor (maior nota) já está garantida na Coleção ou equipe.
+    // Pokémons que atingem a regra geral da Auto Coleção (nota 3,5+, shiny, P5, lendário) NUNCA saem da Coleção.
+    if (!cfg.autoColecao.manterUmaEspecie) return false;
+    if (!eu || !Array.isArray(eu.pokemons)) return false;
+    if (!venceu('colBaixa', 5_000)) return false;
+
+    // Se a conta tem 5 ou menos pokémon, nunca devolve ninguém
+    if (eu.pokemons.length <= 5) return false;
+
+    const travados = new Set(((eu.automation && eu.automation.pokemonTravado) || []).map(Number));
+    if (!travados.size) return false;
+
+    // Identifica quem está no time ou protegido
+    const noTime = new Set((eu.pokemons || []).filter((p) => p.slot != null || p.id === eu.activeId).map((p) => p.id));
+    if (PIH.time && PIH.time.alvoPrincipal) for (const id of PIH.time.alvoPrincipal()) noTime.add(id);
+    for (const id of (pvp.time || [])) noTime.add(id);
+    if (PIH.time && PIH.time.protegidos) for (const id of PIH.time.protegidos()) noTime.add(id);
+    if (PIH.cacadas && PIH.cacadas.protegidos) for (const id of PIH.cacadas.protegidos()) noTime.add(id);
+    if (PIH.farm && PIH.farm.protegidos) for (const id of PIH.farm.protegidos()) noTime.add(id);
+    if (PIH.metaCaca && PIH.metaCaca.protegidos) for (const id of PIH.metaCaca.protegidos()) noTime.add(id);
+
+    const melhores = melhoresPorEspecie();
+    const candidatos = [];
+
+    for (const p of eu.pokemons) {
+      if (!travados.has(Number(p.id))) continue; // apenas quem está na Coleção
+      if (noTime.has(p.id)) continue;
+      if (Number(p.heldItemId) === ID_XP_SHARE_HELD) continue;
+      if (atingeAutoColecao(p)) continue; // pokémon que atinge o critério da Auto Coleção nunca sai!
+
+      const spId = Number(p.speciesId);
+      const melhor = melhores.get(spId);
+      if (!melhor || melhor.id === p.id) continue; // o melhor exemplar da espécie fica guardado
+
+      // O melhor exemplar tem de estar seguro (já na Coleção ou no time)
+      const melhorSeguro = melhor.slot != null || melhor.id === eu.activeId || travados.has(Number(melhor.id));
+      if (!melhorSeguro) continue;
+
+      // Tem de ser estritamente superior
+      if (compararExemplares(melhor, p) < 0) {
+        candidatos.push(p);
+      }
     }
+
+    if (!candidatos.length) return false;
+
+    const alvo = candidatos.find((p) => venceu(`colBaixa:${p.id}`, 60_000));
+    if (!alvo) return false;
+
+    marcar('colBaixa');
+    marcar(`colBaixa:${alvo.id}`);
+    const nAlvo = lerNotaPk(alvo);
+    const melhor = melhores.get(Number(alvo.speciesId));
+    const nMelhor = melhor ? lerNotaPk(melhor) : null;
+    const txtAlvo = nAlvo != null ? `nota ${String(nAlvo).replace('.', ',')}` : 'nota baixa';
+    const txtMelhor = nMelhor != null ? `nota ${String(nMelhor).replace('.', ',')}` : 'melhor';
+
+    return pedir(
+      { t: 'colecao.mover', pokemonId: alvo.id, para: 'depot' },
+      `Coleção: devolvendo ${alvo.nome} (${txtAlvo}) ao Depot — substituído por exemplar da mesma espécie (${txtMelhor})`
+    );
+  }
+
+  function pastaPokedesk() {
+    if (!eu || !Array.isArray(eu.pastas)) return null;
+    return eu.pastas.find((p) => p && typeof p.nome === 'string' && (p.nome.toLowerCase() === 'pokédesk' || p.nome.toLowerCase() === 'pokedesk')) || null;
+  }
+
+  async function tarefaPastaPokedesk() {
+    if (!cfg.autoColecao.manterUmaEspecie) return false;
+    if (!eu || !Array.isArray(eu.pokemons)) return false;
+
+    const pastas = Array.isArray(eu.pastas) ? eu.pastas : [];
+    const pasta = pastaPokedesk();
+
+    // 1. Se a pasta não existe e ainda há vaga (< 5 pastas), cria a pasta "PokéDesk"
+    if (!pasta) {
+      if (pastas.length < 5 && venceu('pokedeskCriar', 30_000)) {
+        marcar('pokedeskCriar');
+        return pedir({ t: 'colecao.pasta.criar', nome: 'PokéDesk', icone: 'bola' }, 'Coleção: criando pasta PokéDesk para organizar 1 de cada espécie');
+      }
+      return false;
+    }
+
+    // 2. Se a pasta existe, move os melhores exemplares de cada espécie que estão na Coleção para ela
+    const travados = new Set(((eu.automation && eu.automation.pokemonTravado) || []).map(Number));
+    if (!travados.size) return false;
+
+    const melhores = melhoresPorEspecie();
+    for (const p of melhores.values()) {
+      if (!travados.has(Number(p.id))) continue; // só move se já estiver na Coleção
+      if (Number(p.pasta) === pasta.id) continue; // já está na pasta PokéDesk
+      if (!venceu(`pokedeskMover:${p.id}`, 60_000)) continue;
+      if (!venceu('pokedeskMover', 2_000)) break;
+
+      marcar('pokedeskMover');
+      marcar(`pokedeskMover:${p.id}`);
+      return pedir(
+        { t: 'colecao.pasta.mover', pokemonId: p.id, pasta: pasta.id },
+        `Coleção: organizando ${p.nome} na pasta PokéDesk`
+      );
+    }
+
     return false;
   }
 
@@ -945,7 +1146,7 @@
 
   // 1.36.0: evoluir e a pedra do time vêm primeiro — antes, qualquer tarefa da frente que mandasse algo
   // encerrava o tique e a evolução esperava a próxima volta.
-  const TAREFAS = [tarefaEvoluir, tarefaPedraDoTime, tarefaAutoColecao, tarefaPasse, tarefaPvpTime, tarefaPvpFila, tarefaXpShare, tarefaOutland, tarefaRodizio, tarefaChocadeira, tarefaColecaoBaixa, tarefaDepot];
+  const TAREFAS = [tarefaEvoluir, tarefaPedraDoTime, tarefaAutoColecao, tarefaPasse, tarefaPvpTime, tarefaPvpFila, tarefaXpShare, tarefaOutland, tarefaRodizio, tarefaChocadeira, tarefaColecaoBaixa, tarefaPastaPokedesk, tarefaDepot];
   let rodando = false;
   async function tique() {
     if (rodando || !eu || !welcome || !PIH.cofre || !PIH.cofre.liberado('rotina')) return;
@@ -978,7 +1179,7 @@
     const K = PIH.kit;
     const manual = modo === 'manual';
     const trava = modo === 'desligado';
-    const L = (o) => K.linha({ trava, ...o, ajustes: manual ? o.ajustes : '' });
+    const L = (o) => K.linha({ trava, ...o, ajustes: (manual || o.sempreAjustes) ? o.ajustes : '' });
     const r = cfg.rodizio;
     const d = cfg.depot;
     const travados = new Set(((eu && eu.automation && eu.automation.pokemonTravado) || []).map(Number));
@@ -1006,7 +1207,9 @@
       ${L({ icone: 'ovo', nome: 'Chocadeira', classe: 'plt-l-perigo', alvo: 'rotina:chocadeira.ligado', on: cfg.chocadeira.ligado, dica: 'Põe na chocadeira o ovo que você tem (Shiny, P4, P3, P2).',
         ajustes: K.mini('rotina:chocadeira.comprarP2', cfg.chocadeira.comprarP2, 'Comprar P2 (100 mi)', 'Só com teto da categoria "ovos" no Cofre (padrão 0 = proibido)', trava) })}
       ${L({ icone: 'check', nome: 'Auto Coleção no ponto', alvo: 'rotina:autoColecao.ligado', on: cfg.autoColecao.ligado, status: !cfg.autoColecao.ligado ? (ultimaRegra ? `no jogo: ${resumoRegra(ultimaRegra)}` : '') : autoColecaoOk && ultimaRegra ? `no jogo: ${resumoRegra(ultimaRegra)}` : `vai salvar: Lendário · Shiny · P5+ · Nota ${String(notaMercado ?? 3.5).replace('.', ',')}+`,
-        dica: 'Deixa o Auto Coleção do jogo guardando tudo o que vale mais no Mercado que no NPC: lendário/mítico, shiny, P5 e nota a partir do mínimo que o Mercado aceita (3,5 hoje, lido do jogo). Assim a venda imediata do Depot nunca leva uma oportunidade. Se alguém mudar a regra, o Piloto põe de volta. O que a regra guardou abaixo do Nv 50 (o Mercado só aceita a partir dele) e não serve para o time, o PvP ou o meta volta para o Depot e é vendido.' })}
+        dica: 'Deixa o Auto Coleção do jogo guardando tudo o que vale mais no Mercado que no NPC: lendário/mítico, shiny, P5 e nota a partir do mínimo que o Mercado aceita (3,5 hoje, lido do jogo). Assim a venda imediata do Depot nunca leva uma oportunidade. Se alguém mudar a regra, o Piloto põe de volta. Vale acima de qualquer outra função: o que a regra guardou fica na Coleção e não volta para o Depot nem é vendido, mesmo abaixo do Nv 50.',
+        sempreAjustes: true,
+        ajustes: K.mini('rotina:autoColecao.manterUmaEspecie', !!cfg.autoColecao.manterUmaEspecie, 'Manter ao menos 1 Pokemon de cada espécie', 'Deixa na coleção 1 Pokemon de cada espécie independente de qual Potência, Qualidade ou Nota ele tenha, ele é substituído por outro de maior Nota.', trava) })}
       ${L({ icone: 'depot', nome: 'Limpar o Depot', classe: 'plt-l-perigo', alvo: 'rotina:depot.ligado', on: d.modo !== 'off', dica: 'Na hora: pokémon que entrou no Depot e não foi para a Coleção (pelo Auto Coleção do jogo) é vendido em segundos — igual ao botão "Vender todo o Depot". Antes de vender, guarda na Coleção a equipe do PvP, os shiny, os P5 e quem a janela Time tirou do campo. A Coleção, o ativo e quem segura a Exp. Share nunca vão.',
         status: `${nfR.format(noDepot)} no Depot${d.modo !== 'off' ? ` · ${d.modo === 'oferenda' ? 'oferenda' : 'vende'} assim que entra` : ''}`,
         ajustes: `${K.fcampo('Como', K.escala('rotina:depot.modo', d.modo === 'off' ? (d.ultimoModo || 'vender') : d.modo, [['vender', 'Vender ao NPC'], ['oferenda', 'Oferenda']], trava))}` })}`;
@@ -1054,6 +1257,12 @@
   setInterval(conferirTelaPvp, 20_000);
   function definir(caminho, v) {
     if (caminho === 'pvp.mini') { cfg.pvp.mini = !!v; gravar(); diario(`tela de batalha do PvP minimizada ${v ? 'ligada' : 'desligada'}`); if (v) conferirTelaPvp(); return; }
+    if (caminho === 'autoColecao.manterUmaEspecie') {
+      cfg.autoColecao.manterUmaEspecie = !!v;
+      gravar();
+      diario(`Manter ao menos 1 Pokémon de cada espécie ${v ? 'ligado' : 'desligado'}`);
+      return;
+    }
     if (caminho === 'depot.ligado') {
       if (v) cfg.depot.modo = cfg.depot.ultimoModo || 'vender';
       else { if (cfg.depot.modo !== 'off') cfg.depot.ultimoModo = cfg.depot.modo; cfg.depot.modo = 'off'; }

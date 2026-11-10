@@ -27,11 +27,20 @@
       { t: 'Ajuda sempre à mão', x: 'O ? de cada linha explica o que ela faz. Embaixo do menu ficam Relatar bug, Procurar atualização e o idioma. Este guia volta no botão ? lá em cima.' },
     ],
     novidades: {
+      '1.53.1': [
+        "Auto Coleção no ponto: nova opção \"Manter ao menos 1 Pokemon de cada espécie\", criando automaticamente a pasta \"PokéDesk\" na Coleção e organizando nela 1 pokémon de cada espécie.",
+        "Garantia de time inicial: a conta sempre preserva ao menos 5 pokémon no total para nunca ficar sem time, e o \"Montar o time principal sozinho\" preenche vagas vazias e melhora continuamente o time até que entrem pokémon que fiquem sozinhos na Coleção.",
+        "Aba Caçar: busca de pokémon e hunt na lista de rendimento com espera de 1s (debounce) para digitação fluida sem lag.",
+      ],
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
       '1.53.0': [
-        "Nova opção \"Vender os de nota baixa\" na aba Rotina, desligada de fábrica: ligada, só lista no Diário o que venderia; a venda de verdade pede um segundo interruptor e nunca toca em shiny, P5, time ou nota 3,5+.",
+        "Caçar o meta: corrigido para manter apenas 1 pokémon por família na Coleção/equipe e substituir apenas ao capturar outro de nota maior (com caçar por nota ativo). Os demais ficam no Depot para o Esvaziar o Depot vender.",
+        "Aba Caçar: nova barra de pesquisa de pokémon e hunt na lista de rendimento (ouro/XP/risco).",
+        "Auto Coleção no ponto: agora é universal e vem acima das outras funções. Antes de vender o Depot, todo pokémon bom ou vendável (nota 3,5+, shiny, P5, lendário/mítico) vai para a Coleção e nunca é jogado fora. A Coleção não devolve mais para o Depot os pokémons abaixo do Nv 50 que a regra guardou.",
+        "Auto Coleção no ponto: nova opção \"Manter ao menos 1 Pokemon de cada espécie\", guardando na Coleção o melhor exemplar de cada espécie independentemente de nota ou potência e substituindo automaticamente quando capturar outro de maior Nota.",
+        "Garantia de time inicial: a conta sempre preserva ao menos 5 pokémon no total para nunca ficar sem time, e o \"Montar o time principal sozinho\" preenche vagas vazias e melhora continuamente o time até que entrem pokémon que fiquem sozinhos na Coleção.",
       ],
       '1.52.0': [
         "Responder no Dúvidas (segue desligado de fábrica): agora espera um tempo aleatório, não responde se outro jogador já respondeu, só uma aba responde cada pergunta, o texto varia e há limite por hora.",

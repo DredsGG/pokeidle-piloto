@@ -27,11 +27,20 @@
       { t: 'Ayuda siempre a mano', x: 'El ? de cada fila explica lo que hace. Debajo del menú están Reportar error, Buscar actualización y el idioma. Esta guía vuelve con el botón ? de arriba.' },
     ],
     novidades: {
+      '1.53.1': [
+        "Auto Colección afinada: nueva opción \"Mantener al menos 1 Pokémon de cada especie\", creando automáticamente la carpeta \"PokéDesk\" en la Colección y organizando en ella 1 pokémon de cada especie.",
+        "Garantía de equipo inicial: la cuenta siempre preserva al menos 5 pokémon en total para nunca quedarse sin equipo, y \"Armar el equipo principal solo\" llena espacios vacíos y mejora continuamente el equipo hasta que entren pokémon que califiquen para la Colección.",
+        "Pestaña Cazar: búsqueda de pokémon y hunt en la lista de rendimiento con espera de 1s (debounce) para escribir con fluidez sin lag.",
+      ],
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
       '1.53.0': [
-        "Nueva opción \"Vender los de nota baja\" en la pestaña Rutina, apagada de fábrica: encendida, solo lista en el Diario lo que vendería; vender de verdad pide un segundo interruptor y nunca toca shiny, P5, equipo ni nota 3,5+.",
+        "Cazar el meta: corregido para guardar solo 1 pokémon por familia en Colección/equipo y reemplazarlo solo al capturar otro de mayor nota (con cazar por nota activo). El resto queda en Depot para que Vaciar Depot lo venda.",
+        "Pestaña Cazar: nueva barra de búsqueda de pokémon y hunt en la lista de rendimiento (oro/XP/riesgo).",
+        "Auto Colección al punto: ahora es universal y tiene prioridad sobre las demás funciones. Antes de vender el Depot, todo pokémon bueno o vendible (nota 3,5+, shiny, P5, legendario/mítico) va a la Colección y nunca se tira. La Colección ya no devuelve al Depot los pokémon por debajo del Nv 50 que la regla guardó.",
+        "Auto Colección al punto: nueva opción \"Mantener al menos 1 Pokémon de cada especie\", guardando en la Colección el mejor ejemplar de cada especie sin importar nota o potencia y reemplazándolo automáticamente al capturar otro de mayor Nota.",
+        "Garantía de equipo inicial: la cuenta siempre preserva al menos 5 pokémon en total para nunca quedarse sin equipo, y \"Armar el equipo principal solo\" llena espacios vacíos y mejora continuamente el equipo hasta que entren pokémon que califiquen para la Colección.",
       ],
       '1.52.0': [
         "Responder en Dudas (sigue apagado de fábrica): ahora espera un tiempo aleatorio, no responde si otro jugador ya respondió, solo una pestaña responde cada pregunta, el texto varía y hay límite por hora.",

@@ -1,14 +1,46 @@
 {
   "versoes": {
-    "1.53.0": {
+    "1.53.1": {
       "pt": [
-        "Nova opção \"Vender os de nota baixa\" na aba Rotina, desligada de fábrica: ligada, só lista no Diário o que venderia; a venda de verdade pede um segundo interruptor e nunca toca em shiny, P5, time ou nota 3,5+."
+        "Auto Coleção no ponto: nova opção \"Manter ao menos 1 Pokemon de cada espécie\", criando automaticamente a pasta \"PokéDesk\" na Coleção e organizando o melhor exemplar de cada espécie nela.",
+        "Garantia de time inicial: a conta sempre preserva ao menos 5 pokémon no total para nunca ficar sem time, e \"Montar o time principal sozinho\" preenche vagas vazias e melhora continuamente o time.",
+        "Aba Caçar: busca de pokémon e hunt com debounce de 1s para digitação suave sem travamentos.",
+        "Caçar o meta e Coleção: duplicatas de nota inferior são devolvidas ao Depot após confirmação do melhor exemplar na Coleção/equipe."
       ],
       "en": [
-        "New option \"Sell the low-grade ones\" in the Routine tab, off by default: when on it only lists in the journal what it would sell; really selling takes a second switch and never touches shiny, P5, team or grade 3.5+."
+        "Auto Collection tuned: new option \"Keep at least 1 Pokémon of each species\", automatically creating the \"PokéDesk\" folder in the Collection and organizing the best exemplar of each species into it.",
+        "Starter team guarantee: the account always preserves at least 5 Pokémon in total so it never runs out of a team, and \"Build main team on its own\" fills empty slots and continually upgrades the team.",
+        "Hunt tab: Pokémon and hunt search with 1s typing debounce to eliminate lag while typing.",
+        "Hunt the meta & Collection: lower-grade duplicates are sent back to Depot once the higher-grade exemplar is secured in Collection/team."
       ],
       "es": [
-        "Nueva opción \"Vender los de nota baja\" en la pestaña Rutina, apagada de fábrica: encendida, solo lista en el Diario lo que vendería; vender de verdad pide un segundo interruptor y nunca toca shiny, P5, equipo ni nota 3,5+."
+        "Auto Colección afinada: nueva opción \"Mantener al menos 1 Pokémon de cada especie\", creando automáticamente la carpeta \"PokéDesk\" en la Colección y organizando en ella el mejor ejemplar de cada especie.",
+        "Garantía de equipo inicial: la cuenta siempre preserva al menos 5 pokémon en total para nunca quedarse sin equipo, y \"Armar el equipo principal solo\" llena espacios vacíos y mejora continuamente el equipo.",
+        "Pestaña Cazar: búsqueda de pokémon y hunt con espera de 1s (debounce) para escribir sin tirones.",
+        "Cazar el meta y Colección: duplicados de menor nota se devuelven al Depot tras confirmar el mejor ejemplar en Colección/equipo."
+      ]
+    },
+    "1.53.0": {
+      "pt": [
+        "Caçar o meta: corrigido para manter apenas 1 pokémon por família na Coleção/equipe e substituir apenas ao capturar outro de nota maior (com caçar por nota ativo). Os demais ficam no Depot para o Esvaziar o Depot vender.",
+        "Aba Caçar: nova barra de pesquisa de pokémon e hunt na lista de rendimento (ouro/XP/risco).",
+        "Auto Coleção no ponto: agora é universal e vem acima das outras funções. Antes de vender o Depot, todo pokémon bom ou vendável (nota 3,5+, shiny, P5, lendário/mítico) vai para a Coleção e nunca é jogado fora. A Coleção não devolve mais para o Depot os pokémons abaixo do Nv 50 que a regra guardou.",
+        "Auto Coleção no ponto: nova opção \"Manter ao menos 1 Pokemon de cada espécie\", guardando na Coleção o melhor exemplar de cada espécie independentemente de nota ou potência e substituindo automaticamente quando capturar outro de maior Nota.",
+        "Garantia de time inicial: a conta sempre preserva ao menos 5 pokémon no total para nunca ficar sem time, e o \"Montar o time principal sozinho\" preenche vagas vazias e melhora continuamente o time até que entrem pokémon que fiquem sozinhos na Coleção."
+      ],
+      "en": [
+        "Hunt the meta: fixed to keep only 1 Pokémon per family in Collection/team and replace only if a higher-grade one is caught (with grade hunt active). Surplus stays in Depot to be sold by Depot clearing.",
+        "Hunt tab: new Pokémon and hunt search bar in the yields list (gold/XP/risk).",
+        "Auto Collection on the spot: now universal and takes priority over other features. Before selling the Depot, every good or sellable Pokémon (grade 3.5+, shiny, P5, legendary/mythical) goes to the Collection and is never thrown away. The Collection no longer sends back to the Depot the Pokémon below Lv 50 that the rule saved.",
+        "Auto Collection on the spot: new option \"Keep at least 1 Pokémon of each species\", keeping the best exemplar of each species in the Collection regardless of grade or potency and automatically replacing it when a higher-grade one is caught.",
+        "Starter team guarantee: the account always preserves at least 5 Pokémon in total so it never runs out of a team, and \"Build main team on its own\" fills empty slots and continually upgrades the team until eligible Auto Collection Pokémon take over."
+      ],
+      "es": [
+        "Cazar el meta: corregido para guardar solo 1 pokémon por familia en Colección/equipo y reemplazarlo solo al capturar otro de mayor nota (con cazar por nota activo). El resto queda en Depot para que Vaciar Depot lo venda.",
+        "Pestaña Cazar: nueva barra de búsqueda de pokémon y hunt en la lista de rendimiento (oro/XP/riesgo).",
+        "Auto Colección al punto: ahora es universal y tiene prioridad sobre las demás funciones. Antes de vender el Depot, todo pokémon bueno o vendible (nota 3,5+, shiny, P5, legendario/mítico) va a la Colección y nunca se tira. La Colección ya no devuelve al Depot los pokémon por debajo del Nv 50 que la regla guardó.",
+        "Auto Colección al punto: nueva opción \"Mantener al menos 1 Pokémon de cada especie\", guardando en la Colección el mejor ejemplar de cada especie sin importar nota o potencia y reemplazándolo automáticamente al capturar otro de mayor Nota.",
+        "Garantía de equipo inicial: la cuenta siempre preserva al menos 5 pokémon en total para nunca quedarse sin equipo, y \"Armar el equipo principal solo\" llena espacios vacíos y mejora continuamente el equipo hasta que entren pokémon que califiquen para la Colección."
       ]
     },
     "1.52.0": {
