@@ -976,6 +976,9 @@
   }
 
   async function tarefaPastaPokedesk() {
+    // 1.53.1 (pedido do André): a pasta PokéDesk guarda SÓ 1 pokémon de cada espécie. As duplicatas
+    // (inclusive as de maior Nota) ficam na pasta em que o jogador as colocou ou na Geral — a pasta
+    // nunca puxa um segundo exemplar da mesma espécie.
     if (!cfg.autoColecao.manterUmaEspecie) return false;
     if (!eu || !Array.isArray(eu.pokemons)) return false;
 
@@ -991,17 +994,53 @@
       return false;
     }
 
-    // 2. Se a pasta existe, move os melhores exemplares de cada espécie que estão na Coleção para ela
     const travados = new Set(((eu.automation && eu.automation.pokemonTravado) || []).map(Number));
     if (!travados.size) return false;
 
-    const melhores = melhoresPorEspecie();
-    for (const p of melhores.values()) {
-      if (!travados.has(Number(p.id))) continue; // só move se já estiver na Coleção
-      if (Number(p.pasta) === pasta.id) continue; // já está na pasta PokéDesk
+    // Só quem pode ser movido: na Coleção, fora do time e fora do ativo.
+    const naColecao = (eu.pokemons || []).filter((p) => p && travados.has(Number(p.id)) && p.slot == null && p.id !== eu.activeId);
+
+    // 2. Limpeza: se uma espécie tiver mais de 1 na PokéDesk (de versões anteriores), fica o melhor
+    //    e os extras voltam para a Geral — nunca para o Depot.
+    const naPasta = new Map();
+    for (const p of naColecao) {
+      if (Number(p.pasta) !== pasta.id) continue;
+      const sp = Number(p.speciesId);
+      if (!sp) continue;
+      const lista = naPasta.get(sp);
+      if (lista) lista.push(p);
+      else naPasta.set(sp, [p]);
+    }
+    for (const lista of naPasta.values()) {
+      if (lista.length <= 1) continue;
+      lista.sort((a, b) => compararExemplares(a, b));
+      for (const p of lista.slice(1)) {
+        if (!venceu(`pokedeskLimpar:${p.id}`, 60_000)) continue;
+        if (!venceu('pokedeskLimpar', 2_000)) return false;
+        marcar('pokedeskLimpar');
+        marcar(`pokedeskLimpar:${p.id}`);
+        return pedir(
+          { t: 'colecao.pasta.mover', pokemonId: p.id, pasta: 0 },
+          `Coleção: devolvendo ${p.nome} para a pasta Geral (a PokéDesk mantém 1 por espécie)`
+        );
+      }
+    }
+
+    // 3. Preenche as espécies que ainda não têm representante na pasta. Só olha quem está na Geral:
+    //    pokémon em pasta própria (Venda, PvP, etc.) fica onde o jogador colocou.
+    const melhoresNaGeral = new Map();
+    for (const p of naColecao) {
+      if (Number(p.pasta)) continue; // pasta própria: não mexe
+      const sp = Number(p.speciesId);
+      if (!sp) continue;
+      const atual = melhoresNaGeral.get(sp);
+      if (!atual || compararExemplares(p, atual) < 0) melhoresNaGeral.set(sp, p);
+    }
+
+    for (const [sp, p] of melhoresNaGeral) {
+      if (naPasta.has(sp)) continue; // a espécie já tem 1 na PokéDesk
       if (!venceu(`pokedeskMover:${p.id}`, 60_000)) continue;
       if (!venceu('pokedeskMover', 2_000)) break;
-
       marcar('pokedeskMover');
       marcar(`pokedeskMover:${p.id}`);
       return pedir(
