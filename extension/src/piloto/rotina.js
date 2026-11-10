@@ -760,6 +760,8 @@
     return (Number(b.id) || 0) - (Number(a.id) || 0);
   }
 
+  // Uma entrada por `speciesId`: Pichu, Pikachu e Raichu são espécies DIFERENTES (a família/linhagem
+  // evolutiva é outra coisa, usada só pelo Caçar o meta). O melhor de cada espécie é o que fica.
   function melhoresPorEspecie() {
     const mapa = new Map();
     for (const p of (eu?.pokemons || [])) {
@@ -970,26 +972,46 @@
     );
   }
 
-  function pastaPokedesk() {
+  function pastaPokedex() {
     if (!eu || !Array.isArray(eu.pastas)) return null;
-    return eu.pastas.find((p) => p && typeof p.nome === 'string' && (p.nome.toLowerCase() === 'pokédesk' || p.nome.toLowerCase() === 'pokedesk')) || null;
+    // Nome sem acento e sem diferenciar maiúsculas: "Pokédex", "Pokedex" e "POKÉDEX" são a mesma pasta.
+    const norm = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const atual = eu.pastas.find((p) => p && norm(p.nome) === 'pokedex');
+    if (atual) return atual;
+    // Compatibilidade: a 1.53.1 criava "PokéDesk" (nome errado). Se a pasta antiga existir, usa ela
+    // em vez de criar uma segunda.
+    return eu.pastas.find((p) => p && norm(p.nome) === 'pokedesk') || null;
   }
 
-  async function tarefaPastaPokedesk() {
-    // 1.53.1 (pedido do André): a pasta PokéDesk guarda SÓ 1 pokémon de cada espécie. As duplicatas
+  async function tarefaPastaPokedex() {
+    // 1.53.1 (pedido do André): a pasta Pokédex guarda SÓ 1 pokémon de cada espécie. As duplicatas
     // (inclusive as de maior Nota) ficam na pasta em que o jogador as colocou ou na Geral — a pasta
-    // nunca puxa um segundo exemplar da mesma espécie.
+    // nunca puxa um segundo exemplar da mesma espécie. Cada evolução (Pichu, Pikachu, Raichu…) é uma
+    // espécie diferente: o mapa é por `speciesId`, então cada uma ganha o seu lugar.
     if (!cfg.autoColecao.manterUmaEspecie) return false;
     if (!eu || !Array.isArray(eu.pokemons)) return false;
 
     const pastas = Array.isArray(eu.pastas) ? eu.pastas : [];
-    const pasta = pastaPokedesk();
+    const pasta = pastaPokedex();
 
-    // 1. Se a pasta não existe e ainda há vaga (< 5 pastas), cria a pasta "PokéDesk"
+    // 1.1 Compatibilidade: a 1.53.1 criava "PokéDesk". Se a pasta antiga ainda existe, renomeia para
+    //     "Pokédex" em vez de deixar o nome errado (uma vez a cada 60 s, se o servidor recusar).
+    if (pasta) {
+      const nomeNorm = String(pasta.nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+      if (nomeNorm === 'pokedesk' && venceu('pokedexRenomear', 60_000)) {
+        marcar('pokedexRenomear');
+        return pedir(
+          { t: 'colecao.pasta.editar', pasta: pasta.id, nome: 'Pokédex', icone: pasta.icone || 'bola' },
+          'Coleção: renomeando a pasta PokéDesk para Pokédex'
+        );
+      }
+    }
+
+    // 1. Se a pasta não existe e ainda há vaga (< 5 pastas), cria a pasta "Pokédex"
     if (!pasta) {
-      if (pastas.length < 5 && venceu('pokedeskCriar', 30_000)) {
-        marcar('pokedeskCriar');
-        return pedir({ t: 'colecao.pasta.criar', nome: 'PokéDesk', icone: 'bola' }, 'Coleção: criando pasta PokéDesk para organizar 1 de cada espécie');
+      if (pastas.length < 5 && venceu('pokedexCriar', 30_000)) {
+        marcar('pokedexCriar');
+        return pedir({ t: 'colecao.pasta.criar', nome: 'Pokédex', icone: 'bola' }, 'Coleção: criando pasta Pokédex para organizar 1 de cada espécie');
       }
       return false;
     }
@@ -997,11 +1019,17 @@
     const travados = new Set(((eu.automation && eu.automation.pokemonTravado) || []).map(Number));
     if (!travados.size) return false;
 
-    // Só quem pode ser movido: na Coleção, fora do time e fora do ativo.
-    const naColecao = (eu.pokemons || []).filter((p) => p && travados.has(Number(p.id)) && p.slot == null && p.id !== eu.activeId);
+    // Quem está na Coleção. O time conta como 1 da espécie (não dá para mover um pokémon do time),
+    // então ele também entra na contagem de "já tem na Pokédex"; só os de fora do time são movíveis.
+    const naColecao = (eu.pokemons || []).filter((p) => p && travados.has(Number(p.id)));
+    const moveis = naColecao.filter((p) => p.slot == null && p.id !== eu.activeId);
 
-    // 2. Limpeza: se uma espécie tiver mais de 1 na PokéDesk (de versões anteriores), fica o melhor
-    //    e os extras voltam para a Geral — nunca para o Depot.
+    // 2. Limpeza: se uma espécie tiver mais de 1 na Pokédex (de versões anteriores), fica 1 e os
+    //    extras saem da pasta. Se um do time estiver na pasta, ele é o que fica (não dá para mover);
+    //    os movíveis da mesma espécie saem. O destino do extra depende da regra da Coleção: se ele
+    //    passa (shiny, P5, lendário ou nota alta), continua na Coleção e volta para a Geral; se NÃO
+    //    passa, não tem por que ocupar a Coleção e volta ao Depot. Segurar item impede o Depot (o
+    //    gancho recusa), então nesse caso fica na Geral.
     const naPasta = new Map();
     for (const p of naColecao) {
       if (Number(p.pasta) !== pasta.id) continue;
@@ -1011,17 +1039,36 @@
       if (lista) lista.push(p);
       else naPasta.set(sp, [p]);
     }
+    // A decisão de mandar ao Depot depende da nota (regra da Coleção): garante os módulos do jogo
+    // carregados. Se não der, o extra fica na Geral (o `n == null` abaixo segura).
+    if (!modNota) { try { modNota = await import(`${location.origin}/shared/nota-pokemon.mjs`); } catch { /* sem nota */ } }
+    if (!jogoEspecies && PIH.carregarJogo) { try { const j = await PIH.carregarJogo(); jogoEspecies = j.especies; } catch { /* sem espécies */ } }
+    // Com 5 ou menos pokémon na conta, ninguém vai ao Depot: a garantia de time manda manter todos.
+    const podeDepot = (eu.pokemons || []).length > 5;
+    const melhores = melhoresPorEspecie();
     for (const lista of naPasta.values()) {
       if (lista.length <= 1) continue;
-      lista.sort((a, b) => compararExemplares(a, b));
-      for (const p of lista.slice(1)) {
-        if (!venceu(`pokedeskLimpar:${p.id}`, 60_000)) continue;
-        if (!venceu('pokedeskLimpar', 2_000)) return false;
-        marcar('pokedeskLimpar');
-        marcar(`pokedeskLimpar:${p.id}`);
+      const noTime = lista.filter((p) => p.slot != null || p.id === eu.activeId);
+      const candidatos = noTime.length ? lista.filter((p) => p.slot == null && p.id !== eu.activeId) : lista.slice().sort((a, b) => compararExemplares(a, b)).slice(1);
+      for (const p of candidatos) {
+        if (!venceu(`pokedexLimpar:${p.id}`, 60_000)) continue;
+        if (!venceu('pokedexLimpar', 2_000)) return false;
+        // Sem a nota (módulo do jogo ainda não carregou) não dá para saber se passa na regra:
+        // nesse caso fica na Coleção, para nunca mandar ao Depot um pokémon bom por engano.
+        const n = modNota && jogoEspecies ? lerNotaPk(p) : null;
+        const ehMelhor = melhores.get(Number(p.speciesId))?.id === p.id;
+        const ficaNaColecao = !podeDepot || ehMelhor || atingeAutoColecao(p) || n == null || Number(p.heldItemId) > 0;
+        marcar('pokedexLimpar');
+        marcar(`pokedexLimpar:${p.id}`);
+        if (ficaNaColecao) {
+          return pedir(
+            { t: 'colecao.pasta.mover', pokemonId: p.id, pasta: 0 },
+            `Coleção: devolvendo ${p.nome} para a pasta Geral (a Pokédex mantém 1 por espécie)`
+          );
+        }
         return pedir(
-          { t: 'colecao.pasta.mover', pokemonId: p.id, pasta: 0 },
-          `Coleção: devolvendo ${p.nome} para a pasta Geral (a PokéDesk mantém 1 por espécie)`
+          { t: 'colecao.mover', pokemonId: p.id, para: 'depot' },
+          `Coleção: devolvendo ${p.nome} ao Depot (não passa na regra da Coleção; a Pokédex mantém 1 por espécie)`
         );
       }
     }
@@ -1029,7 +1076,7 @@
     // 3. Preenche as espécies que ainda não têm representante na pasta. Só olha quem está na Geral:
     //    pokémon em pasta própria (Venda, PvP, etc.) fica onde o jogador colocou.
     const melhoresNaGeral = new Map();
-    for (const p of naColecao) {
+    for (const p of moveis) {
       if (Number(p.pasta)) continue; // pasta própria: não mexe
       const sp = Number(p.speciesId);
       if (!sp) continue;
@@ -1038,14 +1085,14 @@
     }
 
     for (const [sp, p] of melhoresNaGeral) {
-      if (naPasta.has(sp)) continue; // a espécie já tem 1 na PokéDesk
-      if (!venceu(`pokedeskMover:${p.id}`, 60_000)) continue;
-      if (!venceu('pokedeskMover', 2_000)) break;
-      marcar('pokedeskMover');
-      marcar(`pokedeskMover:${p.id}`);
+      if (naPasta.has(sp)) continue; // a espécie já tem 1 na Pokédex
+      if (!venceu(`pokedexMover:${p.id}`, 60_000)) continue;
+      if (!venceu('pokedexMover', 2_000)) break;
+      marcar('pokedexMover');
+      marcar(`pokedexMover:${p.id}`);
       return pedir(
         { t: 'colecao.pasta.mover', pokemonId: p.id, pasta: pasta.id },
-        `Coleção: organizando ${p.nome} na pasta PokéDesk`
+        `Coleção: organizando ${p.nome} na pasta Pokédex`
       );
     }
 
@@ -1185,7 +1232,9 @@
 
   // 1.36.0: evoluir e a pedra do time vêm primeiro — antes, qualquer tarefa da frente que mandasse algo
   // encerrava o tique e a evolução esperava a próxima volta.
-  const TAREFAS = [tarefaEvoluir, tarefaPedraDoTime, tarefaAutoColecao, tarefaPasse, tarefaPvpTime, tarefaPvpFila, tarefaXpShare, tarefaOutland, tarefaRodizio, tarefaChocadeira, tarefaColecaoBaixa, tarefaPastaPokedesk, tarefaDepot];
+  // A Pokédex vem ANTES de devolver duplicatas ao Depot: a organização da pasta não pode ficar
+  // esperando a tarefa de baixa terminar (o laço encerra na primeira tarefa que manda algo).
+  const TAREFAS = [tarefaEvoluir, tarefaPedraDoTime, tarefaAutoColecao, tarefaPasse, tarefaPvpTime, tarefaPvpFila, tarefaXpShare, tarefaOutland, tarefaRodizio, tarefaChocadeira, tarefaPastaPokedex, tarefaColecaoBaixa, tarefaDepot];
   let rodando = false;
   async function tique() {
     if (rodando || !eu || !welcome || !PIH.cofre || !PIH.cofre.liberado('rotina')) return;
@@ -1248,7 +1297,7 @@
       ${L({ icone: 'check', nome: 'Auto Coleção no ponto', alvo: 'rotina:autoColecao.ligado', on: cfg.autoColecao.ligado, status: !cfg.autoColecao.ligado ? (ultimaRegra ? `no jogo: ${resumoRegra(ultimaRegra)}` : '') : autoColecaoOk && ultimaRegra ? `no jogo: ${resumoRegra(ultimaRegra)}` : `vai salvar: Lendário · Shiny · P5+ · Nota ${String(notaMercado ?? 3.5).replace('.', ',')}+`,
         dica: 'Deixa o Auto Coleção do jogo guardando tudo o que vale mais no Mercado que no NPC: lendário/mítico, shiny, P5 e nota a partir do mínimo que o Mercado aceita (3,5 hoje, lido do jogo). Assim a venda imediata do Depot nunca leva uma oportunidade. Se alguém mudar a regra, o Piloto põe de volta. Vale acima de qualquer outra função: o que a regra guardou fica na Coleção e não volta para o Depot nem é vendido, mesmo abaixo do Nv 50.',
         sempreAjustes: true,
-        ajustes: K.mini('rotina:autoColecao.manterUmaEspecie', !!cfg.autoColecao.manterUmaEspecie, 'Manter ao menos 1 Pokemon de cada espécie', 'Deixa na coleção 1 Pokemon de cada espécie independente de qual Potência, Qualidade ou Nota ele tenha, ele é substituído por outro de maior Nota.', trava) })}
+        ajustes: K.mini('rotina:autoColecao.manterUmaEspecie', !!cfg.autoColecao.manterUmaEspecie, 'Manter ao menos 1 Pokemon de cada espécie', 'Deixa na coleção 1 Pokemon de cada espécie independente de qual Potência, Qualidade ou Nota ele tenha, ele é substituído por outro de maior Nota. Cada evolução (Pichu, Pikachu, Raichu...) é uma espécie diferente.', trava) })}
       ${L({ icone: 'depot', nome: 'Limpar o Depot', classe: 'plt-l-perigo', alvo: 'rotina:depot.ligado', on: d.modo !== 'off', dica: 'Na hora: pokémon que entrou no Depot e não foi para a Coleção (pelo Auto Coleção do jogo) é vendido em segundos — igual ao botão "Vender todo o Depot". Antes de vender, guarda na Coleção a equipe do PvP, os shiny, os P5 e quem a janela Time tirou do campo. A Coleção, o ativo e quem segura a Exp. Share nunca vão.',
         status: `${nfR.format(noDepot)} no Depot${d.modo !== 'off' ? ` · ${d.modo === 'oferenda' ? 'oferenda' : 'vende'} assim que entra` : ''}`,
         ajustes: `${K.fcampo('Como', K.escala('rotina:depot.modo', d.modo === 'off' ? (d.ultimoModo || 'vender') : d.modo, [['vender', 'Vender ao NPC'], ['oferenda', 'Oferenda']], trava))}` })}`;
@@ -1276,6 +1325,11 @@
     cfg[g][k] = v;
     gravar();
     if (g === 'rodizio' && k === 'ligado' && v === true && antes !== true) comecarCiclo();
+    // Se a opção "1 por espécie" já está ligada, religar o Auto Coleção também tenta criar/organizar
+    // a pasta Pokédex na hora (o usuário não precisa desligar e ligar a opção de novo).
+    if (g === 'autoColecao' && k === 'ligado' && v === true && cfg.autoColecao.manterUmaEspecie) {
+      tarefaPastaPokedex().catch(() => {});
+    }
   }
   // Uma mudança vinda do painel (interruptor, escolha ou número). Números já chegam validados.
   // 1.42.0 (pedido do André, 29/10): a "Tela de batalha" do PvP sempre em Minimizada. É uma escolha
@@ -1300,6 +1354,9 @@
       cfg.autoColecao.manterUmaEspecie = !!v;
       gravar();
       diario(`Manter ao menos 1 Pokémon de cada espécie ${v ? 'ligado' : 'desligado'}`);
+      // Não espera o tique de 20 s: ao ligar, já cria a pasta Pokédex (se houver vaga) e começa a
+      // organizar. Sem isso, a criação podia ficar presa atrás das outras tarefas do tique.
+      if (v) tarefaPastaPokedex().catch(() => {});
       return;
     }
     if (caminho === 'depot.ligado') {

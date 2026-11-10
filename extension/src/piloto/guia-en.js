@@ -27,8 +27,14 @@
       { t: 'Help is always at hand', x: 'The ? on each row explains what it does. Report bug, Check for updates and the language are below the menu. This guide comes back with the ? button at the top.' },
     ],
     novidades: {
+      '1.53.2': [
+        "Collection folder corrected to \"Pokédex\" (it was created as \"PokéDesk\"); if the old folder exists, the Pilot uses it and doesn't create another.",
+        "The folder is now created as soon as the option is turned on, without waiting for the next 20s tick.",
+        "Each evolution is a different species: Pichu, Pikachu and Raichu each get their own slot in the Pokédex.",
+        "The Pokédex keeps only 1 per species: a duplicate that passes the Collection rule goes back to General, and one that doesn't goes to the Depot.",
+      ],
       '1.53.1': [
-        "Auto Collection tuned: new option \"Keep at least 1 Pokémon of each species\", automatically creating the \"PokéDesk\" folder in the Collection and organizing 1 Pokémon of each species into it.",
+        "Auto Collection tuned: new option \"Keep at least 1 Pokémon of each species\", automatically creating the \"Pokédex\" folder in the Collection and organizing 1 Pokémon of each species into it.",
         "Starter team guarantee: the account always preserves at least 5 Pokémon in total so it never runs out of a team, and \"Build main team on its own\" fills empty slots and continually upgrades the team until eligible Auto Collection Pokémon take over.",
         "Hunt tab: Pokémon and hunt search in the yields list with 1s debounce for smooth typing without lag.",
       ],

@@ -730,6 +730,12 @@
       const icone = typeof p.icone === 'string' && p.icone ? p.icone : 'bola';
       return { t: 'colecao.pasta.criar', nome, icone };
     },
+    'colecao.pasta.editar': (p) => {
+      if (!int(p.pasta, 1, ID) || typeof p.nome !== 'string' || !p.nome.trim()) return null;
+      const nome = p.nome.trim().slice(0, 20);
+      const icone = typeof p.icone === 'string' && p.icone ? p.icone : 'bola';
+      return { t: 'colecao.pasta.editar', pasta: p.pasta, nome, icone };
+    },
     'colecao.pasta.mover': (p) => {
       if (!int(p.pokemonId, 1, ID) || !int(p.pasta, 0, ID)) return null;
       return { t: 'colecao.pasta.mover', pokemonId: p.pokemonId, pasta: p.pasta };

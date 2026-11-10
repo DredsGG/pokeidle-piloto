@@ -27,8 +27,14 @@
       { t: 'Ajuda sempre à mão', x: 'O ? de cada linha explica o que ela faz. Embaixo do menu ficam Relatar bug, Procurar atualização e o idioma. Este guia volta no botão ? lá em cima.' },
     ],
     novidades: {
+      '1.53.2': [
+        "Pasta da Coleção corrigida para \"Pokédex\" (antes saiu como \"PokéDesk\"); se a pasta antiga existir, o Piloto usa ela e não cria outra.",
+        "A pasta agora é criada na hora em que a opção é ligada, sem esperar o próximo tique de 20s.",
+        "Cada evolução é uma espécie diferente: Pichu, Pikachu e Raichu ganham um lugar cada um na Pokédex.",
+        "A Pokédex mantém só 1 por espécie: a duplicata que passa na regra da Coleção volta para a Geral e a que não passa vai ao Depot.",
+      ],
       '1.53.1': [
-        "Auto Coleção no ponto: nova opção \"Manter ao menos 1 Pokemon de cada espécie\", criando automaticamente a pasta \"PokéDesk\" na Coleção e organizando nela 1 pokémon de cada espécie.",
+        "Auto Coleção no ponto: nova opção \"Manter ao menos 1 Pokemon de cada espécie\", criando automaticamente a pasta \"Pokédex\" na Coleção e organizando nela 1 pokémon de cada espécie.",
         "Garantia de time inicial: a conta sempre preserva ao menos 5 pokémon no total para nunca ficar sem time, e o \"Montar o time principal sozinho\" preenche vagas vazias e melhora continuamente o time até que entrem pokémon que fiquem sozinhos na Coleção.",
         "Aba Caçar: busca de pokémon e hunt na lista de rendimento com espera de 1s (debounce) para digitação fluida sem lag.",
       ],

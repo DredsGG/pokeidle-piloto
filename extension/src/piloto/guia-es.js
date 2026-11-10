@@ -27,8 +27,14 @@
       { t: 'Ayuda siempre a mano', x: 'El ? de cada fila explica lo que hace. Debajo del menú están Reportar error, Buscar actualización y el idioma. Esta guía vuelve con el botón ? de arriba.' },
     ],
     novidades: {
+      '1.53.2': [
+        "Carpeta de la Colección corregida a \"Pokédex\" (antes se creó como \"PokéDesk\"); si la carpeta antigua existe, el Piloto la usa y no crea otra.",
+        "La carpeta ahora se crea en cuanto se activa la opción, sin esperar el siguiente ciclo de 20s.",
+        "Cada evolución es una especie diferente: Pichu, Pikachu y Raichu tienen su propio lugar en la Pokédex.",
+        "La Pokédex mantiene solo 1 por especie: el duplicado que pasa la regla de la Colección vuelve a la General y el que no pasa va al Depot.",
+      ],
       '1.53.1': [
-        "Auto Colección afinada: nueva opción \"Mantener al menos 1 Pokémon de cada especie\", creando automáticamente la carpeta \"PokéDesk\" en la Colección y organizando en ella 1 pokémon de cada especie.",
+        "Auto Colección afinada: nueva opción \"Mantener al menos 1 Pokémon de cada especie\", creando automáticamente la carpeta \"Pokédex\" en la Colección y organizando en ella 1 pokémon de cada especie.",
         "Garantía de equipo inicial: la cuenta siempre preserva al menos 5 pokémon en total para nunca quedarse sin equipo, y \"Armar el equipo principal solo\" llena espacios vacíos y mejora continuamente el equipo hasta que entren pokémon que califiquen para la Colección.",
         "Pestaña Cazar: búsqueda de pokémon y hunt en la lista de rendimiento con espera de 1s (debounce) para escribir con fluidez sin lag.",
       ],
