@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.54.1': [
+        "Atualizado: a faixa da Plateia na Twitch agora descreve a compra automática do bônus de 10 h.",
+      ],
       '1.54.0': [
         "Novo: busca na aba Caçar. Digite o nome da hunt, de um pokémon ou da região e a tabela \"Onde render mais\" mostra só as que casam, cada uma com a posição dela no ranking. Esc ou × limpa a busca.",
       ],

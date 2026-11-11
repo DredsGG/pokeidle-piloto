@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.54.1": {
+      "pt": [
+        "Atualizado: a faixa da Plateia na Twitch agora descreve a compra automática do bônus de 10 h."
+      ],
+      "en": [
+        "Updated: the Plateia banner on Twitch now describes the automatic purchase of the 10 h bonus."
+      ],
+      "es": [
+        "Actualizado: la franja de Plateia en Twitch ahora describe la compra automática del bono de 10 h."
+      ]
+    },
     "1.54.0": {
       "pt": [
         "Novo: busca na aba Caçar. Digite o nome da hunt, de um pokémon ou da região e a tabela \"Onde render mais\" mostra só as que casam, cada uma com a posição dela no ranking. Esc ou × limpa a busca."

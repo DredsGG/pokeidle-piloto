@@ -9,7 +9,7 @@ Hunt optimizer, market radar, team manager and daily routine in one browser exte
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
 ![Browsers](https://img.shields.io/badge/Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20GX%20·%20Firefox%20140+-works-6d4aff)
-![Version](https://img.shields.io/badge/version-1.54.0-e53935)
+![Version](https://img.shields.io/badge/version-1.54.1-e53935)
 ![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-2e7d32)
 
 <img src="docs/hunt-tab.png" width="80%" alt="The Piloto window in Automatic mode, Hunt tab: hunt switching, restock, team rotation, Outland tier, automatic Poké Ball and auto-reload, above the ranking of the best hunts">
@@ -92,7 +92,7 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
   <img src="docs/plateia-banner.png" width="60%" alt="Banner on the game's Twitch bonus window: Farm this bonus with Plateia, with an Open the Twitch room button">
 </p>
 
-- If you also use [Plateia](https://github.com/DredsGG/plateia) (Twitch and Kick), opening the game opens its Twitch and/or Kick room in a separate window, once per browser session, for the platforms linked in your game account. If a room window is already open (even after the browser or the extension restarts or updates), it isn't opened again; only a missing one opens. **Reopen if it closes** (off by default) brings a closed or memory-discarded room back within a minute while the Piloto is on and the game is open. The game's own Twitch/Kick bonus windows get an **Open the room** button, or a link to download Plateia if you don't have it.
+- If you also use [Plateia](https://github.com/DredsGG/plateia) (Twitch and Kick), opening the game opens its Twitch and/or Kick room in a separate window, once per browser session, for the platforms linked in your game account. If a room window is already open (even after the browser or the extension restarts or updates), it isn't opened again; only a missing one opens. **Reopen if it closes** (off by default) brings a closed or memory-discarded room back within a minute while the Piloto is on and the game is open. The game's own Twitch/Kick bonus windows get an **Open the room** button, or a link to download Plateia if you don't have it. On Twitch the banner now says what the room does: it plays the official channels' lives, collects the channel points and buys the 10 h bonus by itself (XP, Capture, Secret Lure) when the channel balance covers it (needs Plateia 0.9.4 or newer).
 
 **Questions channel (opt-in)**
 
@@ -266,6 +266,7 @@ node tests/pedra.mjs          # buys one evolution stone, gold only, never twice
 node tests/revenda-manual.cjs # what you bought by hand and the team's stones are never resold automatically
 node tests/alvos.mjs          # purchase targets in Manual: buys up to the count at or under the max price, gold only; Radar limits editable and kept after a reload
 node tests/plateia.mjs        # opens the Plateia rooms once per session, banner with and without Plateia
+node tests/plateia-faixa.mjs  # the Twitch banner text (PT/EN/ES) describes the automatic bonus purchase; Kick banner and the room button unchanged
 node tests/vendapk.mjs        # automatic Pokémon listing never touches protected Pokémon
 node tests/volta.mjs          # reloads after 5 min stopped, waits for another tab
 node tests/amigos-rank.mjs    # PvP rank next to each friend: nothing in Off, first read in seconds with no burst, reopen and redraw show it at once, background refresh, English

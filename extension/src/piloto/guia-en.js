@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.54.1': [
+        "Updated: the Plateia banner on Twitch now describes the automatic purchase of the 10 h bonus.",
+      ],
       '1.54.0': [
         "New: search in the Hunt tab. Type a hunt, Pokémon or region name and the \"Where it pays most\" table shows only the matches, each with its place in the ranking. Esc or × clears the search.",
       ],

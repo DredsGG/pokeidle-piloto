@@ -668,6 +668,8 @@
     'Oferta no Mercado: clique para ver': ['Market deal: click to view', 'Oferta en el Mercado: haz clic para ver'],
     'Voto liberado': ['Vote available', 'Voto disponible'],
     'vale diamante': ['worth diamonds', 'vale diamante'],
+    // 1.54.1: frase inteira em `exato` (em `trechos` a regra dos números trocava "0.9.4" por "0,9,4" no inglês antes de casar)
+    'A sala da Plateia toca as lives dos canais oficiais, junta os pontos do canal e compra sozinha o bônus de 10 h (XP, Capture, Secret Lure) quando o saldo do canal cobre. Precisa da Plateia 0.9.4 ou mais nova. Deixe a sala aberta.': ['The Plateia room plays the official channels\' lives, collects the channel points and buys the 10 h bonus by itself (XP, Capture, Secret Lure) when the channel balance covers it. Needs Plateia 0.9.4 or newer. Keep the room open.', 'La sala de Plateia reproduce las lives de los canales oficiales, junta los puntos del canal y compra sola el bono de 10 h (XP, Capture, Secret Lure) cuando el saldo del canal lo cubre. Requiere Plateia 0.9.4 o más nueva. Deja la sala abierta.'],
     'Clique para abrir o "Vote & Ganhe"': ['Click to open "Vote & Earn"', 'Haz clic para abrir "Vota y Gana"'],
   };
 
@@ -1034,7 +1036,6 @@
     ['lutando há', 'fighting for', 'luchando hace'],
     ['na fila · entra em', 'in queue · in', 'en la fila · entra en'],
     ['Farme este bônus com a Plateia', 'Farm this bonus with Plateia', 'Farmea este bono con Plateia'],
-    ['A sala da Plateia fica no chat de todos os canais com bônus e toca as lives — o jogo te vê assistindo. Deixe a janela aberta.', 'The Plateia room joins the chat of every bonus channel and plays the lives — the game sees you watching. Keep the window open.', 'La sala de Plateia entra al chat de todos los canales con bono y reproduce los directos — el juego te ve mirando. Deja la ventana abierta.'],
     ['A sala da Plateia toca os canais oficiais e resgata o pacote de XP sozinha. Deixe a janela aberta.', 'The Plateia room plays the official channels and redeems the XP pack by itself. Keep the window open.', 'La sala de Plateia reproduce los canales oficiales y canjea el paquete de XP sola. Deja la ventana abierta.'],
     ['Abrir a sala da Twitch', 'Open the Twitch room', 'Abrir la sala de Twitch'],
     ['Abrir a sala da Kick', 'Open the Kick room', 'Abrir la sala de Kick'],

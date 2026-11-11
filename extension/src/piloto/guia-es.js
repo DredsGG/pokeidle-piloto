@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.54.1': [
+        "Actualizado: la franja de Plateia en Twitch ahora describe la compra automática del bono de 10 h.",
+      ],
       '1.54.0': [
         "Nuevo: búsqueda en la pestaña Cazar. Escribe el nombre de la hunt, de un pokémon o de la región y la tabla \"Dónde rinde más\" muestra solo las que coinciden, cada una con su puesto en el ranking. Esc o × borra la búsqueda.",
       ],
