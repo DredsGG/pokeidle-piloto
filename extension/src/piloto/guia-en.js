@@ -30,6 +30,10 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.53.1': [
+        "Fixed: the \"Shiny in the hunt\" notice no longer fires for Pokémon training at the house or those in the Center plaza.",
+        "Fixed: when the page opens with the account already at the Center, the Pilot goes back to the last hunt by itself instead of standing still.",
+      ],
       '1.53.0': [
         "New option \"Sell the low-grade ones\" in the Routine tab, off by default: when on it only lists in the journal what it would sell; really selling takes a second switch and never touches shiny, P5, team or grade 3.5+.",
       ],

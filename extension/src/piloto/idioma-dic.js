@@ -10,6 +10,7 @@
   const exato = {
     // ---- casca do painel ----
     'Piloto': ['Pilot', 'Piloto'],
+    "parado no Centro: não sei para qual hunt voltar; inicie uma hunt à mão": ["stuck at the Center: I don't know which hunt to go back to; start a hunt by hand", "parado en el Centro: no sé a qué hunt volver; inicia una hunt a mano"],
     "Venda de nota baixa": ["Low-grade sale", "Venta de nota baja"],
     "Vender os de nota baixa": ["Sell the low-grade ones", "Vender los de nota baja"],
     "Vender de verdade": ["Really sell", "Vender de verdad"],

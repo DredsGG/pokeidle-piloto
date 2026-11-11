@@ -826,14 +826,23 @@
   let mexeuEm = 0;
   for (const t of ['pointerdown', 'keydown']) { try { root.addEventListener(t, () => { mexeuEm = Date.now(); }, { capture: true, passive: true }); } catch { /* sem janela */ } }
   const ESPERA_CENTRO_S = [90, 180, 300, 600];
+  // 1.53.1 (ponto 7 do #5: parava depois de abrir a página e só destravava iniciando uma hunt à mão): com a página
+  // aberta já no Centro não havia ultimaHunt. O huntSlug do estado continua apontando a última hunt: usa ele.
+  const huntDoEstado = () => { const s = eu?.huntSlug; return s && (welcome?.hunts ?? []).some((h) => h.slug === s) ? s : null; };
+  let semDestinoEm = 0;
   function vigiaCentro(agora) {
     if (!eu?.noCentro) { centroDesde = null; if (naHunt()) centroFalhou = 0; return; }
     centroDesde ??= agora;
-    if (ocupado() || !ultimaHunt || !(cfg.hunt.ligado || cfg.repor.ligado) || !PIH.cofre?.liberado('hunt')) return;
+    if (ocupado() || !(cfg.hunt.ligado || cfg.repor.ligado) || !PIH.cofre?.liberado('hunt')) return;
+    const destino = ultimaHunt ?? huntDoEstado();
     const espera = ESPERA_CENTRO_S[Math.min(centroFalhou, ESPERA_CENTRO_S.length - 1)] * 1000;
     if (agora - centroDesde < espera || agora - mexeuEm < 60_000) return;
+    if (!destino) {
+      if (agora - semDestinoEm > 30 * 60_000) { semDestinoEm = agora; anotar('parado no Centro: não sei para qual hunt voltar; inicie uma hunt à mão', 'aviso'); }
+      return;
+    }
     centroDesde = agora;
-    iniciarRotina({ destino: ultimaHunt, curar: true, compras: comprasPendentes(), motivo: `parado no Centro: curando e voltando para ${nomeHunt(ultimaHunt)}` });
+    iniciarRotina({ destino, curar: true, compras: comprasPendentes(), motivo: `parado no Centro: curando e voltando para ${nomeHunt(destino)}` });
   }
   PIH.on('estado', (e) => { eu = e; if (naHunt()) ultimaHunt = e.huntSlug; notarMudanca(); passo(); try { registrarConsumo(e); } catch { /* sem medida */ } });
   // 1.51.0: o Dia Sazonal mudou (virada das 18:00 ou 1ª leitura): a análise refaz já

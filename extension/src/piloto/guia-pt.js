@@ -30,6 +30,10 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.53.1': [
+        "Corrigido: o aviso \"Shiny na hunt\" não dispara mais com pokémon em treino na casa nem com os da praça do Centro.",
+        "Corrigido: com a página aberta com a conta já no Centro, o Piloto volta sozinho para a última hunt em vez de ficar parado.",
+      ],
       '1.53.0': [
         "Nova opção \"Vender os de nota baixa\" na aba Rotina, desligada de fábrica: ligada, só lista no Diário o que venderia; a venda de verdade pede um segundo interruptor e nunca toca em shiny, P5, time ou nota 3,5+.",
       ],

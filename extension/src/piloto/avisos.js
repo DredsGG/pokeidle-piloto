@@ -77,6 +77,13 @@
 
   // shiny no campo (o corpo chega com sh) — um aviso por corpo
   const vistos = new Map();
+  // 1.53.1 (#5: "Weavile Nv 2602 apareceu shiny em Caterpie"): a lista de mobs não traz só selvagens. Na casa
+  // vêm os pokémon em treino, na praça do Centro os treinadores e bonecos, e o huntSlug continua o da última
+  // hunt. Só conta o selvagem de uma hunt de verdade, e nunca um shiny com o nome e o nível de um pokémon seu.
+  let cenaSemSelvagem = false;
+  const naHunt = () => !!eu && !!eu.huntSlug && !eu.noCentro && !(eu.casa && eu.casa.dentro) && !(eu.boss && eu.boss.arena) && !eu.mistico && !(eu.safari && eu.safari.dentro);
+  const naoEhSelvagem = (x) => !!x.tr || x.ti !== undefined || !!x.bn || x.dn !== undefined || x.eq !== undefined || !!x.cura || !!x.tm;
+  const ehDoTime = (x) => ((eu && eu.pokemons) || []).some((p) => p && p.shiny === true && p.nome === x.n && Number(p.level) === Number(x.nv));
   function verCampo(m) {
     if (!m) return;
     const n = Date.now();
@@ -84,8 +91,9 @@
     for (const [k, c] of corpos) if (n - c.em > 10 * 60_000) corpos.delete(k);
     for (const x of m.mobs || []) {
       if (!x || !Number.isInteger(x.s)) continue;
+      if (cenaSemSelvagem || !naHunt() || naoEhSelvagem(x)) continue;
       if (x.n) corpos.set(x.s, { n: String(x.n).slice(0, 40), nv: Number(x.nv) || null, em: n });
-      if (x.sh) shinyVisto(x.s, x.n, x.nv);
+      if (x.sh && !ehDoTime(x)) shinyVisto(x.s, x.n, x.nv);
     }
   }
   const corpos = new Map(); // vaga → nome e nível do corpo (para a bola que revela o shiny)
@@ -100,7 +108,7 @@
     avisar({ titulo: tx('shinyVisto'), linha: tx('shinyVistoTxt', { nome: nome || '?', nv: nv || '?', onde: h ? tx('em', { h }) : '' }), categoria: 'pokemon', nome: String(nome || 'Shiny'), tag: 'Shiny' });
   }
   PIH.on('campo', verCampo);
-  PIH.on('campo.init', verCampo);
+  PIH.on('campo.init', (m) => { cenaSemSelvagem = !!(m && (m.centro || m.casa)); verCampo(m); });
 
   // drops raros: junta 1 min, um aviso a cada 10 min no máximo
   let fila = {};

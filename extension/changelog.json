@@ -1,5 +1,19 @@
 {
   "versoes": {
+    "1.53.1": {
+      "pt": [
+        "Corrigido: o aviso \"Shiny na hunt\" não dispara mais com pokémon em treino na casa nem com os da praça do Centro.",
+        "Corrigido: com a página aberta com a conta já no Centro, o Piloto volta sozinho para a última hunt em vez de ficar parado."
+      ],
+      "en": [
+        "Fixed: the \"Shiny in the hunt\" notice no longer fires for Pokémon training at the house or those in the Center plaza.",
+        "Fixed: when the page opens with the account already at the Center, the Pilot goes back to the last hunt by itself instead of standing still."
+      ],
+      "es": [
+        "Corregido: el aviso \"Shiny en la hunt\" ya no salta con pokémon entrenando en la casa ni con los de la plaza del Centro.",
+        "Corregido: al abrir la página con la cuenta ya en el Centro, el Piloto vuelve solo a la última hunt en vez de quedarse parado."
+      ]
+    },
     "1.53.0": {
       "pt": [
         "Nova opção \"Vender os de nota baixa\" na aba Rotina, desligada de fábrica: ligada, só lista no Diário o que venderia; a venda de verdade pede um segundo interruptor e nunca toca em shiny, P5, time ou nota 3,5+."
