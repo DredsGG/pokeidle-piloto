@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.54.0": {
+      "pt": [
+        "Novo: busca na aba Caçar. Digite o nome da hunt, de um pokémon ou da região e a tabela \"Onde render mais\" mostra só as que casam, cada uma com a posição dela no ranking. Esc ou × limpa a busca."
+      ],
+      "en": [
+        "New: search in the Hunt tab. Type a hunt, Pokémon or region name and the \"Where it pays most\" table shows only the matches, each with its place in the ranking. Esc or × clears the search."
+      ],
+      "es": [
+        "Nuevo: búsqueda en la pestaña Cazar. Escribe el nombre de la hunt, de un pokémon o de la región y la tabla \"Dónde rinde más\" muestra solo las que coinciden, cada una con su puesto en el ranking. Esc o × borra la búsqueda."
+      ]
+    },
     "1.53.1": {
       "pt": [
         "Corrigido: o aviso \"Shiny na hunt\" não dispara mais com pokémon em treino na casa nem com os da praça do Centro.",

@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.54.0': [
+        "New: search in the Hunt tab. Type a hunt, Pokémon or region name and the \"Where it pays most\" table shows only the matches, each with its place in the ranking. Esc or × clears the search.",
+      ],
       '1.53.1': [
         "Fixed: the \"Shiny in the hunt\" notice no longer fires for Pokémon training at the house or those in the Center plaza.",
         "Fixed: when the page opens with the account already at the Center, the Pilot goes back to the last hunt by itself instead of standing still.",

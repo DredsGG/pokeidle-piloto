@@ -393,6 +393,11 @@
   ];
   let painel = null;
   let mostrando = POR_PAGINA;
+  // 1.54.0: busca da aba Caçar (pedido no #5). Só filtra o que a tabela mostra: o ranking, o 👑 e a
+  // Troca de hunt continuam iguais. Vive só enquanto o painel está aberto.
+  let busca = '';
+  let buscaTimer = 0;
+  const BUSCA_ESPERA_MS = 250;
   let assinatura = '';
   let relogio = 0;
   const abertas = new Set(); // linhas com a explicação ("?") aberta
@@ -441,6 +446,7 @@
     document.body.append(painel);
     painel.addEventListener('click', aoClicarNoPainel);
     painel.addEventListener('change', aoMudarNoPainel);
+    painel.addEventListener('input', aoDigitarNoPainel);
     painel.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches('input')) ev.target.blur(); });
     pintarBotaoTema();
     pintarMoldura();
@@ -463,6 +469,8 @@
   PIH.on?.('extrato.mudou', () => { if (painel && prefs.aba === 'extrato') { ultimoHtml = ''; desenhar(); } });
   function fecharPainel() {
     clearInterval(relogio);
+    clearTimeout(buscaTimer);
+    busca = '';
     soltarMercado();
     painel?.remove();
     painel = null;
@@ -471,7 +479,39 @@
     removeEventListener('keydown', aoTeclar, true);
     removeEventListener('pointerdown', aoClicarFora, true);
   }
-  const aoTeclar = (ev) => { if (ev.key === 'Escape') fecharPainel(); };
+  const aoTeclar = (ev) => {
+    if (ev.key !== 'Escape') return;
+    // 1.54.0: Esc no campo de busca com texto limpa a busca; o painel fica aberto
+    const a = document.activeElement;
+    if (painel && a && a.matches?.('[data-busca]') && painel.contains(a) && (a.value || busca)) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      limparBusca();
+      return;
+    }
+    fecharPainel();
+  };
+  function aplicarBusca(texto) {
+    clearTimeout(buscaTimer);
+    const novo = String(texto ?? '').slice(0, 40);
+    if (novo === busca) return;
+    busca = novo;
+    mostrando = POR_PAGINA;
+    ultimoHtml = '';
+    desenhar();
+  }
+  function limparBusca() {
+    const campo = painel?.querySelector('[data-busca]');
+    if (campo) campo.value = '';
+    aplicarBusca('');
+    campo?.focus({ preventScroll: true });
+  }
+  function aoDigitarNoPainel(ev) {
+    const el = ev.target;
+    if (!el.matches?.('[data-busca]')) return;
+    clearTimeout(buscaTimer);
+    buscaTimer = setTimeout(() => aplicarBusca(el.value), BUSCA_ESPERA_MS);
+  }
   const aoClicarFora = (ev) => {
     const caminho = ev.composedPath();
     // 1.32.2: clicar no quadro solto do guia/novidades/versão nova (piloto/guia.js) não fecha o painel
@@ -538,6 +578,7 @@
     if (acao === 'fechar') fecharPainel();
     else if (acao === 'tema') { definirTema(temaAtual() === 'claro' ? 'escuro' : 'claro'); pintarBotaoTema(); }
     else if (acao === 'mais') { mostrando += POR_PAGINA; ultimoHtml = ''; desenhar(); }
+    else if (acao === 'limpar-busca') limparBusca();
     else if (acao === 'extrato-mais') { PIH.extrato?.mais?.(); ultimoHtml = ''; desenhar(); }
     else if (acao === 'plateia-abrir') PIH.plateia?.abrirAgora?.();
     else if (acao === 'torneio-conferir') PIH.torneio?.conferir?.();
@@ -899,7 +940,8 @@
   }
   const cfgAuto = () => { try { return PIH.auto?._interno?.cfg?.(); } catch { return null; } };
   let topSlug = null;
-  function linhaHtml(l, i) {
+  function linhaHtml(l, i, achou) {
+    const tem = achou && achou.length ? ` · <span class="pih-busca-tem">tem ${achou.map(esc).join(', ')}</span>` : '';
     const medido = l.kphMedido != null ? ` · você fez ${num(l.kphMedido)} abates/h aqui com este pokémon (referência; não muda o ranking)` : '';
     const aprox = l.aoe
       ? `<span class="pih-aprox" title="Estimativa com o TM AoE: ${l.engajados.toFixed(1).replace('.', ',')} selvagens em você ao mesmo tempo${l.geoMedida ? '' : '; geometria padrão'}${medido}">≈AoE</span>`
@@ -910,18 +952,30 @@
     const golpe = l.melhorGolpe ? `${esc(l.melhorGolpe.nome)} ×${l.efetividade.toFixed(2).replace('.', ',')}` : '';
     if (l.inviavel) {
       return `<tr class="${cls}"><td class="pih-pos">${i + 1}</td>
-        <td class="pih-hunt"><b>${esc(l.nome)}</b><small>${regiao(l.regiao)} · Nv ${num(l.nivel)}</small></td>
+        <td class="pih-hunt"><b>${esc(l.nome)}</b><small>${regiao(l.regiao)} · Nv ${num(l.nivel)}${tem}</small></td>
         <td colspan="5"><span class="pih-perigo">${l.motivo === 'morre antes de matar' ? 'morre antes de matar' : 'não mata o selvagem'}</span></td></tr>`;
     }
     return `<tr class="${cls}" title="${esc(golpe)}">
       <td class="pih-pos">${i + 1}</td>
-      <td class="pih-hunt">${retratoHunt(l)}<span class="pih-hunt-txt"><b>${esc(l.nome)}${l.slug === eu?.huntSlug && !eu?.noCentro ? ' <i class="pih-aqui">você está aqui</i>' : ''}</b><small>${regiao(l.regiao)} · Nv ${num(l.nivel)}${l.liberada ? '' : ' · 🔒'}</small></span></td>
+      <td class="pih-hunt">${retratoHunt(l)}<span class="pih-hunt-txt"><b>${esc(l.nome)}${l.slug === eu?.huntSlug && !eu?.noCentro ? ' <i class="pih-aqui">você está aqui</i>' : ''}</b><small>${regiao(l.regiao)} · Nv ${num(l.nivel)}${l.liberada ? '' : ' · 🔒'}${tem}</small></span></td>
       <td>${curto(prefs.ordem === 'ouro' ? l.ouroH : l.xpPokemonH)}</td>
       <td>${aprox}${num(l.kph)}</td>
       <td>${segundos(l.ttk)}</td>
       <td>${risco(l)}</td>
       <td>${curto(prefs.ordem === 'ouro' ? l.xpPokemonH : l.ouroH)}</td>
     </tr>`;
+  }
+
+  // sem acento e sem diferença de maiúscula: "flabebe" acha Flabébé
+  const normBusca = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  function especiesQueCasam(slug, jogo, q) {
+    const h = (welcome?.hunts ?? []).find((x) => x.slug === slug);
+    const nomes = [];
+    for (const e of (h && Array.isArray(h.especies) ? h.especies : [])) {
+      const nome = jogo?.especies?.get?.(e.pokeId)?.name;
+      if (nome && normBusca(nome).includes(q) && !nomes.includes(nome)) nomes.push(nome);
+    }
+    return nomes;
   }
 
   function corpo(r, jogo, manual) {
@@ -937,19 +991,37 @@
     const top = (PIH.auto?.melhorDe ? PIH.auto.melhorDe(linhas, prefs.ordem === 'ouro' ? 'ouro' : 'xp') : null) || linhas.find((l) => !l.inviavel);
     topSlug = top ? top.slug : null;
     const outro = prefs.ordem === 'ouro' ? 'XP/h' : 'Ouro/h';
-    const limite = manual ? mostrando : 5;
+    const q = normBusca(busca);
+    const achados = new Map(); // slug → espécies da hunt que casaram com a busca
+    let visiveis = linhas.map((l, i) => [l, i]);
+    if (q) {
+      visiveis = visiveis.filter(([l]) => {
+        const esp = especiesQueCasam(l.slug, jogo, q);
+        if (esp.length) achados.set(l.slug, esp);
+        return esp.length > 0 || normBusca(l.nome).includes(q) || normBusca(regiao(l.regiao)).includes(q);
+      });
+    }
+    const limite = q ? visiveis.length : manual ? mostrando : 5;
+    const campoBusca = `<div class="pih-busca">
+        <input type="search" class="plt-num pih-busca-campo" data-busca value="${esc(busca)}" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Buscar hunt, pokémon ou região" aria-label="Buscar hunt, pokémon ou região">
+        ${q ? `<span class="pih-busca-n" title="Hunts que aparecem com a busca">${visiveis.length}/${linhas.length}</span><button type="button" class="pih-busca-limpar" data-acao="limpar-busca" title="Limpar a busca (Esc)" aria-label="Limpar a busca (Esc)">×</button>` : ''}
+      </div>`;
     const melhor = top ? `<div class="plt-caixa pih-melhor">
         <span class="pih-coroa">👑</span>
         <div><strong>${esc(top.nome)}</strong> <span class="pih-dim">${regiao(top.regiao)} · Nv ${num(top.nivel)}</span><br>
         ${curto(top.xpPokemonH)} XP/h do pokémon · ${curto(top.xpTreinadorH)} XP/h do treinador · ${curto(top.ouroH)} ouro/h · ${num(top.kph)} abates/h${top.melhorGolpe ? ` · ${esc(top.melhorGolpe.nome)}` : ''}</div>
       </div>` : '';
-    return `${melhor}
-      <div class="plt-caixa pih-lista"><table class="plt-tab pih-tab">
+    const tabela = q && !visiveis.length
+      ? `<div class="plt-caixa pih-erro pih-busca-nada">Nenhuma hunt com “${esc(busca.trim())}”.</div>`
+      : `<div class="plt-caixa pih-lista"><table class="plt-tab pih-tab">
         <thead><tr><th>#</th><th>Hunt</th><th>${prefs.ordem === 'ouro' ? 'Ouro/h' : 'XP/h'}</th><th>Abates/h</th><th>Mata em</th><th>Risco</th><th>${outro}</th></tr></thead>
-        <tbody>${linhas.slice(0, limite).map(linhaHtml).join('')}</tbody>
+        <tbody>${visiveis.slice(0, limite).map(([l, i]) => linhaHtml(l, i, achados.get(l.slug))).join('')}</tbody>
       </table>
-      ${manual && linhas.length > mostrando ? `<button type="button" class="cfg-escala-bt plt-mais" data-acao="mais">mostrar mais (${linhas.length - mostrando})</button>` : ''}
-      </div>
+      ${!q && manual && linhas.length > mostrando ? `<button type="button" class="cfg-escala-bt plt-mais" data-acao="mais">mostrar mais (${linhas.length - mostrando})</button>` : ''}
+      </div>`;
+    return `${melhor}
+      ${campoBusca}
+      ${tabela}
       ${manual ? `<div class="pih-rodape">Dados do jogo ${jogo.versao ? `v${esc(jogo.versao)}` : 'no ar'} · ${r.linhas.length}/${r.total} hunts · cálculo em ${r.ms} ms · ranking com ondas cheias · geometria medida em ${PIH.geo?.huntsMedidas?.() ?? 0} hunts (≈ = padrão · ● = você já caçou aqui, passe o mouse)${r.aoe ? ` · TM AoE: ${r.aoe.alvosPorGolpe.toFixed(1).replace('.', ',')} alvos/golpe` : ''}</div>` : ''}`;
   }
 
@@ -966,7 +1038,17 @@
     ultimaAba = aba;
     ultimoHtml = html;
     const rolagem = alvo.scrollTop;
+    const campo = alvo.querySelector('[data-busca]');
+    const comFoco = campo && document.activeElement === campo ? { v: campo.value, a: campo.selectionStart, b: campo.selectionEnd } : null;
     alvo.innerHTML = html;
+    if (comFoco) {
+      const novo = alvo.querySelector('[data-busca]');
+      if (novo) {
+        novo.value = comFoco.v; // o que a pessoa digitou depois do último filtro não se perde
+        novo.focus({ preventScroll: true });
+        try { novo.setSelectionRange(comFoco.a, comFoco.b); } catch {}
+      }
+    }
     for (const l of alvo.querySelectorAll('.cfg-linha[data-linha]')) {
       if (abertas.has(l.dataset.linha)) { l.classList.add('aberta'); l.querySelector('.cfg-ajuda')?.setAttribute('aria-expanded', 'true'); }
     }

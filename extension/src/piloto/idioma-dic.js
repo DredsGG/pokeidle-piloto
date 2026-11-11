@@ -10,6 +10,10 @@
   const exato = {
     // ---- casca do painel ----
     'Piloto': ['Pilot', 'Piloto'],
+    // ---- 1.54.0: busca da aba Caçar ----
+    "Buscar hunt, pokémon ou região": ["Search hunt, Pokémon or region", "Buscar hunt, pokémon o región"],
+    "Limpar a busca (Esc)": ["Clear the search (Esc)", "Borrar la búsqueda (Esc)"],
+    "Hunts que aparecem com a busca": ["Hunts shown by the search", "Hunts que aparecen con la búsqueda"],
     "parado no Centro: não sei para qual hunt voltar; inicie uma hunt à mão": ["stuck at the Center: I don't know which hunt to go back to; start a hunt by hand", "parado en el Centro: no sé a qué hunt volver; inicia una hunt a mano"],
     "Venda de nota baixa": ["Low-grade sale", "Venta de nota baja"],
     "Vender os de nota baixa": ["Sell the low-grade ones", "Vender los de nota baja"],
@@ -676,6 +680,9 @@
   const fv = (t, i) => (FICA_VENDA[t] ? FICA_VENDA[t][i] : t);
   const listaV = (t, i) => (i === 0 ? t.replace(/ Nv /g, ' Lv ').replace(/ nota /g, ' grade ').replace(/ \(Coleção\)/g, ' (Collection)').replace(/^nenhum$/, 'none') : t.replace(/ \(Coleção\)/g, ' (Colección)').replace(/^nenhum$/, 'ninguno'));
   const regras = [
+    // ---- 1.54.0: busca da aba Caçar ----
+    [/^Nenhuma hunt com “(.*)”\.$/u, (m) => `No hunt matches “${m[1]}”.`, (m) => `Ninguna hunt con “${m[1]}”.`],
+    [/^tem ([A-Z][^·]*)$/u, (m) => `has ${m[1]}`, (m) => `tiene ${m[1]}`],
     // ---- 1.53.0: venda de nota baixa ----
     [/^venda de nota baixa \(simulação\): venderia (\d+) pokémon \((.*)\) = (.+) de ouro$/u, (m) => `low-grade sale (simulation): would sell ${m[1]} Pokémon (${listaV(m[2], 0)}) = ${m[3]} gold`, (m) => `venta de nota baja (simulación): vendería ${m[1]} pokémon (${listaV(m[2], 1)}) = ${m[3]} de oro`],
     [/^venda de nota baixa: (\d+) fica(?:m)?: (.+)$/u, (m) => `low-grade sale: ${m[1]} stay: ${fv(m[2], 0)}`, (m) => `venta de nota baja: ${m[1]} se quedan: ${fv(m[2], 1)}`],

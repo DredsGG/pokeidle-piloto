@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.54.0': [
+        "Novo: busca na aba Caçar. Digite o nome da hunt, de um pokémon ou da região e a tabela \"Onde render mais\" mostra só as que casam, cada uma com a posição dela no ranking. Esc ou × limpa a busca.",
+      ],
       '1.53.1': [
         "Corrigido: o aviso \"Shiny na hunt\" não dispara mais com pokémon em treino na casa nem com os da praça do Centro.",
         "Corrigido: com a página aberta com a conta já no Centro, o Piloto volta sozinho para a última hunt em vez de ficar parado.",

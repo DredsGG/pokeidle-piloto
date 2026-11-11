@@ -612,3 +612,16 @@ html[data-piloto-tema="claro"] .plt-conteudo .plt-card-cab b { color: #3a1d22; t
   background: linear-gradient(180deg, #ffc2b8 0 6px, #a3302a 6px 13px, #d8574a 13px calc(100% - 13px), #e77b6c calc(100% - 13px) calc(100% - 7px), #ffa597 calc(100% - 7px) 100%); }
 @keyframes plt-fila-pulso { 50% { filter: brightness(1.25); } }
 @media (prefers-reduced-motion: reduce) { .plt-fila-centro.on { animation: none; } }
+
+/* 1.54.0: busca da aba Caçar */
+.pih-busca { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+.pih-busca .pih-busca-campo { flex: 1; width: auto; min-width: 0; max-width: 360px; }
+.pih-busca .pih-busca-campo::-webkit-search-cancel-button { display: none; }
+.pih-busca-n { color: var(--p-dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+.pih-busca-limpar {
+  width: 30px; height: 30px; padding: 0; border: 0; border-radius: 5px; cursor: pointer;
+  font: 700 18px/1 "Barlow", "Segoe UI", sans-serif; color: var(--p-texto);
+  background: var(--p-vao2); box-shadow: inset 0 0 0 2px var(--p-linha);
+}
+.pih-busca-limpar:hover { background: var(--p-vao-luz); }
+.pih-busca-tem { color: var(--p-ouro-luz); }
