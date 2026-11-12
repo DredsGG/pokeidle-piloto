@@ -1,0 +1,30 @@
+name: Discord
+
+# Posts the release card to the Dreds Discord (project channel + #todas-as-releases).
+# Run by hand with modo "teste" to send the latest release to the test channel instead.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "teste = só #testes, com o último Release; normal = canal do projeto + todas-as-releases"
+        type: choice
+        options: [teste, normal]
+        default: teste
+
+permissions:
+  contents: read
+
+jobs:
+  aviso:
+    uses: DredsGG/.github/.github/workflows/discord-release.yml@v1
+    with:
+      nome: PokeIdle Piloto
+      emoji: "⚡"
+      cor: 16763653  # 0xFFCB05
+      modo: ${{ inputs.modo || 'normal' }}
+    secrets:
+      webhook_projeto: ${{ secrets.DISCORD_WEBHOOK_PROJETO }}
+      webhook_feed: ${{ secrets.DISCORD_WEBHOOK_FEED }}
+      webhook_testes: ${{ secrets.DISCORD_WEBHOOK_TESTES }}
