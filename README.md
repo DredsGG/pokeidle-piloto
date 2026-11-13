@@ -2,7 +2,9 @@
 
 <img src="extension/icons/icon-128.png" width="96" alt="PokeIdle Piloto icon">
 
-# PokeIdle Piloto
+# PokeIdle Piloto for Idle Deck
+
+[Install Extension in Idledeck Here](https://github.com/ZaryImortal/Manual-Extension-IdleDeck)
 
 **An autopilot for [pokeidle.io](https://pokeidle.io) with a budget vault in front of every gold coin it spends.**
 Hunt optimizer, market radar, team manager and daily routine in one browser extension for Chrome, Edge, Brave, Opera GX and Firefox 140+, built so it can't touch premium currency.
