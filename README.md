@@ -181,16 +181,6 @@ Download the file from the [latest release](https://github.com/DredsGG/pokeidle-
 If the Piloto disappears after you close Opera GX, just load it again the same way: it's a known Opera issue with unpacked extensions.
 </details>
 
-<details>
-<summary><b>Firefox</b></summary>
-
-1. Download the `.xpi` (signed by Mozilla) and open it, or go to `about:addons` → gear icon → **Install Add-on From File…** and pick it.
-2. Confirm **Add**. Firefox updates the Piloto by itself from then on.
-3. If Firefox ever shows the Piloto without access to pokeidle.io (the icon gets a red **!**), click the Piloto's icon and allow it.
-
-Needs Firefox 140 or newer. If a release has no `.xpi` yet, the `.zip` can be loaded for the current session in `about:debugging` → **This Firefox** → **Load Temporary Add-on…**.
-</details>
-
 From a clone of this repo, load the `extension/` folder: it's the same code and the same manifest for every browser.
 
 ## Languages
