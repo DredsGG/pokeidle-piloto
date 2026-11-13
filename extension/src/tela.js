@@ -848,7 +848,7 @@
   // ---- 1.13: os ajustes do Radar como linhas da janela Configurações do jogo -------------------
   const escH = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const trava = () => s.modoPiloto === 'desligado';
-  const ESCOLHAS_AUTO = ['radarLigado', 'compraAutomatica', 'compraAutomaticaPokemon', 'revendaAutomatica'];
+  const ESCOLHAS_AUTO = ['compraAutomatica', 'compraAutomaticaPokemon', 'revendaAutomatica'];
   const tg = (k, on, inverso = false) => `<button type="button" class="cfg-toggle${on ? ' on' : ''}" role="switch" aria-checked="${!!on}" data-cfg="${k}"${inverso ? ' data-inverso="1"' : ''}${trava() ? ' disabled' : ''}></button>`;
   const linhaR = ({ nome, dica = '', k = null, on = false, inverso = false, status = '', ajustes = '' }) => `<div class="cfg-linha r-linha">
       <span class="cfg-rot"><span class="cfg-cola"><span class="cfg-nome">${nome}</span>${dica ? '<button type="button" class="cfg-ajuda" aria-expanded="false" title="O que é isto?"><b aria-hidden="true">?</b></button>' : ''}</span>${status ? `<small class="r-status">${status}</small>` : ''}</span>

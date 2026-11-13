@@ -2142,6 +2142,7 @@
       const d = JSON.parse(ev.detail);
       const n = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
       s.ctxPiloto = { ouroH: n(d.ouroH), teto: n(d.teto), livre: n(d.livre) };
+      if (d.modo && ['desligado', 'manual', 'automatico'].includes(d.modo)) s.modoPiloto = d.modo;
       if (s.configCarregada) recalibrar();
     } catch (e) { erro(e); }
   });
@@ -2165,7 +2166,8 @@
       if (d.modo === 'automatico' && d.recarga) {
         const r = await st.get('radar:auto-escolhas');
         const g = (r && r['radar:auto-escolhas']) || {};
-        for (const k of ['radarLigado', 'compraAutomatica', 'compraAutomaticaPokemon', 'revendaAutomatica']) if (typeof g[k] === 'boolean') escolhas[k] = g[k];
+        for (const k of ['compraAutomatica', 'compraAutomaticaPokemon', 'revendaAutomatica']) if (typeof g[k] === 'boolean') escolhas[k] = g[k];
+        escolhas.radarLigado = true;
       } else if (d.modo === 'automatico') await st.set({ 'radar:auto-escolhas': {} });
       await st.set({ [Config.CHAVE]: { ...atual, ...perfil, ...escolhas } });
     })().catch(erro);
@@ -2241,9 +2243,30 @@
     } catch { /* sem espaço ou sem dados ainda */ }
   }, 60000);
 
+  function lerModoSalvo() {
+    try {
+      const cofStr = localStorage.getItem('piloto:cofre:v1');
+      const cof = cofStr ? JSON.parse(cofStr) : null;
+      if (cof && cof.cfg && cof.cfg.ligado === false) return 'desligado';
+      const m = JSON.parse(localStorage.getItem('piloto:modo:v1') || 'null');
+      if (m === 'automatico' || m === 'manual' || m === 'desligado') return m;
+      const rotStr = localStorage.getItem('piloto:rotina:v1');
+      const rot = rotStr ? JSON.parse(rotStr) : null;
+      const temAuto = rot && rot.cfg && (rot.cfg.passe?.ligado || rot.cfg.xpshare?.ligado || rot.cfg.outland?.ligado);
+      if (temAuto) return 'automatico';
+      if (cof && cof.cfg && cof.cfg.ligado) return 'manual';
+    } catch {}
+    return null;
+  }
+
   async function iniciar() {
     const st = ponte.storage();
     if (!st) return;
+    chrome.storage.onChanged.addListener((m, area) => {
+      if (area === 'local' && m[Config.CHAVE]) aplicarConfig(m[Config.CHAVE].newValue);
+    });
+    const modoSalvo = lerModoSalvo();
+    if (modoSalvo) s.modoPiloto = modoSalvo;
     const salvo = await st.get([Config.CHAVE, CHAVE_GASTO, CHAVE_MANUAIS, CHAVE_PEDRAS_TIME]);
     s.gastoDia = salvo[CHAVE_GASTO] || null;
     s.revenda.manuais = salvo[CHAVE_MANUAIS] || Rv.livroManualVazio();
@@ -2251,14 +2274,26 @@
     s.revenda.manuaisProntos = true;
     const ct = await st.get(CHAVE_ALVOS_CONTA);
     s.alvosConta = (ct && ct[CHAVE_ALVOS_CONTA]) || {};
+    if (s.modoPiloto === 'automatico') {
+      const cfgAtual = Config.validar(salvo[Config.CHAVE]);
+      if (!cfgAtual.radarLigado) {
+        const r = await st.get('radar:auto-escolhas');
+        const g = (r && r['radar:auto-escolhas']) || {};
+        const escolhas = {};
+        for (const k of ['compraAutomatica', 'compraAutomaticaPokemon', 'revendaAutomatica']) {
+          if (typeof g[k] === 'boolean') escolhas[k] = g[k];
+        }
+        escolhas.radarLigado = true;
+        const corrigida = { ...cfgAtual, ...Config.PERFIS.automatico, ...escolhas };
+        await st.set({ [Config.CHAVE]: corrigida });
+        salvo[Config.CHAVE] = corrigida;
+      }
+    }
     aplicarConfig(salvo[Config.CHAVE]);
     // Depois de recarregar a aba, não repete aviso nem quase aviso das últimas 24 h.
     const recentes = (await sw({ tipo: 'alertas:recentes' })) || {};
     for (const id of recentes.avisos || []) s.alertados.add(id);
     for (const id of recentes.quase || []) s.quaseRegistrados.add(id);
-    chrome.storage.onChanged.addListener((m, area) => {
-      if (area === 'local' && m[Config.CHAVE]) aplicarConfig(m[Config.CHAVE].newValue);
-    });
   }
 
   try {

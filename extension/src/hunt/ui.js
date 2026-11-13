@@ -301,11 +301,31 @@
 
   // ---- o botão único: Desligado, Manual, Automático -------------------------------------------
   const CHAVE_MODO = 'piloto:modo:v1';
+  function instalacaoNova() {
+    if (lerJson(CHAVE_MODO, null) !== null) return false;
+    const cof = lerJson('piloto:cofre:v1', null);
+    if (cof && cof.cfg && cof.cfg.ligado !== false) return false;
+    const rot = lerJson('piloto:rotina:v1', null);
+    if (rot && rot.cfg && (rot.cfg.passe?.ligado || rot.cfg.xpshare?.ligado || rot.cfg.outland?.ligado)) return false;
+    const p = lerJson(CHAVE_PREFS, null);
+    if (p && Object.keys(p).length > 0) return false;
+    return true;
+  }
   function modoAtual() {
     const cof = PIH.cofre?.resumo?.();
     if (cof && !cof.ligado) return 'desligado';
     const m = lerJson(CHAVE_MODO, null);
-    return m === 'automatico' || m === 'manual' ? m : 'manual';
+    if (m === 'automatico' || m === 'manual' || m === 'desligado') return m;
+    // Se não tem modo salvo, confere se o Piloto já possui automações ativas
+    const rotina = lerJson('piloto:rotina:v1', null);
+    const temAuto = rotina && rotina.cfg && (rotina.cfg.passe?.ligado || rotina.cfg.xpshare?.ligado || rotina.cfg.outland?.ligado);
+    if (temAuto) return 'automatico';
+    if (cof && cof.ligado) return 'manual';
+    return 'desligado';
+  }
+  // Se ainda não tem modo salvo mas o Piloto já estava configurado/ativo, grava para evitar corrida
+  if (lerJson(CHAVE_MODO, null) === null && !instalacaoNova()) {
+    gravarJson(CHAVE_MODO, modoAtual());
   }
   // 1.19 bloqueou o Manual; 1.31 (pedido do André) libera de novo, revisado para o público. Fica a
   // constante para um bloqueio futuro sem caçar todos os pontos.
@@ -340,13 +360,17 @@
     document.dispatchEvent(new CustomEvent('piloto:contexto', { detail: d }));
   }
   setInterval(publicarContexto, 5_000);
+  publicarContexto(true);
+  if (modoAtual() === 'automatico') {
+    document.dispatchEvent(new CustomEvent('piloto:modo', { detail: JSON.stringify({ modo: 'automatico', recarga: true }) }));
+  }
   setTimeout(() => {
-    // 1.31: instalação nova (nenhum modo salvo) começa no Off — você escolhe Manual ou Auto.
-    // (a chave de desenvolvimento 'piloto:dev:manual' dos testes automáticos mantém o começo antigo)
+    // 1.31: instalação nova (nenhum dado configurado no Piloto) começa no Off — você escolhe Manual ou Auto.
+    // Se o Piloto já possui rotina, cofre ou preferências ativas, NÃO força o desligamento.
     const devManual = (() => { try { return localStorage.getItem('piloto:dev:manual') === '1'; } catch { return false; } })();
-    if (!devManual && lerJson(CHAVE_MODO, null) === null && modoAtual() !== 'desligado') definirModo('desligado');
+    if (!devManual && instalacaoNova() && modoAtual() !== 'desligado') definirModo('desligado');
     if (MANUAL_BLOQUEADO && modoAtual() === 'manual') {
-      const veioDoManual = lerJson(CHAVE_MODO, null) === 'manual'; // instalação nova não tem modo salvo
+      const veioDoManual = lerJson(CHAVE_MODO, null) === 'manual';
       definirModo('desligado');
       if (veioDoManual) PIH.cofre?.diario?.('o modo Manual está bloqueado: o Piloto ficou em Off — escolha Auto para ligar', 'aviso');
     }
@@ -359,7 +383,7 @@
       gravarJson('piloto:migr:depot110', true);
       PIH.rotina?.aplicar?.({ depotVender: true });
     }
-  }, 3000);
+  }, 1000);
   // Desligou a compra automática no Mercado: o Piloto passa a Manual (para não religar sozinho).
   document.addEventListener('piloto:radar-manual', () => {
     if (MANUAL_BLOQUEADO) return; // no Auto, cada automação do Radar tem o seu interruptor
