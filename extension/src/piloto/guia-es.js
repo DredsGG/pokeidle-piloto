@@ -27,6 +27,13 @@
       { t: 'Ayuda siempre a mano', x: 'El ? de cada fila explica lo que hace. Debajo del menú están Reportar error, Buscar actualización y el idioma. Esta guía vuelve con el botón ? de arriba.' },
     ],
     novidades: {
+      '1.53.4': [
+        "Mercado en Auto: las pestañas Ajustes y Objetivos ahora también aparecen en el modo Auto, para ajustar límites, vigilancia, avisos y objetivos sin cambiar a Manual.",
+        "Los objetivos de compra también se aplican en Auto, y lo que ajustes en el Mercado queda guardado al recargar la página.",
+      ],
+      '1.53.3': [
+        "Eliminada la función de responder preguntas en el chat (pestaña Dudas): el Piloto ya no envía ningún mensaje en ningún canal del chat.",
+      ],
       '1.53.2': [
         "La carpeta \"Pokédex\" se crea en cuanto se activa la opción, sin esperar el siguiente ciclo de 20s.",
         "Cada evolución es una especie diferente: Pichu, Pikachu y Raichu tienen su propio lugar en la Pokédex.",
@@ -46,9 +53,6 @@
         "Auto Colección al punto: ahora es universal y tiene prioridad sobre las demás funciones. Antes de vender el Depot, todo pokémon bueno o vendible (nota 3,5+, shiny, P5, legendario/mítico) va a la Colección y nunca se tira. La Colección ya no devuelve al Depot los pokémon por debajo del Nv 50 que la regla guardó.",
         "Auto Colección al punto: nueva opción \"Mantener al menos 1 Pokémon de cada especie\", guardando en la Colección el mejor ejemplar de cada especie sin importar nota o potencia y reemplazándolo automáticamente al capturar otro de mayor Nota.",
         "Garantía de equipo inicial: la cuenta siempre preserva al menos 5 pokémon en total para nunca quedarse sin equipo, y \"Armar el equipo principal solo\" llena espacios vacíos y mejora continuamente el equipo hasta que entren pokémon que califiquen para la Colección.",
-      ],
-      '1.52.0': [
-        "Responder en Dudas (sigue apagado de fábrica): ahora espera un tiempo aleatorio, no responde si otro jugador ya respondió, solo una pestaña responde cada pregunta, el texto varía y hay límite por hora.",
       ],
       '1.51.2': [
         "Corregido: cuando un cambio de ítem en las automatizaciones del juego no salía, la Reposición podía dejar de comprar todo, hasta quedarte sin bolas. Ahora sigue comprando lo que está marcado en el juego, y el Diario avisa.",
@@ -109,9 +113,6 @@
       ],
       '1.37.1': [
         'Equipo: un pokémon fuera del meta ya no se queda con el lugar. Si atrapas otro fuera del meta con más Poder, entra en lugar del más débil. Los del meta siguen teniendo prioridad.',
-      ],
-      '1.37.0': [
-        "Nueva pestaña Dudas: el Piloto puede responder solo preguntas en el canal Dudas del chat, con 53 respuestas sacadas de la Pokepedia del juego. Viene apagado; actívalo en la pestaña si quieres. Espera 20 s, no responde si alguien ya ayudó y habla como máximo 1 vez cada 5 min.",
       ],
       '1.36.2': [
         "Evolucionar: la piedra del equipo ahora usa la misma reserva que las pociones (y no los 5 M del Mercado), así que una cuenta con poco oro también la compra — sin pasar de la mitad del oro libre, para que no falten pociones.",

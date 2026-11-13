@@ -27,6 +27,13 @@
       { t: 'Help is always at hand', x: 'The ? on each row explains what it does. Report bug, Check for updates and the language are below the menu. This guide comes back with the ? button at the top.' },
     ],
     novidades: {
+      '1.53.4': [
+        "Market in Auto: the Settings and Targets tabs now also appear in Auto mode, so you can adjust limits, watch, alerts and targets without switching to Manual.",
+        "Buy targets now also apply in Auto, and whatever you adjust in the Market stays saved after reloading the page.",
+      ],
+      '1.53.3': [
+        "Removed the chat question-answering feature (Questions tab): the Pilot no longer sends any message in any chat channel.",
+      ],
       '1.53.2': [
         "The \"Pokédex\" folder is created as soon as the option is turned on, without waiting for the next 20s tick.",
         "Each evolution is a different species: Pichu, Pikachu and Raichu each get their own slot in the Pokédex.",
@@ -46,9 +53,6 @@
         "Auto Collection on the spot: now universal and takes priority over other features. Before selling the Depot, every good or sellable Pokémon (grade 3.5+, shiny, P5, legendary/mythical) goes to the Collection and is never thrown away. The Collection no longer sends back to the Depot the Pokémon below Lv 50 that the rule saved.",
         "Auto Collection on the spot: new option \"Keep at least 1 Pokémon of each species\", keeping the best exemplar of each species in the Collection regardless of grade or potency and automatically replacing it when a higher-grade one is caught.",
         "Starter team guarantee: the account always preserves at least 5 Pokémon in total so it never runs out of a team, and \"Build main team on its own\" fills empty slots and continually upgrades the team until eligible Auto Collection Pokémon take over.",
-      ],
-      '1.52.0': [
-        "Answer in Questions (still off by default): it now waits a random time, stays quiet if another player already answered, only one tab answers each question, the wording varies and there is an hourly limit.",
       ],
       '1.51.2': [
         "Fixed: when a switch of items in the game's automations didn't go through, Restock could stop buying everything, until your balls ran out. It now keeps buying what is set in the game, and the journal tells you.",
@@ -109,9 +113,6 @@
       ],
       '1.37.1': [
         'Team: a Pokémon outside the meta no longer holds its slot. If you catch another one outside the meta with more Power, it takes the weakest one\'s place. The meta ones still come first.',
-      ],
-      '1.37.0': [
-        "New Questions tab: the Piloto can answer questions in the chat's Questions channel by itself, with 53 answers taken from the game's Pokepedia. It comes off; turn it on in the tab if you want. It waits 20 s, stays quiet if someone already helped and speaks at most once every 5 min.",
       ],
       '1.36.2': [
         "Evolve: the team's stone now uses the same reserve as potions (not the Market's 5M), so low-gold accounts can buy it too — never more than half the free gold, so potions don't run out.",

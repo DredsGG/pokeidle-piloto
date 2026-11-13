@@ -411,14 +411,14 @@
     return [...s.catalogo.values()].filter((item) => Config.itemLiberado(s.config, item));
   }
 
-  // ---- 1.34: Alvos de compra (só no Manual) ----------------------------------------------------
+  // ---- 1.34: Alvos de compra (Manual e Auto) ----------------------------------------------------
   // Por item: compra sozinho quando aparece anúncio de outro jogador no teto (em ouro) ou abaixo,
   // até a quantidade máxima. Passa pelo cofre como toda compra automática. O que o alvo compra é
   // SEU (não entra na revenda automática nem na reserva do radar).
   s.alvosConta = {};
   s.alvosPendente = {};
   function alvosAtivos() {
-    if (s.modoPiloto !== 'manual' || !s.config.radarLigado) return [];
+    if (!s.config.radarLigado) return [];
     return (s.config.alvos || []).filter((a) => a.ligado && (!a.max || ((s.alvosConta || {})[a.id] || 0) + (s.alvosPendente[a.id] || 0) < a.max));
   }
   function comprarPorAlvo(alvo, item, linhas) {
@@ -767,8 +767,8 @@
       pk.vistos.add(a.id);
       // Em ouro, shiny não (só se vende em Gemas); em Gemas, shiny entra e compara com shiny.
       if (a.meu || a.moeda !== moeda || (moeda === 'gold' && a.shiny) || !(a.preco > 0) || (a.estado && a.estado !== 'aberto') || s.alertados.has(a.id)) continue;
-      // 1.34: alvos de pokémon do Manual (em ouro): P5 até o teto; nota mínima até o teto
-      if (moeda === 'gold' && s.modoPiloto === 'manual' && alvoPokemon(a)) continue;
+      // 1.34: alvos de pokémon (em ouro, no Manual e no Auto): P5 até o teto; nota mínima até o teto
+      if (moeda === 'gold' && alvoPokemon(a)) continue;
       const chave = `${moeda}:${a.speciesId ?? a.nome}`;
       const e = pk.espera.get(chave) || { nome: a.nome, speciesId: a.speciesId, moeda, anuncios: [] };
       e.anuncios.push({ ...a, vistoEm: agora });
@@ -2162,11 +2162,13 @@
       // 1.13: no Automático cada automação tem o seu interruptor. Ao recarregar a página, o perfil
       // volta, mas o que você desligou no Automático continua desligado. Escolher o Automático de
       // novo no botão religa tudo (e esquece as escolhas).
+      // 1.53.4: as abas Ajustes e Alvos também aparecem no Automático; o que você ajustar nelas
+      // (limites, vigia, avisos, alvos) fica salvo e o F5 não desfaz mais.
       const escolhas = {};
       if (d.modo === 'automatico' && d.recarga) {
         const r = await st.get('radar:auto-escolhas');
         const g = (r && r['radar:auto-escolhas']) || {};
-        for (const k of ['compraAutomatica', 'compraAutomaticaPokemon', 'revendaAutomatica']) if (typeof g[k] === 'boolean') escolhas[k] = g[k];
+        for (const k of ['compraAutomatica', 'compraAutomaticaPokemon', 'revendaAutomatica', 'vigiaContinua', 'ajusteAutomatico', 'pokemon', 'revendaSoDoRadar', 'notificacoes', 'som', 'abrirPainelNoAviso']) if (typeof g[k] === 'boolean') escolhas[k] = g[k];
         escolhas.radarLigado = true;
       } else if (d.modo === 'automatico') await st.set({ 'radar:auto-escolhas': {} });
       await st.set({ [Config.CHAVE]: { ...atual, ...perfil, ...escolhas } });

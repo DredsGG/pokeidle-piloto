@@ -418,7 +418,8 @@
     fecharBtn.setAttribute('aria-label', 'Fechar');
     cab.append(titulo, p.auto, p.alternar, fecharBtn);
 
-    // Modo Auto do Piloto: só os interruptores do Radar, num bloco no topo (sem a aba Ajustes).
+    // Modo Auto do Piloto: os interruptores do Radar num bloco no topo, como atalho. As abas
+    // Ajustes e Alvos continuam disponíveis nos dois modos.
     p.faixa = el('div', 'faixa cfg-corpo');
     p.faixa.addEventListener('click', aoClicarNosAjustes);
     const abas = el('nav', 'abas');
@@ -477,7 +478,7 @@
     p.ajustes.classList.add('cfg-corpo');
     p.ajustes.addEventListener('click', aoClicarNosAjustes);
     p.ajustes.addEventListener('change', aoMudarNosAjustes);
-    // Alvos (1.34): regras de compra por item, só no Manual.
+    // Alvos (1.34): regras de compra por item, no Manual e no Auto.
     p.alvos = el('div', 'ajustes cfg-corpo');
     p.conteudos.alvos.append(p.alvos);
     p.alvos.addEventListener('click', aoClicarNosAlvos);
@@ -507,9 +508,9 @@
 
   function mostrarAba(aba, semPedir) {
     s.aba = aba;
-    if ((aba === 'ajustes' || aba === 'alvos') && s.modoPiloto !== 'manual' && encaixado) aba = s.aba = 'avisos';
     for (const [chave, b] of Object.entries(p.abas)) { b.setAttribute('aria-selected', String(chave === aba)); b.classList.toggle('on', chave === aba); }
     for (const [chave, secao] of Object.entries(p.conteudos)) secao.hidden = chave !== aba;
+    pintarFaixa();
     if (!semPedir) pedirDaAba(aba, false);
     pintarAba(aba);
   }
@@ -848,7 +849,7 @@
   // ---- 1.13: os ajustes do Radar como linhas da janela Configurações do jogo -------------------
   const escH = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const trava = () => s.modoPiloto === 'desligado';
-  const ESCOLHAS_AUTO = ['compraAutomatica', 'compraAutomaticaPokemon', 'revendaAutomatica'];
+  const ESCOLHAS_AUTO = ['compraAutomatica', 'compraAutomaticaPokemon', 'revendaAutomatica', 'vigiaContinua', 'ajusteAutomatico', 'pokemon', 'revendaSoDoRadar', 'notificacoes', 'som', 'abrirPainelNoAviso'];
   const tg = (k, on, inverso = false) => `<button type="button" class="cfg-toggle${on ? ' on' : ''}" role="switch" aria-checked="${!!on}" data-cfg="${k}"${inverso ? ' data-inverso="1"' : ''}${trava() ? ' disabled' : ''}></button>`;
   const linhaR = ({ nome, dica = '', k = null, on = false, inverso = false, status = '', ajustes = '' }) => `<div class="cfg-linha r-linha">
       <span class="cfg-rot"><span class="cfg-cola"><span class="cfg-nome">${nome}</span>${dica ? '<button type="button" class="cfg-ajuda" aria-expanded="false" title="O que é isto?"><b aria-hidden="true">?</b></button>' : ''}</span>${status ? `<small class="r-status">${status}</small>` : ''}</span>
@@ -873,7 +874,9 @@
   }
   function pintarFaixa() {
     if (!p.faixa) return;
-    const auto = encaixado && s.modoPiloto !== 'manual';
+    // O bloco do topo é só um atalho: some nas abas Ajustes e Alvos para não repetir os mesmos
+    // interruptores que já estão logo abaixo.
+    const auto = encaixado && s.modoPiloto !== 'manual' && s.aba !== 'ajustes' && s.aba !== 'alvos';
     p.faixa.hidden = !auto;
     if (!auto) return;
     const html = linhasPrincipais(s.base);
@@ -882,10 +885,10 @@
   function aplicarModoTela() {
     if (!p.painel) return;
     p.painel.dataset.modo = s.modoPiloto || 'manual';
-    if (p.abas && p.abas.ajustes) p.abas.ajustes.hidden = encaixado && s.modoPiloto !== 'manual';
-    if (p.abas && p.abas.alvos) p.abas.alvos.hidden = encaixado && s.modoPiloto !== 'manual';
-    if (p.abrirOpcoes) p.abrirOpcoes.hidden = encaixado && s.modoPiloto !== 'manual';
-    if ((s.aba === 'ajustes' || s.aba === 'alvos') && encaixado && s.modoPiloto !== 'manual') mostrarAba('avisos', true);
+    // 1.53.4: Ajustes e Alvos valem nos dois modos.
+    if (p.abas && p.abas.ajustes) p.abas.ajustes.hidden = false;
+    if (p.abas && p.abas.alvos) p.abas.alvos.hidden = false;
+    if (p.abrirOpcoes) p.abrirOpcoes.hidden = false;
     pintarFaixa();
     if (s.aba === 'ajustes') pintarAjustes();
   }
@@ -898,7 +901,8 @@
       const ligado = !t.classList.contains('on');
       // No Automático, o que você desligar fica desligado também depois de recarregar a página.
       if (s.modoPiloto === 'automatico' && ESCOLHAS_AUTO.includes(k)) {
-        chrome.storage.local.get('radar:auto-escolhas').then((r) => chrome.storage.local.set({ 'radar:auto-escolhas': { ...(r['radar:auto-escolhas'] || {}), [k]: ligado } })).catch(erro);
+        const valor = t.dataset.inverso ? !ligado : ligado;
+        chrome.storage.local.get('radar:auto-escolhas').then((r) => chrome.storage.local.set({ 'radar:auto-escolhas': { ...(r['radar:auto-escolhas'] || {}), [k]: valor } })).catch(erro);
       }
       if (k === 'vigiaContinua') salvarConfig({ vigiaContinua: ligado, intervaloS: 30 }).catch(erro);
       else salvarConfig({ [k]: t.dataset.inverso ? !ligado : ligado }).catch(erro);
@@ -936,8 +940,8 @@
       ['Pokémon', `${fmtPct(c.descontoMinimoPokemon)} · ${fmtC(c.lucroMinimoPokemon)}`, 'Desconto e lucro mínimos para pokémon'],
       ['Ouro/h base', ctx && ctx.ouroH ? fmtC(ctx.ouroH) : 'medindo', 'Enquanto mede, valem os pisos'],
     ];
-    // 1.34: no Manual com o cálculo automático desligado, os limites são seus: viram campos.
-    const editavel = !b.ajusteAutomatico && (!encaixado || s.modoPiloto === 'manual') && !trava();
+    // 1.34: com o cálculo automático desligado, os limites são seus: viram campos, no Manual e no Auto.
+    const editavel = !b.ajusteAutomatico && !trava();
     const campo = (k, v, passo, pct = false) => `<input type="number" inputmode="decimal" min="0" step="${passo}" data-lim="${k}"${pct ? ' data-pct="1"' : ''} value="${escH(v)}">`;
     const pct = (x) => Math.round((Number(x) || 0) * 100);
     const lims = editavel
@@ -1010,7 +1014,7 @@
     }).join('');
     const ap = b.alvosPk || { p5: {}, nota: {} };
     const html = `<div class="cfg-linhas r-linhas">
-      ${linhaR({ nome: 'Alvos de compra', status: `${(b.alvos || []).length} de ${Config.MAX_ALVOS}`, dica: 'Para cada item, o preço máximo em ouro e quantas unidades comprar. Quando aparece um anúncio de outro jogador no teto ou abaixo, o radar compra sozinho (entra no sorteio como sempre), até completar a quantidade. Passa pelo cofre do Piloto. O que um alvo compra é seu: não entra na revenda automática. Gema e diamante nunca. Só funciona no Manual e com o Radar ligado.',
+      ${linhaR({ nome: 'Alvos de compra', status: `${(b.alvos || []).length} de ${Config.MAX_ALVOS}`, dica: 'Para cada item, o preço máximo em ouro e quantas unidades comprar. Quando aparece um anúncio de outro jogador no teto ou abaixo, o radar compra sozinho (entra no sorteio como sempre), até completar a quantidade. Passa pelo cofre do Piloto. O que um alvo compra é seu: não entra na revenda automática. Gema e diamante nunca. Funciona no Manual e no Auto, com o Radar ligado.',
     ajustes: `<div class="alv-form" style="width:100%">
           <label class="alv-f"><small>Item</small><input list="alv-itens" data-alvo-campo="item" placeholder="Ex.: Rock Stone" value="${ed ? escH(nomeDe(ed.itemId)) : ''}"${tv ? ' disabled' : ''}><datalist id="alv-itens">${itens.map((i) => `<option value="${escH(i.nome)}"></option>`).join('')}</datalist></label>
           <label class="alv-f"><small>Teto em ouro</small><input type="number" min="2" step="1" data-alvo-campo="teto" placeholder="Ex.: 30000" value="${ed ? ed.teto : ''}"${tv ? ' disabled' : ''}></label>

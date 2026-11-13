@@ -27,6 +27,13 @@
       { t: 'Ajuda sempre à mão', x: 'O ? de cada linha explica o que ela faz. Embaixo do menu ficam Relatar bug, Procurar atualização e o idioma. Este guia volta no botão ? lá em cima.' },
     ],
     novidades: {
+      '1.53.4': [
+        "Mercado no Automático: as abas Ajustes e Alvos agora aparecem também no modo Automático, para ajustar limites, vigia, avisos e alvos sem trocar para o Manual.",
+        "Os Alvos de compra passam a valer também no Automático, e o que você ajustar no Mercado fica salvo ao recarregar a página.",
+      ],
+      '1.53.3': [
+        "Removida a função de responder perguntas no chat (aba Dúvidas): o Piloto não envia mais nenhuma mensagem em nenhum canal do chat.",
+      ],
       '1.53.2': [
         "A pasta \"Pokédex\" é criada na hora em que a opção é ligada, sem esperar o próximo tique de 20s.",
         "Cada evolução é uma espécie diferente: Pichu, Pikachu e Raichu ganham um lugar cada um na Pokédex.",
@@ -46,9 +53,6 @@
         "Auto Coleção no ponto: agora é universal e vem acima das outras funções. Antes de vender o Depot, todo pokémon bom ou vendável (nota 3,5+, shiny, P5, lendário/mítico) vai para a Coleção e nunca é jogado fora. A Coleção não devolve mais para o Depot os pokémons abaixo do Nv 50 que a regra guardou.",
         "Auto Coleção no ponto: nova opção \"Manter ao menos 1 Pokemon de cada espécie\", guardando na Coleção o melhor exemplar de cada espécie independentemente de nota ou potência e substituindo automaticamente quando capturar outro de maior Nota.",
         "Garantia de time inicial: a conta sempre preserva ao menos 5 pokémon no total para nunca ficar sem time, e o \"Montar o time principal sozinho\" preenche vagas vazias e melhora continuamente o time até que entrem pokémon que fiquem sozinhos na Coleção.",
-      ],
-      '1.52.0': [
-        "Responder no Dúvidas (segue desligado de fábrica): agora espera um tempo aleatório, não responde se outro jogador já respondeu, só uma aba responde cada pergunta, o texto varia e há limite por hora.",
       ],
       '1.51.2': [
         "Corrigido: quando uma troca de item nas automações do jogo não dava certo, a Reposição podia parar de comprar tudo, até a bola zerar. Agora ela segue comprando o que está marcado no jogo, e o Diário avisa.",
@@ -109,9 +113,6 @@
       ],
       '1.37.1': [
         'Time: um pokémon de fora do meta não prende mais a vaga. Se você pegar outro de fora do meta com mais Poder, ele entra no lugar do mais fraco. Os do meta continuam com prioridade.',
-      ],
-      '1.37.0': [
-        "Nova aba Dúvidas: o Piloto pode responder sozinho perguntas no canal Dúvidas do chat, com 53 respostas tiradas da Pokepédia do jogo. Vem desligado; ligue na aba se quiser. Ele espera 20 s, não responde se alguém já ajudou e fala no máximo 1 vez a cada 5 min.",
       ],
       '1.36.2': [
         "Evoluir: a pedra do time agora usa a mesma reserva das poções (e não os 5 mi do Mercado), então conta com pouco ouro também compra a pedra — sem passar de metade do ouro livre, para a poção não faltar.",

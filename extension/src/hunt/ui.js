@@ -404,10 +404,7 @@
     ['cofre', 'Cofre', 'cofre', 'Quanto pode gastar, e onde gastou'],
     ['extrato', 'Extrato', 'gasto', 'O que você gastou e o que entrou'],
   ];
-  // 1.33.8: a aba Teste só existe na build de teste do André (o módulo não vai para o Release público).
-  // 1.36.2 (pedido do André): virou a aba Dúvidas, entre as principais (ainda só na build dele).
-  if (PIH.testeDuvidas) ABAS.splice(ABAS.findIndex((a) => a[0] === 'cofre'), 0, ['duvidas', 'Dúvidas', 'duvidas', 'O que o Piloto respondeu no canal Dúvidas do chat']);
-  if (prefs.aba === 'teste') prefs.aba = 'duvidas';
+  if (prefs.aba === 'teste' || prefs.aba === 'duvidas') prefs.aba = 'resumo';
   if (prefs.aba === 'auto') prefs.aba = 'hunts'; // a aba "Auto" virou parte de Caçar
   const ICO_CADEADO = '<svg class="plt-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0zm3 4a1.6 1.6 0 0 0-.8 3V19h1.6v-2a1.6 1.6 0 0 0-.8-3z" fill="currentColor"/></svg>';
   const MODOS = [
@@ -550,7 +547,6 @@
     else if (mod === 'plateia') PIH.plateia?.definir?.(caminho, valor);
     else if (mod === 'avisos') PIH.avisos?.definir?.(caminho, valor);
     else if (mod === 'torneio') PIH.torneio?.definir?.(caminho, valor);
-    else if (mod === 'teste') PIH.testeDuvidas?.definir?.(caminho, valor);
     else if (mod === 'extrato') PIH.extrato?.definir?.(caminho, valor);
     ultimoHtml = '';
     desenhar();
@@ -1113,7 +1109,6 @@
     if (aba === 'resumo') { pintarSeMudou(alvo, aba, topo + blocoResumo()); return; }
     if (aba === 'rotina') { pintarSeMudou(alvo, aba, topo + (PIH.rotina ? PIH.rotina.html(layout) : '') + (PIH.avisos ? PIH.avisos.linha(layout) : '') + (PIH.plateia ? PIH.plateia.linha(layout) : '') + (PIH.torneio ? PIH.torneio.linha(layout) : '')); return; }
     if (aba === 'cofre') { pintarSeMudou(alvo, aba, topo + (PIH.cofre ? PIH.cofre.html(layout) : '')); return; }
-    if (aba === 'duvidas') { pintarSeMudou(alvo, aba, topo + (PIH.testeDuvidas ? PIH.testeDuvidas.html(layout) : '')); return; }
     if (aba === 'extrato') { if (pintarSeMudou(alvo, aba, topo + (PIH.extrato ? PIH.extrato.html(layout) : ''))) PIH.extrato?.hidratar?.(alvo); return; }
     const pk = pkAtivo();
     const linhasCaca = aba === 'hunts' ? `${PIH.auto ? PIH.auto.linhas(layout) : ''}${PIH.rotina && PIH.rotina.linhasCaca ? PIH.rotina.linhasCaca(layout) : ''}${PIH.captura ? PIH.captura.linha(layout) : ''}${PIH.volta ? PIH.volta.linha(layout) : ''}${PIH.acordado ? PIH.acordado.linha(layout) : ''}${PIH.cacadas ? PIH.cacadas.linhas(layout) : ''}${PIH.farm ? PIH.farm.linha(layout) : ''}${K.grupo('Onde render mais')}` : '';

@@ -1,5 +1,30 @@
 {
   "versoes": {
+    "1.53.4": {
+      "pt": [
+        "Mercado no Automático: as abas Ajustes e Alvos agora aparecem também no modo Automático, para ajustar limites, vigia, avisos e alvos sem trocar para o Manual.",
+        "Os Alvos de compra passam a valer também no Automático, e o que você ajustar no Mercado fica salvo ao recarregar a página."
+      ],
+      "en": [
+        "Market in Auto: the Settings and Targets tabs now also appear in Auto mode, so you can adjust limits, watch, alerts and targets without switching to Manual.",
+        "Buy targets now also apply in Auto, and whatever you adjust in the Market stays saved after reloading the page."
+      ],
+      "es": [
+        "Mercado en Auto: las pestañas Ajustes y Objetivos ahora también aparecen en el modo Auto, para ajustar límites, vigilancia, avisos y objetivos sin cambiar a Manual.",
+        "Los objetivos de compra también se aplican en Auto, y lo que ajustes en el Mercado queda guardado al recargar la página."
+      ]
+    },
+    "1.53.3": {
+      "pt": [
+        "Removida a função de responder perguntas no chat (aba Dúvidas): o Piloto não envia mais nenhuma mensagem em nenhum canal do chat."
+      ],
+      "en": [
+        "Removed the chat question-answering feature (Questions tab): the Pilot no longer sends any message in any chat channel."
+      ],
+      "es": [
+        "Eliminada la función de responder preguntas en el chat (pestaña Dudas): el Piloto ya no envía ningún mensaje en ningún canal del chat."
+      ]
+    },
     "1.53.2": {
       "pt": [
         "A pasta \"Pokédex\" é criada na hora em que a opção é ligada, sem esperar o próximo tique de 20s.",
