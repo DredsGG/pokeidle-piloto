@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.54.2': [
+        "Actualizado: la franja de Plateia en Twitch ahora dice que la compra automática del bono requiere Plateia 0.9.6 o más nueva.",
+      ],
       '1.54.1': [
         "Actualizado: la franja de Plateia en Twitch ahora describe la compra automática del bono de 10 h.",
       ],

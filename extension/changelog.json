@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.54.2": {
+      "pt": [
+        "Atualizado: a faixa da Plateia na Twitch agora diz que a compra automática do bônus precisa da Plateia 0.9.6 ou mais nova."
+      ],
+      "en": [
+        "Updated: the Plateia banner on Twitch now says the automatic purchase of the bonus needs Plateia 0.9.6 or newer."
+      ],
+      "es": [
+        "Actualizado: la franja de Plateia en Twitch ahora dice que la compra automática del bono requiere Plateia 0.9.6 o más nueva."
+      ]
+    },
     "1.54.1": {
       "pt": [
         "Atualizado: a faixa da Plateia na Twitch agora descreve a compra automática do bônus de 10 h."

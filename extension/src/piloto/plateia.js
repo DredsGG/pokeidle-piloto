@@ -4,7 +4,7 @@
 // O bônus do PokeIdle por assistir lives é vendido por recompensa de pontos do canal (Kick desde
 // antes; Twitch desde 2026-11-04). Só estar no chat não rende mais: vale o vídeo rodando na vaga e o
 // saldo de pontos do canal. A Plateia toca as lives numa "sala" (twitch.tv/drops/inventory#plateia e
-// kick.com/drops/claimed#plateia); a partir da Plateia 0.9.4 ela compra sozinha, pela página da
+// kick.com/drops/claimed#plateia); a partir da Plateia 0.9.6 ela compra sozinha, pela página da
 // Twitch, o bônus de 10 h quando o saldo do canal cobre. Aqui:
 //
 // 1. Ao abrir o jogo (uma vez por sessão do navegador, só com o Piloto ligado), abre as salas da
@@ -105,7 +105,7 @@
     el.dataset.plateia = p;
     if (temPlateia()) {
       el.innerHTML = `<div class="plt-plateia-txt"><b>Farme este bônus com a Plateia</b><span>${p === 'twitch'
-        ? 'A sala da Plateia toca as lives dos canais oficiais, junta os pontos do canal e compra sozinha o bônus de 10 h (XP, Capture, Secret Lure) quando o saldo do canal cobre. Precisa da Plateia 0.9.4 ou mais nova. Deixe a sala aberta.'
+        ? 'A sala da Plateia toca as lives dos canais oficiais, junta os pontos do canal e compra sozinha o bônus de 10 h (XP, Capture, Secret Lure) quando o saldo do canal cobre. Precisa da Plateia 0.9.6 ou mais nova (recomendado 0.9.7). Deixe a sala aberta.'
         : 'A sala da Plateia toca os canais oficiais e resgata o pacote de XP sozinha. Deixe a janela aberta.'}</span></div><button type="button" class="plt-plateia-bt">Abrir a sala da ${s.nome}</button>`;
       el.querySelector('button').addEventListener('click', (ev) => { ev.stopPropagation(); abrirSala(p); });
     } else {

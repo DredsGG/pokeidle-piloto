@@ -668,8 +668,8 @@
     'Oferta no Mercado: clique para ver': ['Market deal: click to view', 'Oferta en el Mercado: haz clic para ver'],
     'Voto liberado': ['Vote available', 'Voto disponible'],
     'vale diamante': ['worth diamonds', 'vale diamante'],
-    // 1.54.1: frase inteira em `exato` (em `trechos` a regra dos números trocava "0.9.4" por "0,9,4" no inglês antes de casar)
-    'A sala da Plateia toca as lives dos canais oficiais, junta os pontos do canal e compra sozinha o bônus de 10 h (XP, Capture, Secret Lure) quando o saldo do canal cobre. Precisa da Plateia 0.9.4 ou mais nova. Deixe a sala aberta.': ['The Plateia room plays the official channels\' lives, collects the channel points and buys the 10 h bonus by itself (XP, Capture, Secret Lure) when the channel balance covers it. Needs Plateia 0.9.4 or newer. Keep the room open.', 'La sala de Plateia reproduce las lives de los canales oficiales, junta los puntos del canal y compra sola el bono de 10 h (XP, Capture, Secret Lure) cuando el saldo del canal lo cubre. Requiere Plateia 0.9.4 o más nueva. Deja la sala abierta.'],
+    // 1.54.1/1.54.2: frase inteira em `exato` (em `trechos` a regra dos números trocava "0.9.6" por "0,9,6" no inglês antes de casar)
+    'A sala da Plateia toca as lives dos canais oficiais, junta os pontos do canal e compra sozinha o bônus de 10 h (XP, Capture, Secret Lure) quando o saldo do canal cobre. Precisa da Plateia 0.9.6 ou mais nova (recomendado 0.9.7). Deixe a sala aberta.': ['The Plateia room plays the official channels\' lives, collects the channel points and buys the 10 h bonus by itself (XP, Capture, Secret Lure) when the channel balance covers it. Needs Plateia 0.9.6 or newer (0.9.7 recommended). Keep the room open.', 'La sala de Plateia reproduce las lives de los canales oficiales, junta los puntos del canal y compra sola el bono de 10 h (XP, Capture, Secret Lure) cuando el saldo del canal lo cubre. Requiere Plateia 0.9.6 o más nueva (recomendada 0.9.7). Deja la sala abierta.'],
     'Clique para abrir o "Vote & Ganhe"': ['Click to open "Vote & Earn"', 'Haz clic para abrir "Vota y Gana"'],
   };
 

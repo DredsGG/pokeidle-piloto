@@ -1,5 +1,5 @@
-// 1.54.1: a faixa "Farme este bônus com a Plateia" da janela do bônus da Twitch (#tw-corpo) descreve a compra
-// automática do bônus de 10 h (Plateia 0.9.4+) em PT/EN/ES, sem o texto velho ("te vê assistindo", "no chat de
+// 1.54.1/1.54.2: a faixa "Farme este bônus com a Plateia" da janela do bônus da Twitch (#tw-corpo) descreve a compra
+// automática do bônus de 10 h (Plateia 0.9.6+, recomendada 0.9.7) em PT/EN/ES, sem o texto velho ("te vê assistindo", "no chat de
 // todos os canais"). A faixa da Kick e o botão "Abrir a sala" não mudam.
 //   node plateia-faixa.mjs [pasta-da-extensao]
 import { createRequire } from 'node:module';
@@ -17,9 +17,9 @@ let falhas = 0;
 const ok = (c, m) => { console.log(`${c ? 'ok  ' : 'FALHOU'} ${m}`); if (!c) falhas++; };
 
 const NOVO = {
-  pt: 'A sala da Plateia toca as lives dos canais oficiais, junta os pontos do canal e compra sozinha o bônus de 10 h (XP, Capture, Secret Lure) quando o saldo do canal cobre. Precisa da Plateia 0.9.4 ou mais nova. Deixe a sala aberta.',
-  en: "The Plateia room plays the official channels' lives, collects the channel points and buys the 10 h bonus by itself (XP, Capture, Secret Lure) when the channel balance covers it. Needs Plateia 0.9.4 or newer. Keep the room open.",
-  es: 'La sala de Plateia reproduce las lives de los canales oficiales, junta los puntos del canal y compra sola el bono de 10 h (XP, Capture, Secret Lure) cuando el saldo del canal lo cubre. Requiere Plateia 0.9.4 o más nueva. Deja la sala abierta.',
+  pt: 'A sala da Plateia toca as lives dos canais oficiais, junta os pontos do canal e compra sozinha o bônus de 10 h (XP, Capture, Secret Lure) quando o saldo do canal cobre. Precisa da Plateia 0.9.6 ou mais nova (recomendado 0.9.7). Deixe a sala aberta.',
+  en: "The Plateia room plays the official channels' lives, collects the channel points and buys the 10 h bonus by itself (XP, Capture, Secret Lure) when the channel balance covers it. Needs Plateia 0.9.6 or newer (0.9.7 recommended). Keep the room open.",
+  es: 'La sala de Plateia reproduce las lives de los canales oficiales, junta los puntos del canal y compra sola el bono de 10 h (XP, Capture, Secret Lure) cuando el saldo del canal lo cubre. Requiere Plateia 0.9.6 o más nueva (recomendada 0.9.7). Deja la sala abierta.',
 };
 const TITULO = { pt: 'Farme este bônus com a Plateia', en: 'Farm this bonus with Plateia', es: 'Farmea este bono con Plateia' };
 const BOTAO = { pt: 'Abrir a sala da Twitch', en: 'Open the Twitch room', es: 'Abrir la sala de Twitch' };
@@ -32,7 +32,7 @@ const BOTAO_KICK = { pt: 'Abrir a sala da Kick', en: 'Open the Kick room', es: '
 const VELHOS = [/te vê assistindo/i, /no chat de todos os canais/i, /sees you watching|the game sees you/i, /el juego te ve/i, /chat of every bonus channel/i, /chat de todos los canales/i];
 
 const ctx = await chromium.launchPersistentContext('', {
-  channel: 'chromium', headless: true, viewport: { width: 1280, height: 860 },
+  channel: 'msedge', headless: true, viewport: { width: 1280, height: 860 },
   args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
 });
 const erros = [];
@@ -92,6 +92,7 @@ for (const l of ['pt', 'en', 'es']) {
   console.log(`   [${l}] Twitch: ${JSON.stringify(r.twitch)}`);
   ok(!!r.twitch, `[${l}] a faixa da Twitch aparece com a Plateia instalada`);
   ok(r.twitch && r.twitch.texto === NOVO[l], `[${l}] texto novo da Twitch`);
+  ok(!!r.twitch && /0\.9\.6/.test(r.twitch.texto) && /0\.9\.7/.test(r.twitch.texto) && !/0\.9\.4|0,9,|F5/.test(r.twitch.texto), `[${l}] cita 0.9.6 e 0.9.7 exatamente assim, sem 0.9.4 nem F5`);
   ok(r.twitch && VELHOS.every((re) => !re.test(r.twitch.texto || '')), `[${l}] sem "te vê assistindo" nem "no chat de todos os canais"`);
   ok(r.twitch && r.twitch.titulo === TITULO[l], `[${l}] título da Twitch não mudou (${r.twitch && r.twitch.titulo})`);
   ok(r.twitch && r.twitch.botao === BOTAO[l] && r.twitch.tag === 'BUTTON', `[${l}] botão da sala da Twitch não mudou (${r.twitch && r.twitch.botao})`);

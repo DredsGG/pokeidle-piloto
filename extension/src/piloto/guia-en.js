@@ -30,6 +30,9 @@
       '1.31.1': [
         "Fixed: the Ancient Pupitar (and the other Outland variants) no longer counts as \"already had\" in Hunt the meta: they don't evolve.",
       ],
+      '1.54.2': [
+        "Updated: the Plateia banner on Twitch now says the automatic purchase of the bonus needs Plateia 0.9.6 or newer.",
+      ],
       '1.54.1': [
         "Updated: the Plateia banner on Twitch now describes the automatic purchase of the 10 h bonus.",
       ],
