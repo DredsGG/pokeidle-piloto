@@ -9,7 +9,7 @@ Hunt optimizer, market radar, team manager and daily routine in one browser exte
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
 ![Browsers](https://img.shields.io/badge/Chrome%20·%20Edge%20·%20Brave%20·%20Opera%20GX%20·%20Firefox%20140+-works-6d4aff)
-![Version](https://img.shields.io/badge/version-1.54.2-e53935)
+![Version](https://img.shields.io/badge/version-1.54.3-e53935)
 ![Tests](https://img.shields.io/badge/tests-28%2F28%20passing-2e7d32)
 
 <img src="docs/hunt-tab.png" width="80%" alt="The Piloto window in Automatic mode, Hunt tab: hunt switching, restock, team rotation, Outland tier, automatic Poké Ball and auto-reload, above the ranking of the best hunts">
@@ -94,10 +94,6 @@ Everything lives inside the game, behind a **Pilot** bar above your active Poké
 
 - If you also use [Plateia](https://github.com/DredsGG/plateia) (Twitch and Kick), opening the game opens its Twitch and/or Kick room in a separate window, once per browser session, for the platforms linked in your game account. If a room window is already open (even after the browser or the extension restarts or updates), it isn't opened again; only a missing one opens. **Reopen if it closes** (off by default) brings a closed or memory-discarded room back within a minute while the Piloto is on and the game is open. The game's own Twitch/Kick bonus windows get an **Open the room** button, or a link to download Plateia if you don't have it. On Twitch the banner now says what the room does: it plays the official channels' lives, collects the channel points and buys the 10 h bonus by itself (XP, Capture, Secret Lure) when the channel balance covers it (needs Plateia 0.9.6 or newer, 0.9.7 recommended).
 
-**Questions channel (opt-in)**
-
-- A **Questions** tab can answer the chat's Questions channel by itself, from a closed base of 53 answers taken from the game's own Pokepedia (and the evolution stone computed with the game's modules). It is **off by default**. When on, it only answers a question when exactly one answer clearly matches, waits a random time (25 to 150 s by default, editable) and stays quiet if another player already answered; only one tab of the browser answers each question, the wording varies without changing the fact, and there is an hourly limit (4 by default, editable). It speaks at most once every 5 minutes (the same person every 30 min, the same answer every 15 min), never gives the same answer twice to the same question, never posts links, only writes in the Questions channel and stops if the game mutes the account. The tab shows each question next to the answer the Piloto gave.
-
 **Support**
 
 <p align="center">
@@ -126,7 +122,7 @@ An automation that spends in-game money needs hard limits more than features. Ev
 
 And under the vault, the WebSocket hook itself enforces:
 
-- **Closed command list.** The pilot can send only 28 game commands, each validated against the game's own format. Anything else is dropped. The game's automation settings (`auto.set`) only accept two changes: turning on the Ranked auto-queue (VIP) and setting exactly one ball, one potion and one revive from the game's own catalog (never Beast or Master Ball); every other automation field is copied from the server's state, never from the request.
+- **Closed command list.** The pilot can send only 27 game commands, each validated against the game's own format. Anything else is dropped. The game's automation settings (`auto.set`) only accept two changes: turning on the Ranked auto-queue (VIP) and setting exactly one ball, one potion and one revive from the game's own catalog (never Beast or Master Ball); every other automation field is copied from the server's state, never from the request.
 - **Absolute block on 20 commands:** gem withdrawal, diamond shop, VIP pass, guild donation, sending coins or trades, chat and DMs, and guild or Pokémon-level changes. Purchases only in `gold`; a gem purchase is refused at the hook.
 - **Hardened against the page:** the allow-list only accepts own keys (`Object.hasOwn`), requests are copied and frozen, and the command type and block list are checked again right before sending. Tests try to swap the vault, forge state and rewrite the send function from the page, and they fail.
 - **One rate limiter for everything:** reads ~2/s, writes 1/s with a burst of 3.
@@ -246,7 +242,9 @@ node tests/kit.mjs            # one ball, one potion and one revive picked for t
 node tests/pocao-luta.mjs     # the potion follows the HP of the Pokémon that is fighting: a weak one in a strong team gets Small Potion, not Ultra
 node tests/kit-golden.mjs     # the Golden Potion is really set in the game's automations; a refused switch is reported in the journal and not retried every cycle
 node tests/kit-bola.mjs       # a kit switch that is refused or not applied never stops Restock from buying the ball at zero; the vault stays the final lock
-node tests/duvidas-uma-conta.mjs # Questions: random delay in the range, already answered by someone else, one tab per question, varied wording, hourly limit
+node tests/duvidas-desligado.mjs # the pilot never writes in the game chat: a saved "on" is ignored and cleared, the chat command is refused, no UI text promises replies
+node tests/duvidas-uma-conta.mjs # two tabs, several questions, saved "on": nothing is sent to the chat
+node tests/duvidas.mjs # any kind of message in the Questions channel: nothing is sent
 node tests/vender-nota-baixa.mjs # low-grade sale: off by default, simulation sends nothing, every lock holds, limit per round, emergency stop, a protected Pokémon never goes in the command
 node tests/shiny-cena.mjs     # the "Shiny in the hunt" notice ignores Pokémon at the house and in the Center plaza; a wild shiny still counts
 node tests/centro-ao-abrir.mjs # page opened with the character at the Center: goes back to the hunt from the game state; with no known hunt, says so in the journal

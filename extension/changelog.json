@@ -1,5 +1,16 @@
 {
   "versoes": {
+    "1.54.3": {
+      "pt": [
+        "Removido: o Piloto não escreve mais no chat do jogo (risco de punição). A opção Responder no Dúvidas e a aba Dúvidas saíram, e quem tinha ligado fica desligado."
+      ],
+      "en": [
+        "Removed: the Pilot no longer writes in the game chat (risk of punishment). The Answer in Questions option and the Questions tab are gone, and anyone who had it on is switched off."
+      ],
+      "es": [
+        "Eliminado: el Piloto ya no escribe en el chat del juego (riesgo de sanción). La opción Responder en Dudas y la pestaña Dudas desaparecieron, y quien la tenía activada queda apagada."
+      ]
+    },
     "1.54.2": {
       "pt": [
         "Atualizado: a faixa da Plateia na Twitch agora diz que a compra automática do bônus precisa da Plateia 0.9.6 ou mais nova."
@@ -60,13 +71,13 @@
     },
     "1.52.0": {
       "pt": [
-        "Responder no Dúvidas (segue desligado de fábrica): agora espera um tempo aleatório, não responde se outro jogador já respondeu, só uma aba responde cada pergunta, o texto varia e há limite por hora."
+        "Responder no Dúvidas: esta função foi removida na 1.54.3, o Piloto não escreve mais no chat do jogo."
       ],
       "en": [
-        "Answer in Questions (still off by default): it now waits a random time, stays quiet if another player already answered, only one tab answers each question, the wording varies and there is an hourly limit."
+        "Answer in Questions: this feature was removed in 1.54.3, the Pilot no longer writes in the game chat."
       ],
       "es": [
-        "Responder en Dudas (sigue apagado de fábrica): ahora espera un tiempo aleatorio, no responde si otro jugador ya respondió, solo una pestaña responde cada pregunta, el texto varía y hay límite por hora."
+        "Responder en Dudas: esta función se eliminó en la 1.54.3, el Piloto ya no escribe en el chat del juego."
       ]
     },
     "1.51.2": {
@@ -289,13 +300,13 @@
     },
     "1.37.0": {
       "pt": [
-        "Nova aba Dúvidas: o Piloto pode responder sozinho perguntas no canal Dúvidas do chat, com 53 respostas tiradas da Pokepédia do jogo. Vem desligado; ligue na aba se quiser. Ele espera 20 s, não responde se alguém já ajudou e fala no máximo 1 vez a cada 5 min."
+        "Aba Dúvidas: esta função foi removida na 1.54.3, o Piloto não escreve mais no chat do jogo."
       ],
       "en": [
-        "New Questions tab: the Piloto can answer questions in the chat's Questions channel by itself, with 53 answers taken from the game's Pokepedia. It comes off; turn it on in the tab if you want. It waits 20 s, stays quiet if someone already helped and speaks at most once every 5 min."
+        "Questions tab: this feature was removed in 1.54.3, the Pilot no longer writes in the game chat."
       ],
       "es": [
-        "Nueva pestaña Dudas: el Piloto puede responder solo preguntas en el canal Dudas del chat, con 53 respuestas sacadas de la Pokepedia del juego. Viene apagado; actívalo en la pestaña si quieres. Espera 20 s, no responde si alguien ya ayudó y habla como máximo 1 vez cada 5 min."
+        "Pestaña Dudas: esta función se eliminó en la 1.54.3, el Piloto ya no escribe en el chat del juego."
       ]
     },
     "1.36.2": {

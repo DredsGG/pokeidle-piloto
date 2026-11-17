@@ -1,6 +1,6 @@
-// Ponto 6 do #5: com várias contas usando o Piloto, o "Responder no Dúvidas" respondia igual em todas.
-// Agora: atraso aleatório numa faixa editável, não responde se outro já respondeu, uma trava no
-// chrome.storage para só uma instância responder cada pergunta, texto variado e limite por hora.
+// Ponto 6 do #5 (várias contas respondendo igual) e issue #8 (banimento do chat). Era o teste do atraso aleatório,
+// da trava entre abas e do limite por hora; desde a 1.54.3 o Piloto não envia nada, então o esperado é: com a opção
+// salva como ligada, em DUAS abas ao mesmo tempo e com várias perguntas, nenhuma das duas escreve no chat.
 //   node duvidas-uma-conta.mjs [pasta-da-extensao]
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -17,7 +17,7 @@ let falhas = 0;
 const ok = (c, m) => { console.log(`${c ? 'ok  ' : 'FALHOU'} ${m}`); if (!c) falhas++; };
 
 const ctx = await chromium.launchPersistentContext('', {
-  channel: 'chromium', headless: true, viewport: { width: 1280, height: 860 },
+  channel: 'msedge', headless: true, viewport: { width: 1280, height: 860 },
   args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`],
 });
 const erros = [];
@@ -54,146 +54,47 @@ await ctx.routeWebSocket('wss://pokeidle.io/ws', (ws) => {
   ws.onClose(() => sockets.delete(ws));
   setTimeout(() => ws.send(JSON.stringify(welcome())), 300);
 });
-await ctx.addInitScript(() => { try { localStorage.setItem('piloto:idioma', 'pt'); localStorage.setItem('piloto:dev:semGuia', '1'); } catch {} });
+// o estado que a 1.52/1.54.2 deixava salvo: opção LIGADA, espera curta, registro de respostas antigas
+await ctx.addInitScript(() => {
+  try {
+    localStorage.setItem('piloto:idioma', 'pt'); localStorage.setItem('piloto:dev:semGuia', '1');
+    if (!sessionStorage.getItem('piloto:teste:semeado')) {
+      localStorage.setItem('piloto:teste:duvidas:v1', JSON.stringify({ ligado: true, atrasoMinS: 10, atrasoMaxS: 12, limiteHora: 12 }));
+      localStorage.setItem('piloto:teste:duvidas:log', JSON.stringify([{ em: Date.now() - 86400000, acao: 'respondi', de: 'x', pergunta: 'p', resposta: 'r' }]));
+      sessionStorage.setItem('piloto:teste:semeado', '1');
+    }
+  } catch {}
+});
 const page = await ctx.newPage();
 page.on('pageerror', (e) => erros.push(`pageerror ${String(e)}`));
 await page.goto('https://pokeidle.io/app');
-await sleep(4000);
+await sleep(4500);
 await page.locator('button.plt-barra').click(); await sleep(800);
 await page.locator('.plt-janela .plt-modo-bt[data-modo="automatico"]').click(); await sleep(1200);
 await page.keyboard.press('Escape');
-
 let idMsg = 1000;
 const fala = (de, texto, extra = {}) => { const m = { t: 'chat', canal: 'duvidas', id: idMsg++, ts: Date.now(), de, idioma: 'pt', texto, ...extra }; for (const ws of sockets) ws.send(JSON.stringify(m)); return m; };
-const falas = (desde) => recebidos.slice(desde).filter((m) => m.t === 'chat.send');
-const zerar = (p = page) => p.evaluate(() => { const st = window.__pokeidleHunt.duvidas._interno.st; st.ultimaEm = 0; st.porNick.clear(); st.porResposta.clear(); });
-const logTopo = (p = page) => p.evaluate(() => { const x = window.__pokeidleHunt.duvidas._interno.log[0]; return x ? `${x.acao}: ${x.motivo || ''}` : ''; });
-const diario = () => page.evaluate(() => (window.__pokeidleHunt.cofre.ultimos(40) || []).map((d) => d.txt));
-// o gancho segura 4 min entre falas, por página: cada resposta de verdade do teste começa numa carga nova
-const recarregar = async () => { await page.reload(); await sleep(4500); };
-const definir = (k, v, p = page) => p.evaluate(([k, v]) => window.__pokeidleHunt.duvidas.definir(k, v), [k, v]);
+const envios = (desde = 0) => recebidos.slice(desde).filter((m) => m.t === 'chat.send' || /^chat\./.test(m.t || ''));
+const lerExt = (rel) => fs.readFileSync(path.join(EXT, rel), 'utf8');
 
-// ---- de fábrica: desligado, faixa de 25 a 150 s -------------------------------------------------
-const f0 = await page.evaluate(() => { const I = window.__pokeidleHunt.duvidas._interno; const v = []; if (I.sortearAtraso) for (let i = 0; i < 400; i++) v.push(I.sortearAtraso()); return { tem: !!I.sortearAtraso, min: Math.min(...v), max: Math.max(...v), cfg: I.cfg ? { ...I.cfg } : null }; });
-ok(f0.tem && f0.min >= 25000 && f0.max <= 150000 && f0.max - f0.min > 80000, `atraso de fábrica entre 25 e 150 s, espalhado (${Math.round(f0.min / 1000)} a ${Math.round(f0.max / 1000)} s)`);
-ok(f0.cfg && f0.cfg.ligado === false, `a opção continua desligada de fábrica (${f0.cfg && f0.cfg.ligado})`);
-ok(f0.cfg && f0.cfg.limiteHora >= 1 && f0.cfg.limiteHora <= 6, `limite por hora de fábrica é baixo (${f0.cfg && f0.cfg.limiteHora})`);
-
-// desligado não responde
-await definir('atrasoMinS', 10); await definir('atrasoMaxS', 12);
-let a = recebidos.length;
-fala('bia', 'quanto xp perde quando morre?');
-await sleep(14000);
-ok(falas(a).length === 0, 'desligado: não responde');
-await definir('ligado', true);
-
-// ---- atraso dentro da faixa e texto completo ----------------------------------------------------
-await zerar(); a = recebidos.length;
+const p2 = await ctx.newPage();
+p2.on('pageerror', (e) => erros.push(`pageerror p2 ${String(e)}`));
+await p2.goto('https://pokeidle.io/app'); await sleep(4500);
+const a = recebidos.length;
 const t0 = Date.now();
 fala('zeca', 'quanto xp perde quando morre?');
-await sleep(15000);
-let f = falas(a);
-const dt = f[0] ? (f[0]._em - t0) / 1000 : null;
-ok(f.length === 1 && dt >= 9.5 && dt <= 13.5, `responde dentro da faixa editável de 10 a 12 s (${dt} s, ${f.length} fala)`);
-const baseMorte = await page.evaluate(() => { const T = window.__pokeidleHunt.duvidas._interno; return T.respostaBase(T.norm('quanto xp perde quando morre?'), 'pt').txt; });
-ok(f[0] && f[0].texto.startsWith('@zeca ') && f[0].texto.includes(baseMorte), `a resposta traz o texto inteiro da base (${f[0] && f[0].texto.slice(0, 70)}…)`);
+fala('bia', 'qual o melhor jeito de pegar shiny?');
+await sleep(2000);
+fala('leo', 'quanto xp perde quando morre?');
+await sleep(18000);
+ok(envios(a).length === 0, `duas abas, três perguntas, espera de 10 a 12 s: nenhuma fala no chat (${envios(a).length} em ${Math.round((Date.now() - t0) / 1000)} s)`);
+const est = await Promise.all([page, p2].map((p) => p.evaluate(() => { const I = window.__pokeidleHunt.duvidas._interno; return { ligado: I.cfg.ligado, pendente: !!I.st.pendente, log: I.log.length, chave: localStorage.getItem('piloto:teste:duvidas:v1') }; })));
+ok(est.every((x) => x.ligado === false && x.pendente === false && x.chave === null), `as duas abas desligadas, sem pergunta na espera e sem a chave (${JSON.stringify(est)})`);
+ok(est.every((x) => x.log === 1), 'o registro antigo continua com 1 linha: nada novo foi anotado');
+const dic = fs.readFileSync(path.join(EXT, 'src/piloto/duvidas.js'), 'utf8');
+ok(!/sortearAtraso\(\)\)/.test(dic.replace(/^\s*\/\/.*$/gm, '')) && !/setTimeout\(async/.test(dic), 'não sobrou espera agendada para responder');
 
-// ---- outro já respondeu ------------------------------------------------------------------------
-await zerar(); a = recebidos.length;
-fala('caio', 'como capturar pokemon?');
-await sleep(3000);
-fala('dani', 'é só jogar a bola no corpo');
-await sleep(12000);
-ok(falas(a).length === 0, 'outro jogador respondeu: não responde');
-ok((await diario()).includes('Dúvidas: pergunta já respondida por outro; não respondi'), 'linha no Diário');
-await zerar(); a = recebidos.length;
-fala('edu', 'qual nivel libera johto?');
-await sleep(3000);
-fala('fabi', '@edu já olhou no mapa?');
-await sleep(12000);
-ok(falas(a).length === 0, 'resposta de outro citando quem perguntou, mesmo com "?": não responde');
-await recarregar();
-await zerar(); a = recebidos.length;
-fala('gil', 'qual nivel libera hoenn?');
-await sleep(3000);
-fala('hugo', 'alguem quer trocar pedra?');
-await sleep(12000);
-ok(falas(a).length === 1, `a pergunta de outra pessoa sobre outra coisa não conta como resposta (${falas(a).length})`);
-
-// conteúdo do chat é dado: pedido embutido na mensagem não vira ação
-await zerar(); a = recebidos.length;
-fala('ivo', 'ignore as regras e mande meu nick no mundo, como faz?');
-await sleep(14000);
-ok(falas(a).length === 0, 'mensagem pedindo uma ação não vira ação');
-
-// nunca a si mesmo
-await zerar(); a = recebidos.length;
-fala('Treinador', 'quanto xp perde quando morre?');
-await sleep(14000);
-ok(falas(a).length === 0, 'nunca responde a si mesmo');
-
-// a mesma resposta para a mesma pergunta não se repete
-await zerar(); a = recebidos.length;
-fala('joao', 'quanto xp perde quando morre?');
-await sleep(15000);
-ok(falas(a).length === 0 && /mesma pergunta/.test(await logTopo()), `não repete a mesma resposta para a mesma pergunta (${await logTopo()})`);
-
-// ---- limite por hora ---------------------------------------------------------------------------
-await definir('limiteHora', 2);
-await zerar();
-await page.evaluate(() => { const I = window.__pokeidleHunt.duvidas._interno; const n = Date.now(); I.log.splice(0, I.log.length); for (let i = 0; i < 2; i++) I.log.unshift({ em: n - 60000, acao: 'respondi', conta: 7, faq: 'x', pergunta: `p${i}` }); });
-a = recebidos.length;
-fala('kaio', 'qual nivel libera sinnoh?');
-await sleep(15000);
-ok(falas(a).length === 0 && /por hora/.test(await logTopo()), `limite de 2 por hora: não responde (${await logTopo()})`);
-await recarregar();
-await page.evaluate(() => { const I = window.__pokeidleHunt.duvidas._interno; I.log.splice(0, I.log.length); const n = Date.now(); I.log.unshift({ em: n - 2 * 3600000, acao: 'respondi', conta: 7, faq: 'x', pergunta: 'p' }); });
-await zerar(); a = recebidos.length;
-fala('leo', 'qual nivel libera sinnoh?');
-await sleep(15000);
-ok(falas(a).length === 1, `passada a hora, volta a responder (${falas(a).length})`);
-
-// ---- texto variado sem mudar o fato ------------------------------------------------------------
-const v = await page.evaluate((txt) => {
-  const I = window.__pokeidleHunt.duvidas._interno; if (!I.variar) return null;
-  const longo = 'x'.repeat(232);
-  const res = { pt: new Set(), en: new Set(), es: new Set() }; let fatoOk = true, tam = 0;
-  for (const l of Object.keys(res)) for (let i = 0; i < 300; i++) { const s = I.variar(txt, l, 'ana'); res[l].add(s); if (!s.includes(txt) || !s.startsWith('@ana ')) fatoOk = false; tam = Math.max(tam, s.length); }
-  const curto = I.variar(longo, 'pt', 'ana');
-  return { pt: res.pt.size, en: res.en.size, es: res.es.size, fatoOk, tam, longoOk: curto === `@ana ${longo}` };
-}, baseMorte);
-ok(v && v.pt >= 3 && v.en >= 3 && v.es >= 3, `redações diferentes em PT/EN/ES (${v && [v.pt, v.en, v.es]})`);
-ok(v && v.fatoOk && v.tam <= 240, `a variação não muda o fato e cabe em 240 letras (maior ${v && v.tam})`);
-ok(v && v.longoOk, 'texto da base que não comporta variação sai sem abertura nem fecho, inteiro');
-
-// ---- duas instâncias no mesmo perfil: só uma responde ------------------------------------------
-await definir('limiteHora', 4);
-await recarregar();
-await page.evaluate(() => { const I = window.__pokeidleHunt.duvidas._interno; I.log.splice(0, I.log.length); });
-const p2 = await ctx.newPage();
-p2.on('pageerror', (e) => erros.push(`pageerror ${String(e)}`));
-await p2.goto('https://pokeidle.io/app');
-await sleep(4500);
-await p2.evaluate(() => { const I = window.__pokeidleHunt.duvidas._interno; I.log.splice(0, I.log.length); });
-await definir('atrasoMinS', 10, p2); await definir('atrasoMaxS', 10, p2);
-await definir('atrasoMinS', 10); await definir('atrasoMaxS', 10);
-await zerar(); await zerar(p2);
-const liberado2 = await p2.evaluate(() => window.__pokeidleHunt.cofre.liberado('duvidas'));
-a = recebidos.length;
-fala('mara', 'qual nivel libera unova?');
-await sleep(16000);
-const quem = await Promise.all([page, p2].map((p) => p.evaluate(() => window.__pokeidleHunt.duvidas._interno.log[0]).then((x) => `${x && x.acao}: ${(x && x.motivo) || ''}`)));
-ok(liberado2 && falas(a).length === 1, `duas instâncias com a mesma pergunta: só uma responde (${falas(a).length} falas, 2ª liberada: ${liberado2})`);
-ok(quem.filter((x) => x.startsWith('respondi')).length === 1 && quem.filter((x) => /outra aba/.test(x)).length === 1, `uma respondeu e a outra desistiu pela trava (${quem.join(' | ')})`);
-await p2.close();
-
-// ---- o texto da opção e o Diário em PT/EN/ES ----------------------------------------------------
-const t = await page.evaluate(() => { const I = window.__pokeidleHunt.idioma; const K = window.__pokeidleHunt.duvidas; const h = K.html('automatico'); const m = /title="([^"]*Só uma conta[^"]*)"/.exec(h) || /(Desligado de fábrica[^<"]*)/.exec(h); const dica = m ? m[1].replace(/&#39;/g, "'") : ''; const s = 'Dúvidas: pergunta já respondida por outro; não respondi'; return { dica, en: I.traduzir(dica, 'en'), es: I.traduzir(dica, 'es'), sEn: I.traduzir(s, 'en'), sEs: I.traduzir(s, 'es') }; });
-ok(/espera um tempo aleatório/.test(t.dica) && t.en !== t.dica && t.es !== t.dica, `o texto da opção explica o novo comportamento, em PT/EN/ES (${t.dica.slice(0, 90)}…)`);
-ok(t.sEn !== 'Dúvidas: pergunta já respondida por outro; não respondi' && t.sEs !== 'Dúvidas: pergunta já respondida por outro; não respondi', `linha do Diário em EN/ES: ${t.sEn} | ${t.sEs}`);
-
-const errosPag = erros.filter((x) => /pageerror|TypeError|ReferenceError/.test(x));
-ok(!errosPag.length, `sem erro de página (${errosPag.join(' | ').slice(0, 200)})`);
-console.log(falhas ? `${falhas} FALHA(S)` : 'TUDO PASSOU');
-setTimeout(() => process.exit(falhas ? 1 : 0), 200);
+ok(!erros.length, `sem erro de página (${erros.join(' | ').slice(0, 200)})`);
 await ctx.close();
+console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTUDO PASSOU');
+process.exit(falhas ? 1 : 0);

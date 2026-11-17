@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corrigido: o Ancient Pupitar (e as outras variantes da Outland) não conta mais como \"já tinha\" no Caçar o meta — elas não evoluem.",
       ],
+      '1.54.3': [
+        "Removido: o Piloto não escreve mais no chat do jogo (risco de punição). A opção Responder no Dúvidas e a aba Dúvidas saíram, e quem tinha ligado fica desligado.",
+      ],
       '1.54.2': [
         "Atualizado: a faixa da Plateia na Twitch agora diz que a compra automática do bônus precisa da Plateia 0.9.6 ou mais nova.",
       ],
@@ -47,7 +50,7 @@
         "Nova opção \"Vender os de nota baixa\" na aba Rotina, desligada de fábrica: ligada, só lista no Diário o que venderia; a venda de verdade pede um segundo interruptor e nunca toca em shiny, P5, time ou nota 3,5+.",
       ],
       '1.52.0': [
-        "Responder no Dúvidas (segue desligado de fábrica): agora espera um tempo aleatório, não responde se outro jogador já respondeu, só uma aba responde cada pergunta, o texto varia e há limite por hora.",
+        "Responder no Dúvidas: esta função foi removida na 1.54.3, o Piloto não escreve mais no chat do jogo.",
       ],
       '1.51.2': [
         "Corrigido: quando uma troca de item nas automações do jogo não dava certo, a Reposição podia parar de comprar tudo, até a bola zerar. Agora ela segue comprando o que está marcado no jogo, e o Diário avisa.",
@@ -110,7 +113,7 @@
         'Time: um pokémon de fora do meta não prende mais a vaga. Se você pegar outro de fora do meta com mais Poder, ele entra no lugar do mais fraco. Os do meta continuam com prioridade.',
       ],
       '1.37.0': [
-        "Nova aba Dúvidas: o Piloto pode responder sozinho perguntas no canal Dúvidas do chat, com 53 respostas tiradas da Pokepédia do jogo. Vem desligado; ligue na aba se quiser. Ele espera 20 s, não responde se alguém já ajudou e fala no máximo 1 vez a cada 5 min.",
+        "Aba Dúvidas: esta função foi removida na 1.54.3, o Piloto não escreve mais no chat do jogo.",
       ],
       '1.36.2': [
         "Evoluir: a pedra do time agora usa a mesma reserva das poções (e não os 5 mi do Mercado), então conta com pouco ouro também compra a pedra — sem passar de metade do ouro livre, para a poção não faltar.",

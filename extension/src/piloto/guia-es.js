@@ -30,6 +30,9 @@
       '1.31.1': [
         "Corregido: el Ancient Pupitar (y las otras variantes de la Outland) ya no cuenta como \"ya tenía\" en Cazar el meta: no evolucionan.",
       ],
+      '1.54.3': [
+        "Eliminado: el Piloto ya no escribe en el chat del juego (riesgo de sanción). La opción Responder en Dudas y la pestaña Dudas desaparecieron, y quien la tenía activada queda apagada.",
+      ],
       '1.54.2': [
         "Actualizado: la franja de Plateia en Twitch ahora dice que la compra automática del bono requiere Plateia 0.9.6 o más nueva.",
       ],
@@ -47,7 +50,7 @@
         "Nueva opción \"Vender los de nota baja\" en la pestaña Rutina, apagada de fábrica: encendida, solo lista en el Diario lo que vendería; vender de verdad pide un segundo interruptor y nunca toca shiny, P5, equipo ni nota 3,5+.",
       ],
       '1.52.0': [
-        "Responder en Dudas (sigue apagado de fábrica): ahora espera un tiempo aleatorio, no responde si otro jugador ya respondió, solo una pestaña responde cada pregunta, el texto varía y hay límite por hora.",
+        "Responder en Dudas: esta función se eliminó en la 1.54.3, el Piloto ya no escribe en el chat del juego.",
       ],
       '1.51.2': [
         "Corregido: cuando un cambio de ítem en las automatizaciones del juego no salía, la Reposición podía dejar de comprar todo, hasta quedarte sin bolas. Ahora sigue comprando lo que está marcado en el juego, y el Diario avisa.",
@@ -110,7 +113,7 @@
         'Equipo: un pokémon fuera del meta ya no se queda con el lugar. Si atrapas otro fuera del meta con más Poder, entra en lugar del más débil. Los del meta siguen teniendo prioridad.',
       ],
       '1.37.0': [
-        "Nueva pestaña Dudas: el Piloto puede responder solo preguntas en el canal Dudas del chat, con 53 respuestas sacadas de la Pokepedia del juego. Viene apagado; actívalo en la pestaña si quieres. Espera 20 s, no responde si alguien ya ayudó y habla como máximo 1 vez cada 5 min.",
+        "Pestaña Dudas: esta función se eliminó en la 1.54.3, el Piloto ya no escribe en el chat del juego.",
       ],
       '1.36.2': [
         "Evolucionar: la piedra del equipo ahora usa la misma reserva que las pociones (y no los 5 M del Mercado), así que una cuenta con poco oro también la compra — sin pasar de la mitad del oro libre, para que no falten pociones.",

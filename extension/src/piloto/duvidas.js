@@ -1,21 +1,9 @@
-// Respondedor do canal Dúvidas do chat. 1.37.0 (pedido do André, 28/10): entra na versão pública,
-// DESLIGADO de fábrica — quem quiser liga na aba Dúvidas. (De 1.33.8 a 1.36.2 só existia na build
-// do André.) Sem IA e sem custo: as respostas saem de uma base fechada, tirada da Pokepédia do jogo
-// e dos módulos dele, e a da pedra de evolução é calculada com shared/evolucoes-ramificadas.mjs.
-//
-// Regras para não virar spam nem "informação falsa" (Termos, "Convivência no chat"):
-// - só o canal Dúvidas, só pergunta (tem "?" ou começa com palavra de pergunta), só mensagem nova;
-// - só responde quando UMA resposta da base bate com folga; empate ou dúvida: não responde;
-// - 1.52.0 (ponto 6 do #5: todas as contas respondiam igual): espera um tempo aleatório (25 a 150 s,
-//   editável); se outro jogador respondeu nesse meio tempo, não responde; uma trava no chrome.storage faz
-//   só uma aba responder cada pergunta; o texto varia na abertura e no fecho, e o fato continua o da base;
-//   limite de respostas por hora; nunca repete a mesma resposta para a mesma pergunta. Numa outra conta, em
-//   outro navegador ou PC, a trava não alcança: o que separa as contas é o atraso e a releitura do chat;
-// - no máximo 1 resposta a cada 5 min, a mesma pessoa só depois de 30 min, a mesma resposta só
-//   depois de 15 min; nada com link; o gancho ainda segura 4 min entre mensagens e só deixa o Dúvidas;
-// - para tudo se o jogo mutar a conta ou recusar (o disjuntor do cofre desliga o módulo).
-// Tudo vai para o registro (piloto:teste:duvidas:log — a chave antiga, para não perder o histórico),
-// inclusive as perguntas sem resposta, para a base crescer.
+// Canal Dúvidas do chat. 1.54.3 (issue #8: um usuário foi banido do chat do jogo depois de usar o
+// respondedor; decisão do André): o Piloto NÃO escreve mais no chat do jogo. O envio automático foi
+// removido por inteiro: não há mais ouvinte do chat, espera, trava entre abas nem comando de envio, a opção
+// "Responder no Dúvidas" e a aba Dúvidas saíram da tela, e o comando 'chat.send' saiu do gancho. Quem tinha a
+// opção ligada nas configurações salvas é desligado aqui e a chave é apagada. Fica só a base de respostas
+// (leitura, sem uso na tela) e o registro antigo, que não é mexido.
 (function (raiz) {
   'use strict';
   const PIH = raiz.__pokeidleHunt;
@@ -30,12 +18,11 @@
   const lerJ = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
   const gravarJ = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sem espaço */ } };
   const log = lerJ(CHAVE_LOG, []);
-  // 1.37.0: desligado de fábrica. Quem já usava (a build do André, com registro) continua ligado.
-  const salvo = lerJ(CHAVE, null);
-  const cfg = { ligado: salvo ? salvo.ligado !== false : log.length > 0, atrasoMinS: 25, atrasoMaxS: 150, limiteHora: 4, ...(salvo || {}) };
-  if (!salvo && cfg.ligado) gravarJ(CHAVE, cfg);
+  // 1.54.3: nunca liga. O valor salvo é ignorado e a chave é apagada (quem tinha ligado deixa de enviar).
+  const cfg = { ligado: false, atrasoMinS: 25, atrasoMaxS: 150, limiteHora: 4 };
+  try { localStorage.removeItem(CHAVE); } catch { /* sem acesso ao armazenamento */ }
   // 1.36.2: guarda mais (1.000 linhas): as perguntas sem resposta são a matéria-prima da base
-  const anotar = (e) => { log.unshift({ em: Date.now(), ...e }); log.length = Math.min(log.length, 1000); gravarJ(CHAVE_LOG, log); };
+  const anotar = () => {}; // 1.54.3: nada novo é registrado
 
   let eu = null;
   PIH.on('estado', (e) => { eu = e; });
@@ -400,88 +387,7 @@
     return null;
   }
 
-  PIH.on('chat', async (m) => {
-    try {
-      if (!m || m.canal !== 'duvidas' || typeof m.texto !== 'string') return;
-      const de = String(m.de || '');
-      const nick = de.toLowerCase();
-      if (!nick) return;
-      const ts = Number(m.ts) || Date.now();
-      if (nick === meuNick()) return;
-      // alguém falou depois da pergunta pendente: talvez já tenha respondido
-      if (st.pendente && nick !== st.pendente.nick && ts >= st.pendente.ts && pareceResposta(m.texto, st.pendente.nick)) st.pendente.outros = true;
-      if (Date.now() - ts > 60_000) return; // histórico ao entrar: não responde o passado
-      const texto = norm(m.texto);
-      if (!ehPergunta(texto) || texto.length < 8 || texto.length > 300) return;
-      const idi = ['pt', 'en', 'es'].includes(m.idioma) ? m.idioma : 'pt';
-      const r = (await respostaEvo(texto, idi)) || respostaBase(texto, idi);
-      const pergunta = String(m.texto).slice(0, 200);
-      if (!r) { anotar({ acao: 'sem resposta', de, idi, pergunta }); return; }
-      if (r.pulou) { anotar({ acao: 'pulou', motivo: r.pulou, de, idi, pergunta }); return; }
-      const perguntaN = norm(pergunta);
-      const nao = porQueNao(nick, r.id, perguntaN);
-      if (nao) { anotar({ acao: 'pulou', motivo: nao, de, idi, pergunta, faq: r.id }); return; }
-      if (st.pendente) { anotar({ acao: 'pulou', motivo: 'já tem outra na espera', de, idi, pergunta, faq: r.id }); return; }
-      const pend = { nick, de, ts, idi, pergunta, r, outros: false, chave: chaveDaPergunta(m, nick, ts, texto) };
-      st.pendente = pend;
-      setTimeout(async () => {
-        try {
-          if (pend.outros) { jaRespondida(pend); return; }
-          const nao2 = porQueNao(nick, r.id, perguntaN);
-          if (nao2) { anotar({ acao: 'pulou', motivo: nao2, de, idi, pergunta, faq: r.id }); return; }
-          const minha = await pegarTrava(pend.chave);
-          if (pend.outros) { jaRespondida(pend); return; }
-          if (!minha) { anotar({ acao: 'pulou', motivo: 'outra aba ficou com esta pergunta', de, idi, pergunta, faq: r.id }); return; }
-          const texto2 = variar(r.txt, idi, de);
-          const ok = PIH.pedir({ t: 'chat.send', canal: 'duvidas', idioma: idi, texto: texto2 }, 'duvidas');
-          if (!ok.ok) { anotar({ acao: 'pulou', motivo: `o gancho recusou: ${ok.motivo}`, de, idi, pergunta, faq: r.id }); return; }
-          const n = Date.now();
-          st.ultimaEm = n; st.porNick.set(nick, n); st.porResposta.set(r.id, n);
-          anotar({ acao: 'respondi', de, idi, pergunta, faq: r.id, resposta: texto2, conta: minhaConta() });
-        } catch (e) { console.warn('[piloto] teste-duvidas:', e); } finally { if (st.pendente === pend) st.pendente = null; }
-      }, sortearAtraso());
-    } catch (e) { console.warn('[piloto] teste-duvidas:', e); }
-  });
+  // 1.54.3: sem ouvinte do chat e sem aba (nada a mostrar: o Piloto não responde mais).
 
-  // ---- a aba Dúvidas ----------------------------------------------------------------------------
-  // 1.36.2 (pedido do André): na tela, só o que o Piloto respondeu — a pergunta e a resposta. O
-  // registro inteiro (sem resposta, puladas) continua guardado por dentro para a base crescer.
-  const esc = K.esc;
-  const quando = (t) => {
-    const d = new Date(t); const hoje = new Date();
-    const mesmoDia = d.toDateString() === hoje.toDateString();
-    return mesmoDia ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  };
-  function html(modo) {
-    const trava = modo === 'desligado';
-    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-    const deHoje = log.filter((x) => x.em >= hoje.getTime());
-    const conta = (a, l = deHoje) => l.filter((x) => x.acao === a).length;
-    const respostas = log.filter((x) => x.acao === 'respondi');
-    const cards = respostas.slice(0, 60).map((x) => {
-      const resp = String(x.resposta || '').replace(/^@\S+\s*/, '');
-      return `<div class="plt-tdu-qa">
-        <div class="plt-tdu-q"><span class="plt-tdu-nick">${esc(x.de || '')}</span><span class="plt-tdu-h">${quando(x.em)}</span><p>${esc(x.pergunta || '')}</p></div>
-        <div class="plt-tdu-ans"><span class="plt-tdu-eu">Piloto</span><p>${esc(resp)}</p></div>
-      </div>`;
-    }).join('');
-    return `${K.grupo('Dúvidas do chat')}
-      ${K.linha({ id: 'teste-duvidas', icone: 'duvidas', nome: 'Responder no Dúvidas', alvo: 'teste:ligado', on: cfg.ligado, trava,
-    status: `hoje: ${conta('respondi')} respondidas · ${conta('pulou')} puladas · ${conta('sem resposta')} sem resposta · ${BASE.length} respostas na base`,
-    dica: 'Desligado de fábrica. Ligado, responde sozinho no canal Dúvidas quando uma resposta da base (tirada da Pokepédia do jogo e dos módulos dele) bate com certeza. Só uma conta por pergunta: espera um tempo aleatório, não responde se outro já respondeu, só uma aba responde, o texto varia e há limite por hora. Aqui aparecem só as respostas; o resto fica guardado para a base crescer.',
-    ajustes: `${K.fcampo('Espera mínima (s)', K.numero('teste:atrasoMinS', faixaS().min, 10, 600, 5, trava))}${K.fcampo('Espera máxima (s)', K.numero('teste:atrasoMaxS', faixaS().max, 10, 900, 5, trava))}${K.fcampo('Respostas por hora', K.numero('teste:limiteHora', limiteHora(), 1, 12, 1, trava))}` })}
-      <div class="plt-tdu">${cards || '<p class="plt-tdu-vazio">Nenhuma resposta ainda. Quando o Piloto responder alguém no canal Dúvidas, a pergunta e a resposta aparecem aqui.</p>'}</div>`;
-  }
-  function definir(caminho, v) {
-    if (['atrasoMinS', 'atrasoMaxS', 'limiteHora'].includes(caminho)) {
-      if (Number.isFinite(Number(v))) { cfg[caminho] = Number(v); gravarJ(CHAVE, cfg); }
-      return;
-    }
-    if (caminho !== 'ligado') return;
-    cfg.ligado = !!v;
-    gravarJ(CHAVE, cfg);
-    anotar({ acao: cfg.ligado ? 'ligado' : 'desligado' });
-  }
-
-  PIH.duvidas = PIH.testeDuvidas = { html, definir, _interno: { respostaBase, respostaEvo, ehPergunta, norm, st, log, BASE, cfg, sortearAtraso, variar, pareceResposta, pegarTrava } };
+  PIH.duvidas = { _interno: { respostaBase, respostaEvo, ehPergunta, norm, st, log, BASE, cfg, sortearAtraso, variar, pareceResposta, pegarTrava } };
 })(globalThis);
