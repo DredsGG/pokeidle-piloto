@@ -130,7 +130,7 @@
   function validar(parcial) {
     const p = parcial && typeof parcial === 'object' ? parcial : {};
     const c = { ...PADRAO };
-    for (const chave of ['radarLigado', 'pausarOculta', 'som', 'notificacoes', 'alertarIliquidos', 'alertarPoucoConfiaveis', 'abrirPainelNoAviso', 'compraAutomatica', 'pokemon', 'compraAutomaticaPokemon', 'pokemonGemas', 'revendaAutomatica', 'revendaSoDoRadar', 'ajusteAutomatico', 'vigiaContinua']) {
+    for (const chave of ['radarLigado', 'pausarOculta', 'som', 'notificacoes', 'alertarIliquidos', 'alertarPoucoConfiaveis', 'abrirPainelNoAviso', 'compraAutomatica', 'pokemon', 'compraAutomaticaPokemon', 'pokemonGemas', 'revendaAutomatica', 'revendaSoDoRadar', 'fragmentosDropGemas', 'ajusteAutomatico', 'vigiaContinua']) {
       if (typeof p[chave] === 'boolean') c[chave] = p[chave];
     }
     for (const [chave, limite] of Object.entries(LIMITES)) c[chave] = prender(p[chave], limite, PADRAO[chave]);

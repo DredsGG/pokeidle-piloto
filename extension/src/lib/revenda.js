@@ -134,23 +134,25 @@
   // livros: Map itemId -> { linhas, em } (último market.item); meus: anúncios abertos
   // (normalizarMeus); compras: juntarCompras; resumo: itemId -> { media7d, volume7d };
   // ocultos: Map itemId -> qtd com que ele escondeu o cartão.
-  function montarSugestoes({ inventario, catalogo, config, livros, meus, compras, resumo, meuId, ocultos, agora }) {
+  function montarSugestoes({ inventario, catalogo, config, livros, meus, compras, resumo, meuId, ocultos, agora, moeda = 'gold', custoOverride }) {
     const abertos = (meus || []).filter((m) => m && (m.estado === null || m.estado === undefined || m.estado === 'aberto'));
     const anunciosAbertos = abertos.length;
     const ids = new Set();
     for (const [id, q] of Object.entries(inventario || {})) if (positivo(Number(q))) ids.add(Number(id));
-    for (const m of abertos) if (m.tipoItem === 'item' && m.moeda === 'gold' && m.itemId) ids.add(m.itemId);
+    for (const m of abertos) if (m.tipoItem === 'item' && m.moeda === moeda && m.itemId) ids.add(m.itemId);
     const lista = [];
     for (const id of ids) {
       const item = catalogo && catalogo.get(id);
       if (!item || !Config.itemLiberado(config, item)) continue;
       const qtd = Math.max(0, Math.floor(Number((inventario || {})[id]) || 0));
-      const meuAnuncio = abertos.find((m) => m.itemId === id && m.moeda === 'gold') || null;
+      const meuAnuncio = abertos.find((m) => m.itemId === id && m.moeda === moeda) || null;
       if (ocultos && ocultos.has(id) && ocultos.get(id) === qtd) continue;
-      const custo = custoMedio({ compras, nome: item.nome, qtd: qtd + (meuAnuncio ? meuAnuncio.qtd || 0 : 0) });
+      const custo = custoOverride
+        ? custoOverride(item, qtd, meuAnuncio)
+        : custoMedio({ compras, nome: item.nome, qtd: qtd + (meuAnuncio ? meuAnuncio.qtd || 0 : 0) });
       const r = resumo && resumo[id];
       const livro = livros && livros.get(id);
-      const comum = { itemId: id, nome: item.nome, qtd, meuAnuncio, custo, volume7d: r ? r.volume7d : null, livroEm: livro ? livro.em : null };
+      const comum = { itemId: id, nome: item.nome, qtd, meuAnuncio, custo, moeda, volume7d: r ? r.volume7d : null, livroEm: livro ? livro.em : null };
       if (!livro) {
         lista.push({ ...comum, acao: 'sem-livro', piso: pisoDe(custo.porUnidade), preco: null, fila: [], ignorados: 0, qtdCartao: qtd, liquido: null, lucro: null });
         continue;
@@ -206,14 +208,18 @@
   }
   // O inventário que a revenda pode usar: o que você tem menos o comprado à mão e menos as pedras
   // que o time vai gastar para evoluir.
-  function inventarioRevendavel(inventario, catalogo, { manuais, pedrasDoTime } = {}) {
+  function inventarioRevendavel(inventario, catalogo, { manuais, pedrasDoTime, compras, config } = {}) {
     const out = {};
+    const isolarDropFragmento = Boolean(config && config.fragmentosDropGemas);
     for (const [id, q] of Object.entries(inventario || {})) {
       const item = catalogo && catalogo.get(Number(id));
       const nome = item && item.nome;
       const mao = nome && manuais && manuais.itens ? Number(manuais.itens[nome]) || 0 : 0;
       const time = pedrasDoTime ? Number(pedrasDoTime[id]) || 0 : 0;
-      out[id] = Math.max(0, Math.floor(Number(q) || 0) - mao - time);
+      const dropFrag = isolarDropFragmento && item && item.categoria === 'fragment' && nome
+        ? custoMedio({ compras, nome, qtd: Math.floor(Number(q) || 0) }).deDrop
+        : 0;
+      out[id] = Math.max(0, Math.floor(Number(q) || 0) - mao - time - dropFrag);
     }
     return out;
   }

@@ -751,7 +751,8 @@
     if (!p.nRevenda) return;
     const d = s.revenda;
     const nPk = s.revendaPk && RvPk ? (s.revendaPk.cartoes || []).filter(RvPk.comAcao).length : 0;
-    const n = (d ? (d.sugestoes || []).filter(Rv.comAcao).length : 0) + nPk;
+    const nOrb = d ? (d.sugestoesOrb || []).filter(Rv.comAcao).length : 0;
+    const n = (d ? (d.sugestoes || []).filter(Rv.comAcao).length : 0) + nOrb + nPk;
     p.nRevenda.textContent = String(n);
     p.nRevenda.hidden = n === 0;
     if (p.quando_revenda) {
@@ -759,9 +760,10 @@
     }
     let vazio = '';
     const categoria = globalThis.RadarRevendaUI && globalThis.RadarRevendaUI.categoria ? globalThis.RadarRevendaUI.categoria() : 'item';
+    const temItens = Boolean((d && d.sugestoes && d.sugestoes.length) || (d && d.sugestoesOrb && d.sugestoesOrb.length));
     if (categoria !== 'item') vazio = '';
     else if (!d || !d.inventarioOk) vazio = 'Esperando o inventário do jogo. Ele chega com o estado da conta; se não aparecer, aperte F5 na aba do jogo.';
-    else if (!(d.sugestoes || []).length) vazio = 'Nenhum item das categorias vigiadas no inventário.';
+    else if (!temItens) vazio = 'Nenhum item das categorias vigiadas no inventário.';
     p.revendaVazio.textContent = vazio;
     p.revendaVazio.hidden = !vazio;
   }
@@ -955,7 +957,8 @@
       ${linhasPrincipais(b)}
       ${linhaR({ nome: 'Vigia contínua', k: 'vigiaContinua', on: b.vigiaContinua, dica: 'Uma varredura atrás da outra, sem intervalo. O freio é só o limite de leituras do servidor; se ele reclamar, o radar espaça sozinho até normalizar.' })}
       ${linhaR({ nome: 'Calcular os limites sozinho', k: 'ajusteAutomatico', on: b.ajusteAutomatico, dica: 'Pelo seu ouro/h e pelo cofre do Piloto. O motivo de não comprar aparece no Resumo.', ajustes: lims })}
-      ${linhaR({ nome: 'O que vigiar', dica: 'As categorias de itens que o radar olha. Pokémon em ouro: os anúncios de pokémon, não shiny.', ajustes: `${cats}${miniR('pokemon', b.pokemon, 'Pokémon em ouro')}${miniR('revendaSoDoRadar', !b.revendaSoDoRadar, 'Revender também os seus drops', true)}` })}
+      ${linhaR({nome: 'O que vigiar', dica: 'As categorias de itens que o radar olha. Pokémon em ouro: os anúncios de pokémon, não shiny.', ajustes: `${cats}${miniR('pokemon', b.pokemon, 'Pokémon em ouro')}${miniR('revendaSoDoRadar', !b.revendaSoDoRadar, 'Revender também os seus drops', true)}${miniR('fragmentosDropGemas', b.fragmentosDropGemas, 'Vender os fragmentos dropados por gema')}`
+      })}	
       ${linhaR({ nome: 'Como avisar', ajustes: `${miniR('notificacoes', b.notificacoes, 'Notificação')}${miniR('som', b.som, 'Som')}${miniR('abrirPainelNoAviso', b.abrirPainelNoAviso, 'Abrir o painel no aviso')}` })}
     </div>`;
     if (alvo._html !== html) { alvo._html = html; alvo.innerHTML = html; }

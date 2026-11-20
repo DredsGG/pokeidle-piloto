@@ -122,6 +122,7 @@
     seqTela: 900000,
     ultimoPedidoTela: new Map(),
     livros: new Map(), // itemId -> { linhas, em } do último market.item
+    livrosOrb: new Map(), // itemId -> { linhas, em } do último market.item (gemas)
     taxaDiaria: Pk.DIARIA_PADRAO, // welcome.mercado.taxaDiaria
     faixasOrb: undefined, // welcome.mercado.faixasOrb (comissão do pokémon em Gemas)
     pokemon: {
@@ -1300,10 +1301,33 @@
     for (const a of (v && v.amostras) || []) resumo[a.itemId] = { media7d: a.mediaGold, volume7d: a.volume7d };
     const meus = Pessoal.normalizarMeus((s.revenda.meus && s.revenda.meus.linhas) || [], agoraServidor());
     const compras = Rv.juntarCompras(s.revenda.registro || [], (s.revenda.historico && s.revenda.historico.linhas) || []);
-    // 1.27: a pedra comprada para o time evoluir não entra na revenda
-    const inventario = auto ? Rv.inventarioRevendavel(s.conta.itens || {}, s.catalogo, { manuais: s.revenda.manuais, pedrasDoTime: pedrasDoTimeAgora() }) : (s.conta.itens || {});
+    const inventario = auto
+      ? Rv.inventarioRevendavel(s.conta.itens || {}, s.catalogo, {
+          manuais: s.revenda.manuais,
+          pedrasDoTime: pedrasDoTimeAgora(),
+          compras,
+          config: s.config,
+        })
+      : (s.conta.itens || {});
     const sugestoes = Rv.montarSugestoes({ inventario, catalogo: s.catalogo, config: s.config, livros: s.livros, meus, compras, resumo, meuId: s.conta.id, ocultos: s.revenda.ocultos, agora: agoraServidor() }).filter((sg) => !pedraGuardada(sg.itemId));
-    return { meus, sugestoes };
+    const invOrb = inventarioFragmentosOrb(compras);
+    const sugestoesOrb = Object.keys(invOrb).length
+      ? Rv.montarSugestoes({
+          inventario: invOrb,
+          catalogo: s.catalogo,
+          config: s.config,
+          livros: s.livrosOrb,
+          meus,
+          compras,
+          resumo: {},
+          meuId: s.conta.id,
+          ocultos: s.revenda.ocultos,
+          agora: agoraServidor(),
+          moeda: 'orb',
+          custoOverride: () => ({ porUnidade: 0, doRadar: false }),
+        })
+      : [];
+    return { meus, sugestoes, sugestoesOrb };
   }
 
   // ---- revenda automática de itens (1.2) ------------------------------------------------------
@@ -1415,9 +1439,10 @@
     revendaAgendada = setTimeout(() => {
       revendaAgendada = null;
       try {
-        const { meus, sugestoes } = calcularSugestoes();
+        const { meus, sugestoes, sugestoesOrb } = calcularSugestoes();
         bus.emit('tela:revenda', {
           sugestoes,
+          sugestoesOrb,
           acoes: Object.fromEntries(s.revenda.acoes),
           anuncios: s.revenda.meus ? meus.filter((m) => !m.estado || m.estado === 'aberto').length : null,
           max: Rv.MAX_ANUNCIOS,
@@ -1729,10 +1754,10 @@
     voo.timer = setTimeout(() => conferirAnuncio(voo).catch(erro), JANELA_RESPOSTA_ANUNCIO_MS);
   }
 
-  // O cartão do clique: o de item pelo itemId, o de pokémon pelo pokemonId.
+  // O cartão do clique: o de item pela chaveAcao (ou itemId), o de pokémon pelo pokemonId.
   function marcarVoo(voo, fase, texto) {
     if (voo.pokemonId !== undefined && voo.pokemonId !== null) marcarAcaoPk(voo.pokemonId, fase, texto);
-    else marcarAcao(voo.itemId, fase, texto);
+    else marcarAcao(voo.chaveAcao || voo.itemId, fase, texto);
   }
 
   // 1.33.9: o livro dos comprados à mão. Só atualiza com o registro do radar já lido (senão uma
@@ -1819,12 +1844,42 @@
         if (dados) s.livros.set(id, { linhas: dados.linhas || [], em: Date.now() });
         emitirRevenda();
       }
+      // Livros em gemas (orb): apenas fragmentos de drop quando a opção estiver ativa.
+      const compras = Rv.juntarCompras(s.revenda.registro || [], (s.revenda.historico && s.revenda.historico.linhas) || []);
+      const fragOrbIds = Object.keys(inventarioFragmentosOrb(compras)).map(Number);
+      for (const m of meus) if (m.itemId && m.moeda === 'orb') fragOrbIds.push(Number(m.itemId));
+      const velhosOrb = [...new Set(fragOrbIds)]
+        .filter((id) => { const item = s.catalogo.get(id); return item && Config.itemLiberado(s.config, item); })
+        .filter((id) => forcar || !s.livrosOrb.has(id) || Date.now() - s.livrosOrb.get(id).em > LIVRO_VALE_MS)
+        .sort((a, b) => ((s.livrosOrb.get(a) || {}).em || 0) - ((s.livrosOrb.get(b) || {}).em || 0))
+        .slice(0, MAX_LIVROS_POR_ABERTURA);
+      for (const id of velhosOrb) {
+        await esperar(pausaEntrePedidos());
+        const dados = await pedir({ t: 'market.item', itemId: id, moeda: 'orb' }, casaItem(id));
+        if (dados) s.livrosOrb.set(id, { linhas: dados.linhas || [], em: Date.now() });
+        emitirRevenda();
+      }
     } finally {
       s.revenda.lendo = false;
       emitirRevenda();
       emitirRevendaPk();
       calcularPkSozinho(forcar);
     }
+  }
+
+  function inventarioFragmentosOrb(compras) {
+    if (!s.config.fragmentosDropGemas) return {};
+    const itens = s.conta.itens || {};
+    const out = {};
+    for (const [idStr, qRaw] of Object.entries(itens)) {
+      const id = Number(idStr);
+      const qtd = Math.max(0, Math.floor(Number(qRaw) || 0));
+      const item = s.catalogo && s.catalogo.get(id);
+      if (!item || item.categoria !== 'fragment' || qtd <= 0) continue;
+      const { deDrop } = Rv.custoMedio({ compras, nome: item.nome, qtd });
+      if (deDrop > 0) out[id] = deDrop;
+    }
+    return out;
   }
 
   const ANTES_DE_COMPRA_MS = 10000;
@@ -1845,38 +1900,40 @@
   }
 
   // Um clique no cartão: um único pedido. tipo 'criar' (anunciar) ou 'editar' (mudar o preço).
-  async function acaoDeRevenda({ tipo, itemId, qtd, preco, anuncioId }) {
+  async function acaoDeRevenda({ tipo, itemId, qtd, preco, anuncioId, moeda }) {
     const item = s.catalogo.get(Number(itemId));
     if (!item || !Config.itemLiberado(s.config, item)) return;
-    const atual = s.revenda.acoes.get(item.id);
-    if (anuncioEmVoo() || (atual && atual.fase === 'enviando')) { marcarAcao(item.id, 'erro', 'Espere a resposta do anúncio anterior.'); return; }
-    if (!s.socketAberto) { marcarAcao(item.id, 'erro', 'Sem conexão com o jogo.'); return; }
+    const m = moeda === 'orb' ? 'orb' : 'gold';
+    const chaveAcao = m === 'orb' ? `orb:${item.id}` : item.id;
+    const atual = s.revenda.acoes.get(chaveAcao);
+    if (anuncioEmVoo() || (atual && atual.fase === 'enviando')) { marcarAcao(chaveAcao, 'erro', 'Espere a resposta do anúncio anterior.'); return; }
+    if (!s.socketAberto) { marcarAcao(chaveAcao, 'erro', 'Sem conexão com o jogo.'); return; }
     const p = Math.floor(Number(preco));
-    if (!(p >= Rv.PRECO_MINIMO)) { marcarAcao(item.id, 'erro', `Preço mínimo: ${Rv.PRECO_MINIMO}.`); return; }
+    if (!(p >= Rv.PRECO_MINIMO)) { marcarAcao(chaveAcao, 'erro', `Preço mínimo: ${Rv.PRECO_MINIMO}.`); return; }
     let pedido;
     if (tipo === 'criar') {
       const tem = Number((s.conta.itens || {})[item.id]) || 0;
       const q = Math.floor(Number(qtd));
-      if (!(q >= 1 && q <= tem)) { marcarAcao(item.id, 'erro', `Você tem ${fmtN(tem)} unidades.`); return; }
-      pedido = { t: 'market.criar', tipo: 'item', itemId: item.id, qtd: q, preco: p, moeda: 'gold' };
+      if (!(q >= 1 && q <= tem)) { marcarAcao(chaveAcao, 'erro', `Você tem ${fmtN(tem)} unidades.`); return; }
+      pedido = { t: 'market.criar', tipo: 'item', itemId: item.id, qtd: q, preco: p, moeda: m };
     } else if (tipo === 'editar') {
       if (!Number.isInteger(anuncioId)) return;
       // v1.305: item muda de preço no máximo a cada 30 min. Nem tenta antes da hora.
       const agoraSv = agoraServidor();
-      const meu = Pessoal.normalizarMeus((s.revenda.meus && s.revenda.meus.linhas) || [], agoraSv).find((m) => m.id === anuncioId);
+      const meu = Pessoal.normalizarMeus((s.revenda.meus && s.revenda.meus.linhas) || [], agoraSv).find((x) => x.id === anuncioId);
       if (meu && typeof meu.editavelEm === 'number' && typeof agoraSv === 'number' && agoraSv < meu.editavelEm) {
-        marcarAcao(item.id, 'erro', `O jogo só deixa mudar o preço de item a cada 30 min: faltam ${Math.ceil((meu.editavelEm - agoraSv) / 60000)} min.`);
+        marcarAcao(chaveAcao, 'erro', `O jogo só deixa mudar o preço de item a cada 30 min: faltam ${Math.ceil((meu.editavelEm - agoraSv) / 60000)} min.`);
         return;
       }
-      pedido = { t: 'market.editar', id: anuncioId, preco: p, moeda: 'gold' };
+      pedido = { t: 'market.editar', id: anuncioId, preco: p, moeda: m };
     } else return;
-    marcarAcao(item.id, 'enviando', 'Enviando…');
+    marcarAcao(chaveAcao, 'enviando', 'Enviando…');
     // Ação no mercado, como a compra: não sai com uma compra enviada nem marcada para logo.
     await esperarJanelaDeAnuncio();
-    const voo = { itemId: item.id, nome: item.nome, tipo, em: Date.now(), qtd: pedido.qtd, preco: p, anuncioId };
+    const voo = { itemId: item.id, chaveAcao, nome: item.nome, tipo, moeda: m, em: Date.now(), qtd: pedido.qtd, preco: p, anuncioId };
     s.revenda.emVoo = voo;
     const r = await ponte.enviar(pedido);
-    if (!r.ok) { s.revenda.emVoo = null; marcarAcao(item.id, 'erro', `Não enviado: ${r.motivo}`); return; }
+    if (!r.ok) { s.revenda.emVoo = null; marcarAcao(chaveAcao, 'erro', `Não enviado: ${r.motivo}`); return; }
     voo.em = r.em || Date.now();
     // Sem marketCriado nem erro: confere em "Meus anúncios".
     voo.timer = setTimeout(() => conferirAnuncio(voo).catch(erro), tipo === 'editar' ? JANELA_RESPOSTA_ANUNCIO_MS : ESPERA_ANUNCIO_MS);
@@ -1900,10 +1957,12 @@
       else marcarAcaoPk(voo.pokemonId, 'erro', dados ? 'O servidor não confirmou: confira em Meus anúncios no jogo.' : 'O servidor não respondeu.');
       return;
     }
+    const moeda = voo.moeda || 'gold';
+    const chave = voo.chaveAcao || voo.itemId;
     const meus = Pessoal.normalizarMeus((dados && dados.linhas) || [], agoraServidor());
-    const achado = meus.find((m) => m.itemId === voo.itemId && m.moeda === 'gold' && m.preco === voo.preco);
-    if (achado) marcarAcao(voo.itemId, 'ok', voo.tipo === 'criar' ? `Anunciado: ${fmtN(achado.qtd)} × ${fmtN(achado.preco)}, libera em 2 min.` : `Preço mudado para ${fmtN(voo.preco)}: a retenção de 2 min recomeçou.`);
-    else marcarAcao(voo.itemId, 'erro', dados ? 'O servidor não confirmou: confira em Meus anúncios no jogo.' : 'O servidor não respondeu.');
+    const achado = meus.find((m) => m.itemId === voo.itemId && m.moeda === moeda && m.preco === voo.preco);
+    if (achado) marcarAcao(chave, 'ok', voo.tipo === 'criar' ? `Anunciado: ${fmtN(achado.qtd)} × ${fmtN(achado.preco)}, libera em 2 min.` : `Preço mudado para ${fmtN(voo.preco)}: a retenção de 2 min recomeçou.`);
+    else marcarAcao(chave, 'erro', dados ? 'O servidor não confirmou: confira em Meus anúncios no jogo.' : 'O servidor não respondeu.');
   }
 
   // Erro do servidor logo depois de um anúncio nosso.
@@ -1947,8 +2006,9 @@
     if (lido && lido.nome !== voo.nome) return;
     clearTimeout(voo.timer);
     s.revenda.emVoo = null;
-    s.revenda.ocultos.delete(voo.itemId);
-    marcarAcao(voo.itemId, 'ok', `Anunciado: ${fmtN(voo.qtd)} × ${fmtN(voo.preco)}, libera em 2 min.`);
+    const chave = voo.chaveAcao || voo.itemId;
+    s.revenda.ocultos.delete(chave);
+    marcarAcao(chave, 'ok', `Anunciado: ${fmtN(voo.qtd)} × ${fmtN(voo.preco)}, libera em 2 min.`);
     setTimeout(() => lerMeus().catch(erro), 1000);
   }
 

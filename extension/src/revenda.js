@@ -263,8 +263,9 @@
     if (p < c.sug.piso && !c.confirmar) { c.confirmar = true; pintarConta(c); return; }
     c.confirmar = false;
     c.partes.botao.disabled = true;
-    if (c.sug.acao === 'mudar-preco') bus.emit('revenda:mudar-preco', { itemId: c.sug.itemId, anuncioId: c.sug.meuAnuncio.id, preco: p });
-    else bus.emit('revenda:anunciar', { itemId: c.sug.itemId, qtd: lerQtd(c), preco: p });
+    const moeda = c.sug.moeda || 'gold';
+    if (c.sug.acao === 'mudar-preco') bus.emit('revenda:mudar-preco', { itemId: c.sug.itemId, anuncioId: c.sug.meuAnuncio.id, preco: p, moeda });
+    else bus.emit('revenda:anunciar', { itemId: c.sug.itemId, qtd: lerQtd(c), preco: p, moeda });
   }
 
   function pintarCartao(c, sug, acao) {
@@ -272,7 +273,9 @@
     c.sug = sug;
     c.acao = acao || null;
     const { selo, ddTem, ddCusto, ddFila, ddVolume, preco, qtd, rotQtd, nota, acoes, estado, campos } = c.partes;
-    selo.hidden = !sug.custo.doRadar;
+    const isOrb = sug.moeda === 'orb';
+    selo.textContent = isOrb ? 'gemas (orb)' : 'comprado pelo radar';
+    selo.hidden = !isOrb && !sug.custo.doRadar;
     const m = sug.meuAnuncio;
     ddTem.textContent = `${fmtN(sug.qtd)}${m ? ` · à venda: ${fmtN(m.qtd)} × ${fmtN(m.preco)}` : ''}`;
     const cu = sug.custo;
@@ -308,21 +311,27 @@
     if (comBotao) pintarConta(c);
   }
 
+  function chaveCartao(sug) {
+    return sug && sug.moeda === 'orb' ? `orb:${sug.itemId}` : String(sug.itemId);
+  }
+
   function pintar(d) {
     ultimo = d;
     const alvo = montarArea();
     if (!alvo) return;
     const vistos = new Set();
     let anterior = null;
+    const todas = [...(d.sugestoes || []), ...(d.sugestoesOrb || [])];
     // A ordem do radar (compras do radar primeiro, depois o lucro), com o que tem botão na frente.
-    const ordenadas = [...(d.sugestoes || [])].map((sug, i) => ({ sug, i }))
+    const ordenadas = todas.map((sug, i) => ({ sug, i }))
       .sort((a, b) => (ORDEM_ACAO[a.sug.acao] ?? 9) - (ORDEM_ACAO[b.sug.acao] ?? 9) || a.i - b.i)
       .map((x) => x.sug);
     for (const sug of ordenadas) {
-      vistos.add(sug.itemId);
-      let c = cartoes.get(sug.itemId);
-      if (!c) { c = criarCartao(sug); cartoes.set(sug.itemId, c); }
-      pintarCartao(c, sug, d.acoes && d.acoes[sug.itemId]);
+      const chave = chaveCartao(sug);
+      vistos.add(chave);
+      let c = cartoes.get(chave);
+      if (!c) { c = criarCartao(sug); cartoes.set(chave, c); }
+      pintarCartao(c, sug, d.acoes && d.acoes[chave] || (d.acoes && d.acoes[sug.itemId]));
       // Na ordem das sugestões.
       if (anterior ? anterior.nextSibling !== c.el : alvo.firstChild !== c.el) {
         if (anterior) anterior.after(c.el);
